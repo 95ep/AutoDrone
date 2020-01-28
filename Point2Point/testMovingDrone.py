@@ -1,4 +1,36 @@
 import airsim
+import numpy as np
+
+
+def quaternion2Yaw(q):
+    # Convert from quaternion to Yaw (according to Wikipedia)
+    siny_cosp = 2 * (q.w_val * q.z_val + q.x_val * q.y_val)
+    cosy_cosp = 1 - 2 * (q.y_val * q.y_val + q.z_val * q.z_val)
+    yaw = np.atan2(siny_cosp, cosy_cosp)
+    return yaw
+
+
+def rotateLeft():
+    q = client.simGetGroundTruthKinematics.orientation
+    yaw = quaternion2Yaw(q)
+
+    client.rotateToYaw(yaw - 30).join()
+
+
+def rotateRight():
+    q = client.simGetGroundTruthKinematics.orientation
+    yaw = quaternion2Yaw(q)
+
+    client.rotateToYaw(yaw + 30).join()
+
+
+def moveForward(distance=1, vel=2):
+    currentPos = client.simGetGroundTruthKinematics.position
+    q = client.simGetGroundTruthKinematics.orientation
+    yaw = quaternion2Yaw(q)
+    newPos = (distance * np.cos(yaw), distance * np.sin(yaw), currentPos.z_val) # Keep z fixed for now
+
+    client.moveToPositionAsync(newPos[0], newPos[1], newPos[2], vel).join()
 
 
 # connect to the AirSim simulator
@@ -13,41 +45,26 @@ client.takeoffAsync().join()
 # Start at origin
 client.moveToPositionAsync(0,0,0,10).join()
 
-
-airsim.wait_key('Press any key to move forward')
-selfPos = client.simGetGroundTruthKinematics().position
-
-
-
-airsim.wait_key('Press any key to go down')
-client.moveToPositionAsync(0,0,10,3).join()
-
-# Move forward
-airsim.wait_key('Press any key to move forward')
-client.moveByVelocityAsync(1, 0, 0, 3).join()
-print('Hovering')
-client.hoverAsync().join()
-
-airsim.wait_key('Press any key test rotation')
-
-print('Rotate to 30 deg using YawMode')
-client.moveByVelocityAsync(0, 0, 0, 5, yaw_mode=airsim.YawMode(False, 30)).join()
+# This seems to enable rotateToYaw()
+client.rotateByYawRateAsync(20.0,1).join()
+client.rotateToYaw(0.0,margin=1).join()
 
 
-print('Rotate to 120 deg')
-client.moveByVelocityAsync(0, 0, 0, 5, yaw_mode=airsim.YawMode(False, 120)).join()
+airsim.wait_key('Press any key to start demo')
 
+# Make 20 random moves
+for i in range(20):
+    r = np.random.rand()
+    if r < 0.33:
+        print('Moving forward')
+        moveForward()
+    elif (r < 0.667):
+        print('Rotating left')
+        rotateLeft()
+    else:
+        print('Rotating right')
+        rotateRight()
 
-print('Rotate to 0 deg')
-client.moveByVelocityAsync(0, 0, 0, 5, yaw_mode=airsim.YawMode(False, 0)).join()
-
-print('Rotate to 160 deg')
-client.moveByVelocityAsync(0, 0, 0, 0, yaw_mode=airsim.YawMode(False, 160)).join()
-
-# Move up
-airsim.wait_key('Press any key to move up')
-client.moveByVelocityAsync(0, 0, -1, 2).join()
-client.hoverAsync().join()
 
 
 airsim.wait_key('Press any key to land and disconnect')
