@@ -1,8 +1,8 @@
 import airsim
 import numpy as np
 import time
-from Point2Point.agentActions import rotateLeft, rotateRight, moveForward
-from Point2Point.util import printInfo
+from agentActions import rotateLeft, rotateRight, moveForward
+from util import printInfo
 
 
 # connect to the AirSim simulator

@@ -1,5 +1,5 @@
 import numpy as np
-from Point2Point.util import quaternion2Yaw
+from util import quaternion2Yaw
 
 
 def rotateLeft(currentClient):
