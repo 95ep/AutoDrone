@@ -14,20 +14,18 @@ client.armDisarm(True)
 # Take off
 client.takeoffAsync().join()
 
-# Start at origin
-client.moveToPositionAsync(0,0,0,5).join()
 # Wait a little while to make sure info is correct
-time.sleep(3)
+time.sleep(1)
 printInfo(client)
 
 #Make 20 random moves
 for i in range(20):
-    airsim.wait_key('Press any key to make next move')
+    #airsim.wait_key('Press any key to make next move')
     r = np.random.rand()
-    if r < 0.33:
+    if r < 0.5:
         print('Moving forward')
         moveForward(client)
-    elif (r < 0.667):
+    elif (r < 0.75):
         print('Rotating left')
         rotateLeft(client)
     else:
@@ -35,9 +33,10 @@ for i in range(20):
         rotateRight(client)
 	
     # Wait a little while to make sure info is correct
-    time.sleep(2.5)
+    time.sleep(0.1)
     printInfo(client)
 
+client.moveByVelocityAsync(0,0,0,0.1).join()
 airsim.wait_key('Press any key to land and disconnect')
 # Disarm, reset and disconnect
 client.landAsync().join()
