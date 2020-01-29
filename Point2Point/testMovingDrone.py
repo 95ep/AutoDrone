@@ -18,7 +18,7 @@ def rotateLeft(client):
     client.rotateByYawRateAsync(0, 1e-6).join()
 
 
-def rotateRight():
+def rotateRight(client):
     # Rotate UAV approx 30 deg to the right (clockwise)
     client.rotateByYawRateAsync(30,1).join()
     # Stop rotation
@@ -35,14 +35,17 @@ def moveForward(client):
     # Stop the UAV
     client.moveByVelocityAsync(0,0,0, duration=1e-6).join()
 
+    # Debugging message
+    print('Calculated yaw is {} deg'.format(yaw))
+
 
 def printInfo(client):
     pos = client.simGetGroundTruthKinematics().position
     q = client.simGetGroundTruthKinematics().orientation
     yaw = quaternion2Yaw(q)
 
-    print('Current yaw is: ' + str(yaw) + 'deg')
-    print('Current position is (x, y, z) = ' + str(pos))
+    print('Current yaw is {} deg'.format(yaw))
+    print('Current position is ({}, {}, {})'.format(pos.x_val, pos.y_val, pos.z_val))
 
 
 # connect to the AirSim simulator
@@ -64,13 +67,15 @@ for i in range(20):
     r = np.random.rand()
     if r < 0.33:
         print('Moving forward')
-        moveForward()
+        moveForward(client)
     elif (r < 0.667):
         print('Rotating left')
-        rotateLeft()
+        rotateLeft(client)
     else:
         print('Rotating right')
-        rotateRight()
+        rotateRight(client)
+	
+    printInfo(client)
 
 
 
