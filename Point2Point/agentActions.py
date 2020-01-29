@@ -1,5 +1,6 @@
 import numpy as np
-from util import quaternion2Yaw
+import airsim
+
 
 
 def rotateLeft(currentClient):
@@ -18,7 +19,7 @@ def rotateRight(currentClient):
 
 def moveForward(currentClient):
     q = currentClient.simGetGroundTruthKinematics().orientation
-    yaw = quaternion2Yaw(q)
+    yaw = airsim.to_eularian_angles(q)[2]
     # Calc velocity vector of magnitude 1 in direction of UAV
     vel = (np.cos(yaw), np.sin(yaw), 0) # Keep z fixed for now
     # Move forward approx 1 meter
