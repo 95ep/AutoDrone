@@ -11,31 +11,38 @@ def quaternion2Yaw(q):
     return yaw
 
 
-def rotateLeft():
-    q = client.simGetGroundTruthKinematics().orientation
-    yaw = quaternion2Yaw(q)
-    print('New yaw: ' + str(yaw - 30))
-    client.rotateToYawAsync(yaw - 30,margin=0.1).join()
-    print('Rotated left')
+def rotateLeft(client):
+    # Rotate UAV approx 30 deg to the left (counter-clockwise)
+    client.rotateByYawRateAsync(-30, 1).join()
+    # Stop rotation
+    client.rotateByYawRateAsync(0, 1e-6).join()
 
 
 def rotateRight():
+    # Rotate UAV approx 30 deg to the right (clockwise)
+    client.rotateByYawRateAsync(30,1).join()
+    # Stop rotation
+    client.rotateByYawRateAsync(0, 1e-6).join()
+
+
+def moveForward(client):
+    q = client.simGetGroundTruthKinematics().orientation
+    yaw = quaternion2Yaw(q)
+    # Calc velocity vector of magnitude 1 in direction of UAV
+    vel = (np.cos(yaw), np.sin(yaw), 0) # Keep z fixed for now
+    # Move forward approx 1 meter
+    client.moveByVelocityAsync(vel[0], vel[1], vel[2], duration=1).join()
+    # Stop the UAV
+    client.moveByVelocityAsync(0,0,0, duration=1e-6).join()
+
+
+def printInfo(client):
+    pos = client.simGetGroundTruthKinematics().position
     q = client.simGetGroundTruthKinematics().orientation
     yaw = quaternion2Yaw(q)
 
-    client.rotateToYawAsync(yaw + 30).join()
-    print('Rotated right')
-
-
-def moveForward(distance=1, vel=2):
-    currentPos = client.simGetGroundTruthKinematics().position
-    q = client.simGetGroundTruthKinematics().orientation
-    yaw = quaternion2Yaw(q)
-    newPos = (currentPos.x_val + distance * np.cos(yaw), currentPos.y_val + distance * np.sin(yaw), currentPos.z_val) # Keep z fixed for now
-
-    client.moveToPositionAsync(newPos[0], newPos[1], newPos[2], vel, adaptive_lookahead=0).join()
-    print('New pos')
-    print(newPos)
+    print('Current yaw is: ' + str(yaw) + 'deg')
+    print('Current position is (x, y, z) = ' + str(pos))
 
 
 # connect to the AirSim simulator
@@ -49,38 +56,21 @@ client.takeoffAsync().join()
 
 # Start at origin
 client.moveToPositionAsync(0,0,0,5).join()
+printInfo(client)
 
-# This seems to enable rotateToYaw()
-client.rotateByYawRateAsync(20.0,1).join()
-client.rotateToYawAsync(0.0,margin=1).join()
-
-initPos = client.simGetGroundTruthKinematics().position
-print('Initial position')
-print(initPos)
-
-airsim.wait_key('Press any key to start demo')
-
-moveForward(distance=5, vel=2)
-airsim.wait_key('Press key')
-rotateLeft()
-airsim.wait_key('Press key')
-moveForward(distance=5, vel=2)
-airsim.wait_key('Press key')
-rotateLeft()
-
-# Make 20 random moves
-#for i in range(20):
-#    time.sleep(1)
-##    r = np.random.rand()
- #   if r < 0.33:
- #       print('Moving forward')
-#        moveForward()
-#    elif (r < 0.667):
-#        print('Rotating left')
-#        rotateLeft()
-#    else:
-#        print('Rotating right')
-#        rotateRight()
+#Make 20 random moves
+for i in range(20):
+    airsim.wait_key('Press any key to make next move')
+    r = np.random.rand()
+    if r < 0.33:
+        print('Moving forward')
+        moveForward()
+    elif (r < 0.667):
+        print('Rotating left')
+        rotateLeft()
+    else:
+        print('Rotating right')
+        rotateRight()
 
 
 
