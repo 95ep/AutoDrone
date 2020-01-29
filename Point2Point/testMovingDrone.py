@@ -35,9 +35,6 @@ def moveForward(currentClient):
     # Stop the UAV
     currentClient.moveByVelocityAsync(0, 0, 0, duration=1e-6).join()
 
-    # Debugging message
-    print('Calculated yaw is {} deg'.format(yaw/np.pi*180))
-
 
 def printInfo(currentClient):
     pos = currentClient.simGetGroundTruthKinematics().position
@@ -59,6 +56,8 @@ client.takeoffAsync().join()
 
 # Start at origin
 client.moveToPositionAsync(0,0,0,5).join()
+# Wait a little while to make sure info is correct
+time.sleep(3)
 printInfo(client)
 
 #Make 20 random moves
@@ -75,6 +74,8 @@ for i in range(20):
         print('Rotating right')
         rotateRight(client)
 	
+    # Wait a little while to make sure info is correct
+    time.sleep(2.5)
     printInfo(client)
 
 
