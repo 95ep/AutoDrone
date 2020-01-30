@@ -1,3 +1,11 @@
 .idea/*
 __pycache__
 ./PointNavigation/habitat_baselines/ddppo-models/*
+AutoDrone/PointNavigation/habitat_baselines/__pycache__/
+AutoDrone/PointNavigation/habitat_baselines/common/__pycache__/
+AutoDrone/PointNavigation/habitat_baselines/rl/__pycache__/
+AutoDrone/PointNavigation/habitat_baselines/rl/ddppo/__pycache__/
+AutoDrone/PointNavigation/habitat_baselines/rl/ddppo/algo/__pycache__/
+AutoDrone/PointNavigation/habitat_baselines/rl/ddppo/policy/__pycache__/
+AutoDrone/PointNavigation/habitat_baselines/rl/models/__pycache__/
+AutoDrone/PointNavigation/habitat_baselines/rl/ppo/__pycache__/
