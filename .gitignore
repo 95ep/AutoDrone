@@ -10,4 +10,4 @@ AutoDrone/PointNavigation/habitat_baselines/rl/ddppo/policy/__pycache__/
 AutoDrone/PointNavigation/habitat_baselines/rl/models/__pycache__/
 AutoDrone/PointNavigation/habitat_baselines/rl/ppo/__pycache__/
 AutoDrone/PointNavigation/habitat_baselines/ddppo-models/gibson-2plus-resnet50.pth
-AutoDrone/PointNavigation/risenet/.idea/*
+PointNavigation/risenet/.idea/*
