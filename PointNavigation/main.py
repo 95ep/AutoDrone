@@ -2,19 +2,19 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import airsim
 import gym
 from gym import spaces
-
+import time
 import sys
-# insert at 1, 0 is the script path (or '' in REPL)
 # sys.path.insert(1, 'C:/Users/Filip/Projects/RISE/AutoDrone/PointNavigation/habitat_baselines')
 # sys.path.insert(1, 'C:/Users/Filip/Projects/RISE/AutoDrone/PointNavigation')
-
 sys.path.insert(1, 'C:/Users/Filip/Documents/Skola/Exjobb/AutoDrone/PointNavigation/habitat_baselines')
 sys.path.insert(1, 'C:/Users/Filip/Documents/Skola/Exjobb/AutoDrone/PointNavigation')
 
 from habitat_baselines.rl.ddppo.policy.resnet_policy import PointNavResNetPolicy
+
+# ================ LOAD NEURAL NETWORK ========================
 
 observation_space = spaces.Dict(
     {#"rgb": spaces.Box(low=0, high=255, shape=(256, 256, 3)),
@@ -29,7 +29,6 @@ actor_critic = PointNavResNetPolicy(observation_space, action_space)
 #print(actor_critic)
 #print(actor_critic.state_dict().keys())
 
-
 # Load pretrained weights
 #weight_directory = 'C:/Users/Filip/Projects/RISE/AutoDrone/PointNavigation/ddppo-models/'
 #weight_file = 'gibson-4plus-resnet50.pth' # depth only
@@ -41,8 +40,8 @@ weight_dict = torch.load(weight_path)["state_dict"] # "model_args" contain addit
 weights = {k[len('actor_critic.') :]: v for k, v in weight_dict.items()}
 actor_critic.load_state_dict(weights)
 
-# , self.goal_sensor_uuid,
-
+# ===================== TEST NET OUTPUT ==============================
+"""
 depth_observation = torch.rand(256,256,1).unsqueeze(0)
 target_observation = torch.FloatTensor([1,0]).unsqueeze(0)
 observations = {
@@ -51,14 +50,9 @@ observations = {
 }
 
 prev_actions = torch.tensor([0])
-#h0 = torch.zeros(actor_critic.net._hidden_size)
-#c0 = torch.zeros(actor_critic.net._hidden_size)
-#rnn_hidden_states = actor_critic.net.state_encoder._pack_hidden([c0,h0])
 rnn_hidden_states = torch.zeros(actor_critic.net.num_recurrent_layers,
             1,actor_critic.net._hidden_size)
-#print("Dim rnn hidden: " + str(rnn_hidden_states.shape))
-#print("unpacked: " + str(actor_critic.net.state_encoder._unpack_hidden(rnn_hidden_states)[1].shape))
-masks = torch.zeros(1,1)
+masks = torch.ones(1,1)
 
 # actions: [stop, forward (0.25m), left (10deg), right (10deg)]
 value, action, action_log_probs, rnn_hidden_states = actor_critic.act(
@@ -70,3 +64,135 @@ value, action, action_log_probs, rnn_hidden_states = actor_critic.act(
          )
 print("value: " + str(value.item()))
 print("action: " + str(action.item()))
+"""
+
+# ==================== AIRSIM STUFF ============================
+
+def rotateLeft(currentClient):
+    # Rotate UAV approx 30 deg to the left (counter-clockwise)
+    currentClient.rotateByYawRateAsync(-30, 1).join()
+    # Stop rotation
+    currentClient.rotateByYawRateAsync(0, 1e-6).join()
+
+
+def rotateRight(currentClient):
+    # Rotate UAV approx 30 deg to the right (clockwise)
+    currentClient.rotateByYawRateAsync(30, 1).join()
+    # Stop rotation
+    currentClient.rotateByYawRateAsync(0, 1e-6).join()
+
+
+def moveForward(currentClient):
+    q = currentClient.simGetGroundTruthKinematics().orientation
+    yaw = airsim.to_eularian_angles(q)[2]
+    # Calc velocity vector of magnitude 1 in direction of UAV
+    vel = (np.cos(yaw), np.sin(yaw), 0) # Keep z fixed for now
+    # Move forward approx 1 meter
+    currentClient.moveByVelocityAsync(vel[0], vel[1], vel[2], duration=1).join()
+    # Stop the UAV
+    currentClient.moveByVelocityAsync(0, 0, 0, duration=1e-6).join()
+
+def printInfo(currentClient):
+    pos = currentClient.simGetGroundTruthKinematics().position
+    q = currentClient.simGetGroundTruthKinematics().orientation
+    yawDeg = airsim.to_eularian_angles(q)[2]/np.pi*180
+
+    print('Current yaw is {} deg'.format(yawDeg))
+    print('Current position is ({}, {}, {})'.format(pos.x_val, pos.y_val, pos.z_val))
+
+
+def targetPositionToCompass(currentClient, target):
+
+    pos = currentClient.simGetGroundTruthKinematics().position
+    q = currentClient.simGetGroundTruthKinematics().orientation
+    yaw_rad = airsim.to_eularian_angles(q)[2]
+    target_vec = np.array([target[0] - pos.x_val, target[1] - pos.y_val])
+    if target_vec[0] == 0 and target_vec[1] == 0:
+        return np.array([0, 0])
+
+    u = np.array([np.cos(yaw_rad), np.sin(yaw_rad)])
+    v = target_vec / np.linalg.norm(target_vec)
+    angle_mag = np.arccos(np.clip(np.dot(u, v), -1.0, 1.0))
+    angle_sign = np.sign(np.cross(u, v))
+    angle_sign = 1 if angle_sign == 0 else angle_sign
+    return torch.tensor([np.linalg.norm(target_vec), angle_mag * angle_sign])
+
+def generateTarget(currentClient):
+    pos = currentClient.simGetGroundTruthKinematics().position
+    x = np.random.rand()*20 -10.0 + pos.x_val
+    y = np.random.rand()*20 -10.0 + pos.y_val
+    print("Generating new target at location ({}, {})".format(x,y))
+    return np.array([x,y])
+
+def getImage():
+    return torch.ones(256,256,1).unsqueeze(0)
+
+# =================== TEST IN AIRSIM ===========================
+
+# connect to the AirSim simulator
+
+
+client = airsim.MultirotorClient()
+client.confirmConnection()
+client.enableApiControl(True)
+client.armDisarm(True)
+
+# Take off
+client.takeoffAsync().join()
+
+# Wait a little while to make sure info is correct
+time.sleep(1)
+printInfo(client)
+
+previous_action = torch.tensor([1])
+rnn_hidden_states = torch.zeros(actor_critic.net.num_recurrent_layers,
+            1, actor_critic.net._hidden_size)
+masks = torch.ones(1,1)
+
+target = generateTarget(client)
+print("===============================================================")
+for i in range(20):
+
+    depth_observation = getImage() #torch.from_numpy(getImage())
+    target_position = targetPositionToCompass(client, target)
+    target_observation = target_position.unsqueeze(0)
+    distance = target_position[0]
+
+    observations = {
+        "depth": depth_observation,
+        "pointgoal_with_gps_compass": target_observation
+    }
+
+
+    value, action, action_log_probs, rnn_hidden_states = actor_critic.act(
+        observations,
+        rnn_hidden_states,
+        previous_action,
+        masks,
+        deterministic=False,
+    )
+    print('Distance and Angle to target: [{}, {}]'.format(distance, target_position[1]/np.pi * 180))
+    # Act in environment
+    if action == 0:
+        print('Agent predicts that it has reached the goal. Do nothing')
+        if distance <= 0.2:
+            print('Prediction is accurate.')
+        else:
+            print('Prediction is false. Force the agent to move forward')
+            moveForward(client)
+    elif action == 1:
+        print('Moving forward')
+        moveForward(client)
+    elif action == 2:
+        print('Rotating left')
+        rotateLeft(client)
+    elif action == 3:
+        print('Rotating right')
+        rotateRight(client)
+
+    previous_action = action
+
+    if distance <= 0.2:
+        print("Target reached!")
+        target = generateTarget(client)
+    print("===============================================================")
