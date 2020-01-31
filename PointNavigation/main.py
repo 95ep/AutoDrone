@@ -7,10 +7,12 @@ import gym
 from gym import spaces
 import time
 import sys
+from agent import *
+
 # sys.path.insert(1, 'C:/Users/Filip/Projects/RISE/AutoDrone/PointNavigation/habitat_baselines')
 # sys.path.insert(1, 'C:/Users/Filip/Projects/RISE/AutoDrone/PointNavigation')
-sys.path.insert(1, 'C:/Users/Filip/Documents/Skola/Exjobb/AutoDrone/PointNavigation/habitat_baselines')
-sys.path.insert(1, 'C:/Users/Filip/Documents/Skola/Exjobb/AutoDrone/PointNavigation')
+sys.path.insert(1, 'D:/Exjobb2020ErikFilip/AutoDrone/PointNavigation/habitat_baselines')
+sys.path.insert(1, 'D:/Exjobb2020ErikFilip/AutoDrone/PointNavigation')
 
 from habitat_baselines.rl.ddppo.policy.resnet_policy import PointNavResNetPolicy
 
@@ -39,6 +41,7 @@ weight_dict = torch.load(weight_path)["state_dict"] # "model_args" contain addit
 # Remove "actor_critic." from keys to align names
 weights = {k[len('actor_critic.') :]: v for k, v in weight_dict.items()}
 actor_critic.load_state_dict(weights)
+actor_critic.eval()
 
 # ===================== TEST NET OUTPUT ==============================
 """
@@ -68,29 +71,7 @@ print("action: " + str(action.item()))
 
 # ==================== AIRSIM STUFF ============================
 
-def rotateLeft(currentClient):
-    # Rotate UAV approx 30 deg to the left (counter-clockwise)
-    currentClient.rotateByYawRateAsync(-30, 1).join()
-    # Stop rotation
-    currentClient.rotateByYawRateAsync(0, 1e-6).join()
 
-
-def rotateRight(currentClient):
-    # Rotate UAV approx 30 deg to the right (clockwise)
-    currentClient.rotateByYawRateAsync(30, 1).join()
-    # Stop rotation
-    currentClient.rotateByYawRateAsync(0, 1e-6).join()
-
-
-def moveForward(currentClient):
-    q = currentClient.simGetGroundTruthKinematics().orientation
-    yaw = airsim.to_eularian_angles(q)[2]
-    # Calc velocity vector of magnitude 1 in direction of UAV
-    vel = (np.cos(yaw), np.sin(yaw), 0) # Keep z fixed for now
-    # Move forward approx 1 meter
-    currentClient.moveByVelocityAsync(vel[0], vel[1], vel[2], duration=1).join()
-    # Stop the UAV
-    currentClient.moveByVelocityAsync(0, 0, 0, duration=1e-6).join()
 
 def printInfo(currentClient):
     pos = currentClient.simGetGroundTruthKinematics().position
@@ -119,13 +100,11 @@ def targetPositionToCompass(currentClient, target):
 
 def generateTarget(currentClient):
     pos = currentClient.simGetGroundTruthKinematics().position
-    x = np.random.rand()*20 -10.0 + pos.x_val
-    y = np.random.rand()*20 -10.0 + pos.y_val
+    x = np.random.rand()*40 -20.0 + pos.x_val
+    y = np.random.rand()*40 -20.0 + pos.y_val
     print("Generating new target at location ({}, {})".format(x,y))
     return np.array([x,y])
 
-def getImage():
-    return torch.ones(256,256,1).unsqueeze(0)
 
 # =================== TEST IN AIRSIM ===========================
 
@@ -151,27 +130,27 @@ masks = torch.ones(1,1)
 
 target = generateTarget(client)
 print("===============================================================")
-for i in range(20):
+for i in range(500):
 
-    depth_observation = getImage() #torch.from_numpy(getImage())
+    rgb_observation, depth_observation = getImages(client) #torch.from_numpy(getImage())
     target_position = targetPositionToCompass(client, target)
     target_observation = target_position.unsqueeze(0)
     distance = target_position[0]
 
     observations = {
-        "depth": depth_observation,
+        "depth": torch.from_numpy(depth_observation).unsqueeze(2).unsqueeze(0),
         "pointgoal_with_gps_compass": target_observation
     }
 
-
-    value, action, action_log_probs, rnn_hidden_states = actor_critic.act(
-        observations,
-        rnn_hidden_states,
-        previous_action,
-        masks,
-        deterministic=False,
-    )
-    print('Distance and Angle to target: [{}, {}]'.format(distance, target_position[1]/np.pi * 180))
+    with torch.no_grad():
+        value, action, action_log_probs, rnn_hidden_states = actor_critic.act(
+            observations,
+            rnn_hidden_states,
+            previous_action,
+            masks,
+            deterministic=False,
+        )
+    print('Distance and Angle to target: [{}, {}],     value: {}'.format(distance, target_position[1]/np.pi * 180, value.item()))
     # Act in environment
     if action == 0:
         print('Agent predicts that it has reached the goal. Do nothing')
