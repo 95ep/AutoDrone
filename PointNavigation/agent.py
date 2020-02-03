@@ -1,6 +1,6 @@
 import airsim
 import numpy as np
-
+# TODO: implement as environment function, i.e. fulfilling GYM API
 
 # Actions
 def rotateLeft(currentClient):

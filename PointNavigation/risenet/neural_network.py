@@ -211,7 +211,7 @@ class PointNavResNetNet(Net):
         goal_observations = torch.stack(
             [
                 goal_observations[:, 0],
-                torch.cos(-goal_observations[:, 1]),
+                torch.cos(-goal_observations[:, 1]), # TODO: check minus sign on these two lines
                 torch.sin(-goal_observations[:, 1]),
             ],
             -1,
