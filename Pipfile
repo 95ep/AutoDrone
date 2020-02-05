@@ -9,6 +9,7 @@ verify_ssl = true
 numpy = "*"
 matplotlib = "*"
 airsim = "*"
+scipy = "*"
 
 [requires]
 python_version = "3.7"
