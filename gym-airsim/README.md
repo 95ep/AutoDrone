@@ -1,6 +1,7 @@
 # Airsim gym environment # 
 
 Install package with 
+
     pip install -e *path*/gym-airsim
 
 There might be a need to the directory to PATH
