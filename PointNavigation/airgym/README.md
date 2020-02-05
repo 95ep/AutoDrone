@@ -1,14 +1,9 @@
-# Airsim gym environment # 
+# Airgym environment # 
 
-Install package with 
-
-    pip install -e *path*/gym-airsim
-
-There might be a need to the directory to PATH
+Gym-like API, which can be used to create a reinforcement learning environment on top of airsim. 
 
 # Example Use #
-    import gym
-    import gym_airsim
-    env = gym.make('Airsim-v0', sensors=['rgb', 'depth', 'pointgoal_with_gps_compass'], max_dist=10)
-
-After you have installed your package with pip install -e gym-foo, you can create an instance of the environment with gym.make('gym_foo:foo-v0')
+    import airgym
+    env = airgym.make(sensors=['rgb', 'depth', 'pointgoal_with_gps_compass'], max_dist=10)
+    obs = env.reset()
+    obs, reward, done, (position, orientation)
