@@ -1,5 +1,6 @@
 import torch
 from torch.optim import Adam
+from torch.utils.tensorboard import SummaryWriter
 import time
 import numpy as np
 import scipy.signal
@@ -29,31 +30,34 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     surr2 = torch.clamp(ratio, 1.0 - clip_ratio, 1.0 + clip_ratio) * adv
     action_loss = -torch.min(surr1, surr2).mean()
 
-    # TODO: Facebook put factor of 0.5 infront of value_loss. Not sure why so I have omitted.
+    # TODO: Facebook put factor of 0.5 in front of value_loss. Not sure why so I have omitted.
     value_loss = (ret - values).pow(2).mean()
 
     total_loss = value_loss * value_loss_coef + action_loss - dist_entropy * entropy_coef
-    return total_loss
+    return total_loss, action_loss, value_loss
 
 
 def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss_coef, entropy_coef):
     # Spinning up used target_kl for early stopping. Is it smart thing to include?
     data = buffer.get()
+    total_loss_in_epoch = np.zeros(train_iters)
+    action_loss_in_epoch = np.zeros(train_iters)
+    value_loss_in_epoch = np.zeros(train_iters)
 
     for i in range(train_iters):
         optimizer.zero_grad()
-        total_loss = _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef)
+        total_loss, action_loss, value_loss = _total_loss(data, actor_critic, clip_ratio,
+                                                          value_loss_coef, entropy_coef)
         total_loss.backward()
         optimizer.step()
+        total_loss_in_epoch[i] = total_loss.item()
+        action_loss_in_epoch[i] = action_loss.item()
+        value_loss_in_epoch[i] = value_loss.item()
 
-
-class Logger:
-    # TODO: Implement logger class. Probably generally useful so probably placed in some util module
-    def __init__(self):
-        pass
-
-    def store(self):
-        pass
+    mean_total_loss = np.mean(total_loss_in_epoch)
+    mean_action_loss = np.mean(action_loss_in_epoch)
+    mean_value_loss = np.mean(value_loss_in_epoch)
+    return mean_total_loss, mean_action_loss, mean_value_loss
 
 
 class PPOBuffer:
@@ -143,8 +147,8 @@ class PPOBuffer:
 
 def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, steps_per_epoch=4000,
                 epochs=50, gamma=0.99, clip_ratio=0.2, lr=3e-4,  train_iters=80, lam=0.97,
-                max_episode_len=1000, value_loss_coef=1, entropy_coef=0.01, logger_kwargs=dict(),
-                save_freq=10):
+                max_episode_len=1000, value_loss_coef=1, entropy_coef=0.01, save_freq=10,
+                log_dir_path='tmp_log_dir'):
     # value_loss_coef and entropy_coef taken from https://arxiv.org/abs/1707.06347
     # TODO: check input parameters and their descriptions
     """
@@ -170,7 +174,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     """
 
     # Set up logger
-    logger = Logger()
+    loggWriter = SummaryWriter(log_dir=log_dir_path)
 
     # Seed torch and numpy
     torch.manual_seed(seed)
@@ -189,9 +193,6 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     # and then creates a list of alla parameters for which .requires_grad is True
     optimizer = Adam(list(filter(lambda p: p.requires_grad, actor_critic.parameters())), lr=lr)
 
-    # Set up model saving to logger
-    # TODO: Implement model saving
-
     # Prepare for interaction with env
     start_time = time.time()
     obs, episode_return, episode_len = env.reset(), 0, 0
@@ -203,6 +204,9 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
+        # list of episode returns and episode lengths to put to logg
+        episode_returns_epoch = []
+        episode_len_epoch = []
         for t in range(steps_per_epoch):
             with torch.no_grad():
                 action, value, log_prob, hidden_state = actor_critic.act(
@@ -218,7 +222,6 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
             # Save to buffer and log
             buffer.store(obs, action, reward, value, log_prob, hidden_state, mask, prev_action)
-            logger.store()
 
             # Update obs and prev_action
             obs = next_obs
@@ -238,9 +241,9 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                     value = 0
                 buffer.finish_path(value)
                 if terminal:
-                    pass
                     # only save EpRet / EpLen if trajectory finished
-                    # logger.store(EpRet=episode_return, EpLen=episode_len)
+                    episode_returns_epoch.append(episode_return)
+                    episode_len_epoch.append(episode_len)
                 # Reset if episode ended
                 obs, episode_return, episode_len = env.reset(), 0, 0
 
@@ -249,7 +252,26 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         # TODO - add code for this
 
         # Perform PPO update
-        _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss_coef, entropy_coef)
+        mean_loss_total, mean_loss_action, mean_loss_value = _update(actor_critic, buffer, train_iters,
+                                                                     optimizer, clip_ratio, value_loss_coef,
+                                                                     entropy_coef)
 
-        # Log info about epoch
-        # TODO: add code for this
+        # Calc metrics and log info about epoch
+        episode_return_mean = np.mean(np.array(episode_returns_epoch))
+        episode_len_mean = np.mean(np.array(episode_len_epoch))
+
+        # Total env interactions:
+        loggWriter.add_scalar('Progress/TotalEnvInteractions', steps_per_epoch*(epoch+1), epoch+1)
+        # Episode return: average, std, min, max
+        loggWriter.add_scalar('EpisodesReturn/mean', episode_return_mean, epoch+1)
+        # Episode len: average, std, min, max
+        loggWriter.add_scalar('EpisodeLength/mean', episode_len_mean, epoch+1)
+        # Total loss:
+        loggWriter.add_scalar('Loss/TotalLoss/Mean', mean_loss_total, epoch+1)
+        loggWriter.add_scalar('Loss/ActionLoss/Mean', mean_loss_action, epoch + 1)
+        loggWriter.add_scalar('Loss/ValueLoss/Mean', mean_loss_value, epoch + 1)
+        # Elapsed time
+        loggWriter.add_scalar('Progress/ElapsedTime', time.time()-start_time, epoch+1)
+        # Entropy of action outputs
+
+    loggWriter.close()
