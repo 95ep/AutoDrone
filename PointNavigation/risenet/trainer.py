@@ -166,7 +166,7 @@ def PPO_trainer(env, actor_critic, seed=0, steps_per_epoch=4000, epochs=50, gamm
             logger.store()
 
             # Update obs
-            obs  = next_obs
+            obs = next_obs
 
             timeout = episode_len == max_episode_len
             terminal = done or timeout
@@ -176,7 +176,6 @@ def PPO_trainer(env, actor_critic, seed=0, steps_per_epoch=4000, epochs=50, gamm
                 if epoch_ended and not(terminal):
                     print('Warning, trajectory cut off by epoch at {} steps.'.format(episode_len), flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
-                # TODO: not 100 % sure what this mean and the effect of it
                 if timeout or epoch_ended:
                     _, value, _, _ = actor_critic.step(obs)
                 else:
