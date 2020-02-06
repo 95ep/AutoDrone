@@ -39,8 +39,3 @@ def move_down(client, velocity=0.5, duration=0.5):
     client.moveByVelocityAsync(0, 0, velocity, duration=duration).join()
     # Stop the UAV
     client.moveByVelocityAsync(0, 0, 0, duration=1e-6).join()
-
-
-def terminate(client):
-    pass
-

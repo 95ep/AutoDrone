@@ -1,5 +1,8 @@
 import airsim
 import numpy as np
+import time
+
+# TODO: client.getMultirotorState() returns essentially everything. Maybe switch to that?
 
 
 def get_position(client):
@@ -21,7 +24,7 @@ def get_compass_reading(client, target_position):
     """
 
     :param client:
-    :param target: Position of target. np array of shape (2,)
+    :param target_position: Position of target. np array of shape (2,)
     :return:
     """
     pos = get_position(client)
@@ -79,6 +82,11 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10):
     return images
 
 
+def has_collided(client):
+    collision_info = client.simGetCollisionInfo()
+    return collision_info.has_collided
+
+
 def print_info(client):
     pos = get_position(client)
     orientation = get_orientation(client)
@@ -86,6 +94,13 @@ def print_info(client):
 
     print('Current yaw is {} deg'.format(yaw_deg))
     print('Current position is ({}, {}, {})'.format(pos.x_val, pos.y_val, pos.z_val))
+
+
+def target_found(client, target_position, threshold=0.5):
+    compass = get_compass_reading(client, target_position)
+    distance_to_target = compass[0]
+    success = distance_to_target < threshold
+    return success
 
 
 def generate_target(client):
@@ -98,3 +113,12 @@ def generate_target(client):
     x = np.random.rand()*40 -20.0 + pos.x_val
     y = np.random.rand()*40 -20.0 + pos.y_val
     return np.array([x, y])
+
+
+def reset(client):
+    client.reset()
+    time.sleep(0.2)
+    client.enableApiControl(True)
+    client.armDisarm(True)
+    client.takeoffAsync().join()
+
