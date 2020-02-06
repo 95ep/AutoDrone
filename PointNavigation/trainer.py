@@ -63,7 +63,7 @@ class PPOBuffer:
         self.obs_buf = {}
         for sensor in obs_space.spaces:
             # * operator unpacks arguments, I think
-            self.obs_buf[sensor] = torch.zeros(steps, *obs_space.spaces[sensor].shape)
+            self.obs_buf[sensor] = np.zeros((steps, *obs_space.spaces[sensor].shape), dtype=np.float32)
         self.act_buf = np.zeros((steps, 1), dtype=np.int)
         self.prev_act_buf = np.zeros((steps, 1), dtype=np.int)
         self.hidden_buf = np.zeros((steps, num_rec_layers, n_envs, hidden_state_size), dtype=np.float32)
@@ -138,7 +138,7 @@ class PPOBuffer:
         data = {k: torch.as_tensor(v, dtype=torch.float32) for k, v in data.items()}
 
         # Add obs manually since itself is a dict
-        data['obs'] = self.obs_buf
+        data['obs'] = {k: torch.as_tensor(v, dtype=torch.float32) for k,v in  self.obs_buf.items()}
         return data
 
 
@@ -219,7 +219,14 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 [0.0] if done else [1.0], dtype=torch.float
             )
 
-            # Save to buffer and log
+            # Save to buffer, cast to np first
+            '''obs
+            action
+            value
+            log_prob
+            hidden_state
+            mask
+            prev_action'''
             buffer.store(obs, action, reward, value, log_prob, hidden_state, mask, prev_action)
 
             # Update obs and prev_action
