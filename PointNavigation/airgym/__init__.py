@@ -1,1 +1,1 @@
-from airgym.airsim_env import make
+from .airsim_env import make

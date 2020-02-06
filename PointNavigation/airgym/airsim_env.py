@@ -1,7 +1,6 @@
 import airsim
 import gym
 from gym import spaces
-import time
 import subprocess
 
 from . import utils

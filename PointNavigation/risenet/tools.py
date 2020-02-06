@@ -1,6 +1,5 @@
 from gym import spaces
 import torch
-import torch.nn as nn
 from .neural_network import PointNavResNetPolicy
 
 
