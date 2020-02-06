@@ -22,8 +22,8 @@ class AirsimEnv(gym.Env):
 
     def __init__(self, sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=10):
 
-        self.airsim_process = subprocess.Popen(
-            'C:/Users/Filip/Documents/Skola/Exjobb/Blocks/Blocks.exe')
+        #self.airsim_process = subprocess.Popen(
+        #    'C:/Users/Filip/Documents/Skola/Exjobb/Blocks/Blocks.exe')
 
         self.sensors = sensors
         self.max_dist = max_dist        # TODO: Json?

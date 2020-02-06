@@ -16,3 +16,6 @@ PointNavigation/risenet/.idea/*
 
 # gym_airsim
 AutoDrone/gym-airsim/gym_airsim.egg-info/*
+
+# logs
+runs/*

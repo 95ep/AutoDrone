@@ -16,7 +16,7 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
                                                                 data['adv'], data['logp'], data['hidden'], \
                                                                 data['prev_act'], data['mask']
 
-    values, logp, dist_entropy, _ = actor_critic.evaluate_actions(obs, hidden, prev_actions, masks, act)
+    values, logp, dist_entropy, _ = actor_critic.evaluate_actions(obs, hidden[0], prev_actions, masks, act)
 
     # Calc ratio of logp
     ratio = torch.exp(logp - logp_old)
@@ -63,17 +63,17 @@ class PPOBuffer:
         self.obs_buf = {}
         for sensor in obs_space.spaces:
             # * operator unpacks arguments, I think
-            self.obs_buf[sensor] = torch.zeros(steps, n_envs, *obs_space.spaces[sensor].shape)
-
-        self.act_buf = np.zeros(steps, act_shape)
-        self.prev_act_buf = np.zeros(steps, act_shape)
+            self.obs_buf[sensor] = torch.zeros(steps, *obs_space.spaces[sensor].shape)
+        self.obs_buf['depth'].unsqueeze(3)
+        self.act_buf = np.zeros((steps, 1), dtype=np.int)
+        self.prev_act_buf = np.zeros((steps, 1), dtype=np.int)
         self.hidden_buf = np.zeros((steps, num_rec_layers, n_envs, hidden_state_size), dtype=np.float32)
         self.rew_buf = np.zeros(steps, dtype=np.float32)
         self.adv_buf = np.zeros(steps, dtype=np.float32)
         self.ret_buf = np.zeros(steps, dtype=np.float32)
         self.val_buf = np.zeros(steps, dtype=np.float32)
         self.logp_buf = np.zeros(steps, dtype=np.float32)
-        self.mask_buf = np.zeros(steps, dtype=np.float32)
+        self.mask_buf = np.zeros((steps, 1), dtype=np.float32)
         self.gamma = gamma
         self.lam = lam
         self.ptr = 0  # Keeps track of number of interaction in buffer
@@ -85,14 +85,15 @@ class PPOBuffer:
         Add one step of interactions to the buffer
         """
         assert self.ptr < self.max_size
-        self.obs_buf[self.ptr] = obs
+        for k,v in obs.items():
+            self.obs_buf[k][self.ptr] =  v
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
-        self.hidden_buf = hidden_state
-        self.mask_buf = mask
-        self.prev_act_buf = prev_act
+        self.hidden_buf[self.ptr] = hidden_state
+        self.mask_buf[self.ptr] = mask
+        self.prev_act_buf[self.ptr] = prev_act
         self.ptr += 1
 
     def finish_path(self, last_val=0):
@@ -115,7 +116,7 @@ class PPOBuffer:
 
         # GAE-lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
-        self.adv_buf[path_slice] = discount_cumsum(deltas, self.gamma * self.lam)[:-1]
+        self.adv_buf[path_slice] = discount_cumsum(deltas, self.gamma * self.lam)
 
         # the next line computes rewards-to-go, to be targets for the value function
         self.ret_buf[path_slice] = discount_cumsum(rews, self.gamma)[:-1]
@@ -135,7 +136,7 @@ class PPOBuffer:
                     hidden=self.hidden_buf, mask=self.mask_buf, prev_act=self.prev_act_buf)
 
         # Make into torch tensors
-        data = {k: torch.as_tensor(v, dtype=torch.float32) for k, v in data}
+        data = {k: torch.as_tensor(v, dtype=torch.float32) for k, v in data.items()}
 
         # Add obs manually since itself is a dict
         data['obs'] = self.obs_buf
@@ -179,7 +180,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
     # Get some env variables
     obs_space = env.observation_space
-    act_shape = env.action_space.shape
+    act_shape = env.action_space.n
 
     # Count variables. Something they do and add to logg in spinningUp but not necessary
 
@@ -193,20 +194,23 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     # Prepare for interaction with env
     start_time = time.time()
     obs, episode_return, episode_len = env.reset(), 0, 0
+    obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
+    obs['depth'] =  obs['depth'].unsqueeze(3)
     # Shape of hidden state is (n_rec_layers, num_envs, recurrent_hidden_state_size).
     # should be able to access these from PointNavResNetNet properties
-    hidden_state = torch.zeros(actor_critic.num_recurrent_layers(), 1, actor_critic.output_size())
-    prev_action = torch.zeros(1)
-    mask = torch.zeros(1)
+    hidden_state = torch.zeros(actor_critic.net.num_recurrent_layers, 1, actor_critic.net.output_size)
+    prev_action = torch.tensor([1])
+    mask = torch.zeros(1,1)
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
+        print('Epoch {} started'.format(epoch))
         # list of episode returns and episode lengths to put to logg
         episode_returns_epoch = []
         episode_len_epoch = []
         for t in range(steps_per_epoch):
             with torch.no_grad():
-                action, value, log_prob, hidden_state = actor_critic.act(
+                value, action, log_prob, hidden_state = actor_critic.act(
                     obs, hidden_state, prev_action, mask)
 
             next_obs, reward, done, _ = env.step(action)
@@ -214,14 +218,15 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
             episode_len += 1
 
             mask = torch.tensor(
-                0.0 if done else 1.0, dtype=torch.float
+                [0.0] if done else [1.0], dtype=torch.float
             )
 
             # Save to buffer and log
             buffer.store(obs, action, reward, value, log_prob, hidden_state, mask, prev_action)
 
             # Update obs and prev_action
-            obs = next_obs
+            obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in next_obs.items()}
+            obs['depth'] = obs['depth'].unsqueeze(3)
             prev_action = action
 
             timeout = episode_len == max_episode_len
@@ -233,7 +238,8 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                     print('Warning, trajectory cut off by epoch at {} steps.'.format(episode_len), flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
-                    _, value, _, _ = actor_critic.step(obs)
+                    with torch.no_grad():
+                        value = actor_critic.get_value(obs, hidden_state, prev_action, mask)
                 else:
                     value = 0
                 buffer.finish_path(value)
@@ -243,11 +249,13 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                     episode_len_epoch.append(episode_len)
                 # Reset if episode ended
                 obs, episode_return, episode_len = env.reset(), 0, 0
+                obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in next_obs.items()}
+                obs['depth'] = obs['depth'].unsqueeze(3)
 
         # A epoch of experience is collected
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
-            torch.save(actor_critic.state_dict(), save_path)
+            torch.save(actor_critic.state_dict(), save_path + '/model.pth')
 
         # Perform PPO update
         mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy = _update(actor_critic, buffer, train_iters,
@@ -292,19 +300,18 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default=None)
     args = parser.parse_args()
 
-    from PointNavigation.airgym.airsim_env import AirsimEnv
-    from PointNavigation.habitat_baselines.rl.ddppo.policy.resnet_policy import PointNavResNetPolicy
-    env = AirsimEnv(sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=args.dist)
-    obs_space = env.observation_space
-    act_space = env.action_space
-    ac = PointNavResNetPolicy(obs_space, act_space)
-    if args.weights is not None:
-        weight_dict = torch.load(args.weights)["state_dict"]
-        weights = {k[len('actor_critic.'):]: v for k, v in weight_dict.items()}
-        ac.load_state_dict(weights)
+    import airgym
+    import risenet.tools as rsn
+    env = airgym.make(sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=args.dist)
+    #env = AirsimEnv(sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=args.dist)
 
-    n_hidden_l = ac.num_reccurent_layers()
-    hidden_size = ac.output_size()
+    ac = rsn.neural_agent(rgb=False)
+    rsn.load_pretrained_weights(ac, args.weights)
+    dim_actions = 6
+    rsn.change_action_dim(ac, dim_actions)
+
+    n_hidden_l = ac.net.num_recurrent_layers
+    hidden_size = ac.net.output_size
 
     PPO_trainer(env, ac, num_rec_layers=n_hidden_l, hidden_state_size=hidden_size, seed=args.seed,
-                steps_per_epoch=args.step, epochs=args.epochs, gamma=args.gamma, save_path=args.dir)
+                steps_per_epoch=args.steps, epochs=args.epochs, gamma=args.gamma, save_path=args.dir)
