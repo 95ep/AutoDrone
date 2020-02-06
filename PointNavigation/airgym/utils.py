@@ -77,6 +77,7 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10):
             responses[idx].image_data_float, responses[idx].width, responses[idx].height)
         # clip array after max_dist
         depth = np.clip(depth, None, max_dist)
+        depth = np.expand_dims(depth, axis=2)
         images.update({'depth': depth})
 
     return images
@@ -121,4 +122,3 @@ def reset(client):
     client.enableApiControl(True)
     client.armDisarm(True)
     client.takeoffAsync().join()
-

@@ -64,7 +64,6 @@ class PPOBuffer:
         for sensor in obs_space.spaces:
             # * operator unpacks arguments, I think
             self.obs_buf[sensor] = torch.zeros(steps, *obs_space.spaces[sensor].shape)
-        self.obs_buf['depth'].unsqueeze(3)
         self.act_buf = np.zeros((steps, 1), dtype=np.int)
         self.prev_act_buf = np.zeros((steps, 1), dtype=np.int)
         self.hidden_buf = np.zeros((steps, num_rec_layers, n_envs, hidden_state_size), dtype=np.float32)
@@ -195,7 +194,6 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     start_time = time.time()
     obs, episode_return, episode_len = env.reset(), 0, 0
     obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
-    obs['depth'] =  obs['depth'].unsqueeze(3)
     # Shape of hidden state is (n_rec_layers, num_envs, recurrent_hidden_state_size).
     # should be able to access these from PointNavResNetNet properties
     hidden_state = torch.zeros(actor_critic.net.num_recurrent_layers, 1, actor_critic.net.output_size)
@@ -226,7 +224,6 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
             # Update obs and prev_action
             obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in next_obs.items()}
-            obs['depth'] = obs['depth'].unsqueeze(3)
             prev_action = action
 
             timeout = episode_len == max_episode_len
@@ -250,7 +247,6 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 # Reset if episode ended
                 obs, episode_return, episode_len = env.reset(), 0, 0
                 obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in next_obs.items()}
-                obs['depth'] = obs['depth'].unsqueeze(3)
 
         # A epoch of experience is collected
         # Save model
