@@ -121,4 +121,4 @@ def reset(client):
     time.sleep(0.2)
     client.enableApiControl(True)
     client.armDisarm(True)
-    client.takeoffAsync().join()
+    client.moveByVelocityAsync(0, 0, 0, duration=1e-6).join()
