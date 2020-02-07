@@ -105,15 +105,16 @@ def target_found(client, target_position, threshold=0.5):
     return success
 
 
-def generate_target(client):
+def generate_target(client, max_target_distance):
     """
     Generate new goal for the agent to reach.
     :param client:
+    :param max_target_distance: 
     :return:
     """
     pos = client.simGetGroundTruthKinematics().position
-    x = np.random.rand()*40 -20.0 + pos.x_val
-    y = np.random.rand()*40 -20.0 + pos.y_val
+    x = (2 * np.random.rand() - 1) * max_target_distance + pos.x_val
+    y = (2 * np.random.rand() - 1) * max_target_distance + pos.y_val
     return np.array([x, y])
 
 
