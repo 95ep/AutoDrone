@@ -19,7 +19,7 @@ def get_orientation(client):
     return airsim.to_eularian_angles(q)[2]
 
 
-def get_compass_reading(client, target_position):
+def get_compass_reading(client, target_position, max_dist):
     # TODO: include height/z-dim?. Yes but later
     """
 
