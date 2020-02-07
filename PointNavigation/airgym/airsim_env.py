@@ -7,7 +7,7 @@ import json
 from . import utils
 from . import agent_controller as ac
 
-with open('../parameters.json') as f:
+with open('./PointNavigation/parameters.json') as f:
     parameters = json.load(f)
 
 REWARD_SUCCESS = parameters["environment"]['REWARD_SUCCESS']
@@ -97,7 +97,7 @@ class AirsimEnv(gym.Env):
         position = utils.get_position(self.client)
         orientation = utils.get_orientation(self.client)
         # reward moving towards the goal
-        new_distance_to_target = ['pointgoal_with_gps_compass'][0]
+        new_distance_to_target = observation['pointgoal_with_gps_compass'][0]
         movement = old_distance_to_target - new_distance_to_target
         movement_threshold = 0.05    # Give no reward when rotating
         if movement > movement_threshold:

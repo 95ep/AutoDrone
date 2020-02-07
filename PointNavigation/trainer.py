@@ -302,7 +302,7 @@ if __name__ == '__main__':
     args = parser.parse_args() """
 
     import json
-    with open('./parameters.json') as f:
+    with open('./PointNavigation/parameters.json') as f:
         parameters = json.load(f)
 
     import airgym
