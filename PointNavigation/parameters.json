@@ -1,0 +1,28 @@
+{
+    "environment": {
+        "REWARD_SUCCESS": 1,
+        "REWARD_FAILURE": -0.5,
+        "REWARD_COLLISION": -1,
+        "REWARD_MOVE_TOWARDS_GOAL": 0.1,
+        "max_dist": 10,
+        "distance_threshold": 0.5
+    },
+    "training": {
+        "log_dir": "runs/test/log",
+        "seed": 0,
+        "gamma": 0.99,
+        "epochs": 50,
+        "steps_per_epoch": 2000,
+        "sensors": "depth",
+        "weights": "",
+        "clip_ratio": 0.2,
+        "lr": 3e-4,
+        "train_iters": 80,
+        "lambda": 0.97,
+        "max_episode_len": 400,
+        "value_loss_coef": 0.5,
+        "entropy_coef": 0.01,
+        "save_freq": 10,
+        "save_path": "runs/test/saved_models"
+    }
+}

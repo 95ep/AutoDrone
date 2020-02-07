@@ -144,7 +144,7 @@ class PPOBuffer:
 def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, steps_per_epoch=4000,
                 epochs=50, gamma=0.99, clip_ratio=0.2, lr=3e-4, train_iters=80, lam=0.97,
                 max_episode_len=1000, value_loss_coef=1, entropy_coef=0.01, save_freq=10,
-                save_path='runs'):
+                save_path='runs', log_dir='runs'):
     # value_loss_coef and entropy_coef taken from https://arxiv.org/abs/1707.06347
     # TODO: check input parameters and their descriptions
     """
@@ -170,7 +170,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     """
 
     # Set up logger
-    logg_writer = SummaryWriter(log_dir=save_path)
+    logg_writer = SummaryWriter(log_dir=log_dir)
 
     # Seed torch and numpy
     torch.manual_seed(seed)
@@ -289,7 +289,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
 if __name__ == '__main__':
     # TODO: Replace flags with json
-    import argparse
+    """import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir', type=str, default='runs/' + time.ctime())
     parser.add_argument('--seed', '-s', type=int, default=0)
@@ -299,20 +299,31 @@ if __name__ == '__main__':
     #parser.add_argument('--sensors', type=str, default='depth')
     parser.add_argument('--dist', type=int, default=10)
     parser.add_argument('--weights', type=str, default=None)
-    args = parser.parse_args()
+    args = parser.parse_args() """
+
+    import json
+    with open('./parameters.json') as f:
+        parameters = json.load(f)
 
     import airgym
     import risenet.tools as rsn
-    env = airgym.make(sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=args.dist)
+    env = airgym.make(sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=parameters['environment']['max_dist'])
     #env = AirsimEnv(sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=args.dist)
 
     ac = rsn.neural_agent(rgb=False)
-    rsn.load_pretrained_weights(ac, args.weights)
+    rsn.load_pretrained_weights(ac, parameters['training']['weights'])
     dim_actions = 6
     rsn.change_action_dim(ac, dim_actions)
 
     n_hidden_l = ac.net.num_recurrent_layers
     hidden_size = ac.net.output_size
 
-    PPO_trainer(env, ac, num_rec_layers=n_hidden_l, hidden_state_size=hidden_size, seed=args.seed,
-                steps_per_epoch=args.steps, epochs=args.epochs, gamma=args.gamma, save_path=args.dir)
+    PPO_trainer(env, ac, num_rec_layers=n_hidden_l, hidden_state_size=hidden_size, seed=parameters['training']['seed'],
+                steps_per_epoch=parameters['training']['steps_per_epoch'], epochs=parameters['training']['epochs'],
+                gamma=parameters['training']['gamma'], clip_ratio=parameters['training']['clip_ratio'],
+                lr=parameters['training']['lr'], train_iters=parameters['training']['train_iters'],
+                lam=parameters['training']['lambda'], max_episode_len=parameters['training']['max_episode_len'],
+                value_loss_coef=parameters['training']['value_loss_coef'],
+                entropy_coef=parameters['training']['entropy_coef'], save_freq=parameters['training']['save_freq'],
+                save_path=parameters['training']['save_path'],
+                log_dir=parameters['training']['log_dir'])
