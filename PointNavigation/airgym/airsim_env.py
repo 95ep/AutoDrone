@@ -2,14 +2,18 @@ import airsim
 import gym
 from gym import spaces
 import subprocess
+import json
 
 from . import utils
 from . import agent_controller as ac
 
-# TODO: Json?
-REWARD_SUCCESS = 10
-REWARD_FAILURE = -5
-REWARD_COLLISION = -10
+with open('../parameters.json') as f:
+    parameters = json.load(f)
+
+REWARD_SUCCESS = parameters["environment"]['REWARD_SUCCESS']
+REWARD_FAILURE = parameters["environment"]['REWARD_FAILURE']
+REWARD_COLLISION = parameters["environment"]['REWARD_COLLISION']
+REWARD_MOVE_TOWARDS_GOAL = parameters["environment"]['REWARD_MOVE_TOWARDS_GOAL']
 
 
 def make(**kwargs):
@@ -26,10 +30,8 @@ class AirsimEnv(gym.Env):
         #    'C:/Users/Filip/Documents/Skola/Exjobb/Blocks/Blocks.exe')
 
         self.sensors = sensors
-        self.max_dist = max_dist        # TODO: Json?
-        self.distance_threshold = 0.5   # TODO: Json?
-        self.step_limit = 200           # TODO: Json?
-        self.step_counter = 0
+        self.max_dist = max_dist
+        self.distance_threshold = 0.5
         self.agent_dead = True
         space_dict = {}
         if 'rgb' in sensors:
@@ -63,6 +65,7 @@ class AirsimEnv(gym.Env):
             print("Episode over. Reset the environment to try again.")
             return None, None, None, (None, None)
 
+        old_distance_to_target = self._get_state()['pointgoal_with_gps_compass'][0]
         reward = 0
         # actions: [terminate, move forward, rotate left, rotate right, ascend, descend, no-op?]
         if action == 0:
@@ -90,10 +93,18 @@ class AirsimEnv(gym.Env):
             self.agent_dead = True
             reward += REWARD_COLLISION
 
-
         observation = self._get_state()
         position = utils.get_position(self.client)
         orientation = utils.get_orientation(self.client)
+        # reward moving towards the goal
+        new_distance_to_target = ['pointgoal_with_gps_compass'][0]
+        movement = old_distance_to_target - new_distance_to_target
+        movement_threshold = 0.05    # Give no reward when rotating
+        if movement > movement_threshold:
+            reward += REWARD_MOVE_TOWARDS_GOAL
+        if movement < -movement_threshold:
+            reward -= REWARD_MOVE_TOWARDS_GOAL
+
         return observation, reward, episode_over, (position, orientation)
 
     def reset(self):
