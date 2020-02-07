@@ -66,7 +66,7 @@ class AirsimEnv(gym.Env):
         reward = 0
         # actions: [terminate, move forward, rotate left, rotate right, ascend, descend, no-op?]
         if action == 0:
-            success = utils.target_found(self.client, self.target_position, threshold=self.distance_threshold)
+            success = utils.target_found(self.client, self.target_position, self.max_dist, threshold=self.distance_threshold)
             if success:
                 reward += REWARD_SUCCESS
             else:
