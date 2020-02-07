@@ -107,7 +107,7 @@ class AirsimEnv(gym.Env):
             reward += REWARD_MOVE_TOWARDS_GOAL
         if movement < -movement_threshold:
             reward -= REWARD_MOVE_TOWARDS_GOAL
-
+        self.client.simPrintLogMessage("Goal distance, direction: ", str(observation['pointgoal_with_gps_compass']))
         self.client.simPrintLogMessage("Step reward:", str(reward))
         return observation, reward, episode_over, (position, orientation)
 
