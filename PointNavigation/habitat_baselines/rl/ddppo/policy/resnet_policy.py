@@ -248,7 +248,7 @@ class PointNavResNetNet(Net):
             ((prev_actions.float() + 1) * masks).long().squeeze(-1)
         )
 
-        x += [tgt_encoding, prev_actions] # TODO: remove squeeze()
+        x += [tgt_encoding, prev_actions]
         x = torch.cat(x, dim=1)
 
         x, rnn_hidden_states = self.state_encoder(x, rnn_hidden_states, masks)

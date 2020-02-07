@@ -24,7 +24,6 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     surr2 = torch.clamp(ratio, 1.0 - clip_ratio, 1.0 + clip_ratio) * adv
     action_loss = -torch.min(surr1, surr2).mean()
 
-    # TODO: Facebook put factor of 0.5 in front of value_loss. Not sure why so I have omitted.
     value_loss = (ret - values).pow(2).mean()
 
     total_loss = value_loss * value_loss_coef + action_loss - dist_entropy * entropy_coef
@@ -284,12 +283,12 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         logg_writer.add_scalar('Progress/ElapsedTimeMinutes', (time.time() - start_time) / 60, epoch + 1)
         # Entropy of action outputs
         logg_writer.add_scalar('Entropy/mean', mean_entropy, epoch + 1)
-        # TODO: Add logging of KL divergence
 
     logg_writer.close()
 
 
 if __name__ == '__main__':
+    # TODO: Replace flags with json
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir', type=str, default='runs/' + time.ctime())
@@ -297,7 +296,6 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--steps', type=int, default=4000)
-    # TODO: add sensors as argument
     #parser.add_argument('--sensors', type=str, default='depth')
     parser.add_argument('--dist', type=int, default=10)
     parser.add_argument('--weights', type=str, default=None)
