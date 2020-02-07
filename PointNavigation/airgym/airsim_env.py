@@ -72,8 +72,11 @@ class AirsimEnv(gym.Env):
             success = utils.target_found(self.client, self.target_position, self.max_dist, threshold=self.distance_threshold)
             if success:
                 reward += REWARD_SUCCESS
+                self.client.simPrintLogMessage("Terminated at target - SUCCESS")
             else:
                 reward += REWARD_FAILURE
+                self.client.simPrintLogMessage("Terminated not close to target - FAILURE")
+
             self.target_position = utils.generate_target(self.client, self.max_dist/4)
         elif action == 1:
             ac.move_forward(self.client)
@@ -105,6 +108,7 @@ class AirsimEnv(gym.Env):
         if movement < -movement_threshold:
             reward -= REWARD_MOVE_TOWARDS_GOAL
 
+        self.client.simPrintLogMessage("Step reward:", str(reward))
         return observation, reward, episode_over, (position, orientation)
 
     def reset(self):
