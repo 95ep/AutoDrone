@@ -90,7 +90,6 @@ class AirsimEnv(gym.Env):
             self.agent_dead = True
             reward += REWARD_COLLISION
 
-        # TODO: implement timer - max_steps? Need for time input to net?
 
         observation = self._get_state()
         position = utils.get_position(self.client)

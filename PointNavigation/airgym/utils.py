@@ -2,7 +2,7 @@ import airsim
 import numpy as np
 import time
 
-# TODO: client.getMultirotorState() returns essentially everything. Maybe switch to that?
+# client.getMultirotorState() returns essentially everything. Maybe switch to that?
 
 
 def get_position(client):
@@ -19,8 +19,8 @@ def get_orientation(client):
     return airsim.to_eularian_angles(q)[2]
 
 
-def get_compass_reading(client, target_position, max_dist):
-    # TODO: include height/z-dim?
+def get_compass_reading(client, target_position):
+    # TODO: include height/z-dim?. Yes but later
     """
 
     :param client:
