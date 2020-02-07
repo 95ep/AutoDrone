@@ -84,9 +84,10 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10):
     return images
 
 
-def has_collided(client):
+def has_collided(client, floor_z=0.5, ceiling_z=-4.5):
     collision_info = client.simGetCollisionInfo()
-    return collision_info.has_collided
+    z_pos = get_position(client).z_val
+    return collision_info.has_collided or z_pos > floor_z or z_pos < ceiling_z
 
 
 def print_info(client):
@@ -123,4 +124,14 @@ def reset(client):
     time.sleep(0.2)
     client.enableApiControl(True)
     client.armDisarm(True)
+    hover(client)
+    custom_takeoff(client)
+    hover(client)
+
+
+def custom_takeoff(client, z=-2.0):
+    client.moveByVelocityZAsync(0, 0, z, duration=1e-3).join()
+
+
+def hover(client):
     client.moveByVelocityAsync(0, 0, 0, duration=1e-6).join()

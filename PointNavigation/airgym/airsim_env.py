@@ -74,7 +74,7 @@ class AirsimEnv(gym.Env):
                 reward += REWARD_SUCCESS
             else:
                 reward += REWARD_FAILURE
-            self.target_position = utils.generate_target(self.client)
+            self.target_position = utils.generate_target(self.client, self.max_dist/4)
         elif action == 1:
             ac.move_forward(self.client)
         elif action == 2:
