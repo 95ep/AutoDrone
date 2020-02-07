@@ -102,12 +102,13 @@ class AirsimEnv(gym.Env):
         # reward moving towards the goal
         new_distance_to_target = observation['pointgoal_with_gps_compass'][0]
         movement = old_distance_to_target - new_distance_to_target
-        movement_threshold = 0.05    # Give no reward when rotating
-        if movement > movement_threshold:
+        movement_threshold = 0.05/self.max_dist    # Give no reward when rotating
+        if movement > movement_threshold and action != 0:
             reward += REWARD_MOVE_TOWARDS_GOAL
-        if movement < -movement_threshold:
+        if movement < -movement_threshold and action != 0:
             reward -= REWARD_MOVE_TOWARDS_GOAL
-        self.client.simPrintLogMessage("Goal distance, direction: ", str(observation['pointgoal_with_gps_compass']))
+        self.client.simPrintLogMessage("Goal distance, direction ", str([self.max_dist*observation['pointgoal_with_gps_compass'][0],
+                                                                            observation['pointgoal_with_gps_compass'][1]*180/3.14]))
         self.client.simPrintLogMessage("Step reward:", str(reward))
         return observation, reward, episode_over, (position, orientation)
 

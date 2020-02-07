@@ -110,7 +110,7 @@ def print_info(client):
 def target_found(client, target_position, max_dist, threshold=0.5):
     compass = get_compass_reading(client, target_position, max_dist)
     distance_to_target = compass[0]
-    success = distance_to_target < threshold
+    success = distance_to_target < threshold/max_dist
     return success
 
 

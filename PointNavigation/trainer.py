@@ -6,6 +6,7 @@ import numpy as np
 import scipy.signal
 import os
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def discount_cumsum(x, discount):
     # Helper function. Some magic from scipy.
@@ -16,6 +17,16 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     obs, act, ret, adv, logp_old, hidden, prev_actions, masks = data['obs'], data['act'], data['ret'], \
                                                                 data['adv'], data['logp'], data['hidden'], \
                                                                 data['prev_act'], data['mask']
+
+    for k,v in obs.items():
+        obs[k]=v.to(device=device)
+    act = act.to(device=device)
+    ret = ret.to(device=device)
+    adv = adv.to(device=device)
+    logp_old = logp_old.to(device=device)
+    hidden = hidden.to(device=device)
+    prev_actions = prev_actions.to(device=device)
+    masks = masks.to(device=device)
 
     values, logp, dist_entropy, _ = actor_critic.evaluate_actions(obs, hidden[0], prev_actions, masks, act)
 
@@ -145,7 +156,7 @@ class PPOBuffer:
 def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, steps_per_epoch=4000,
                 epochs=50, gamma=0.99, clip_ratio=0.2, lr=3e-4, train_iters=80, lam=0.97,
                 max_episode_len=1000, value_loss_coef=1, entropy_coef=0.01, save_freq=10,
-                save_path='runs', log_dir='runs'):
+                save_dir='runs', log_dir='runs'):
     # value_loss_coef and entropy_coef taken from https://arxiv.org/abs/1707.06347
     # TODO: check input parameters and their descriptions
     """
@@ -173,7 +184,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     # Set up logger
     logg_writer = SummaryWriter(log_dir=log_dir)
     # Set up model dir
-    directory = os.path.dirname(save_path)
+    directory = os.path.dirname(save_dir)
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -244,7 +255,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 else:
                     value = 0
                 buffer.finish_path(value)
-                
+
                 episode_returns_epoch.append(episode_return)
                 episode_len_epoch.append(episode_len)
                 # Reset if episode ended
@@ -254,14 +265,16 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         # A epoch of experience is collected
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
-            torch.save(actor_critic.state_dict(), save_path + '/model.pth')
+            torch.save(actor_critic.state_dict(), save_dir + 'model{}.pth'.format(epoch))
 
         # Perform PPO update
+        actor_critic = actor_critic.to(device=device)
         mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy = _update(actor_critic, buffer, train_iters,
                                                                                    optimizer, clip_ratio,
                                                                                    value_loss_coef,
                                                                                    entropy_coef)
 
+        actor_critic = actor_critic.cpu()
         # Calc metrics and log info about epoch
         episode_return_mean = np.mean(np.array(episode_returns_epoch))
         episode_len_mean = np.mean(np.array(episode_len_epoch))
@@ -322,5 +335,5 @@ if __name__ == '__main__':
                 lam=parameters['training']['lambda'], max_episode_len=parameters['training']['max_episode_len'],
                 value_loss_coef=parameters['training']['value_loss_coef'],
                 entropy_coef=parameters['training']['entropy_coef'], save_freq=parameters['training']['save_freq'],
-                save_path=parameters['training']['save_path'],
+                save_dir=parameters['training']['save_dir'],
                 log_dir=parameters['training']['log_dir'])

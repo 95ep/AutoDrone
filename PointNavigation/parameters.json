@@ -11,18 +11,18 @@
         "log_dir": "runs/test/log",
         "seed": 0,
         "gamma": 0.99,
-        "epochs": 50,
-        "steps_per_epoch": 2000,
+        "epochs": 5,
+        "steps_per_epoch": 1000,
         "sensors": "depth",
-        "weights": "",
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/PointNavigation/habitat_baselines/ddppo-models/gibson-2plus-resnet50.pth",
         "clip_ratio": 0.2,
         "lr": 3e-4,
-        "train_iters": 80,
+        "train_iters": 50,
         "lambda": 0.97,
-        "max_episode_len": 400,
+        "max_episode_len": 500,
         "value_loss_coef": 0.5,
         "entropy_coef": 0.01,
         "save_freq": 10,
-        "save_path": "runs/test/saved_models"
+        "save_dir": "runs/test/saved_models/"
     }
 }
