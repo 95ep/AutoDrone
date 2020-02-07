@@ -4,6 +4,7 @@ from torch.utils.tensorboard import SummaryWriter
 import time
 import numpy as np
 import scipy.signal
+import os
 
 
 def discount_cumsum(x, discount):
@@ -243,7 +244,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 else:
                     value = 0
                 buffer.finish_path(value)
-                # only save EpRet / EpLen if trajectory finished
+                
                 episode_returns_epoch.append(episode_return)
                 episode_len_epoch.append(episode_len)
                 # Reset if episode ended

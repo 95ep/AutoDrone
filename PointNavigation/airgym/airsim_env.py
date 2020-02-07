@@ -110,7 +110,7 @@ class AirsimEnv(gym.Env):
     def reset(self):
         utils.reset(self.client)
         self.agent_dead = False
-        self.target_position = utils.generate_target(self.client)
+        self.target_position = utils.generate_target(self.client, self.max_dist/4)
         return self._get_state()
 
     def render(self, mode='human'):

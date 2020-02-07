@@ -110,7 +110,7 @@ def generate_target(client, max_target_distance):
     """
     Generate new goal for the agent to reach.
     :param client:
-    :param max_target_distance: 
+    :param max_target_distance:
     :return:
     """
     pos = client.simGetGroundTruthKinematics().position
@@ -130,7 +130,7 @@ def reset(client):
 
 
 def custom_takeoff(client, z=-2.0):
-    client.moveByVelocityZAsync(0, 0, z, duration=1e-3).join()
+    client.moveByVelocityZAsync(0, 0, z, duration=2).join()
 
 
 def hover(client):
