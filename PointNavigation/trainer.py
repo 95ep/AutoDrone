@@ -181,12 +181,12 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     :return: Trained network.
     """
 
-    # Set up logger
-    logg_writer = SummaryWriter(log_dir=log_dir)
     # Set up model dir
     directory = os.path.dirname(save_dir)
     if not os.path.exists(directory):
         os.makedirs(directory)
+    # Set up logger
+    logg_writer = SummaryWriter(log_dir=log_dir)
 
     # Seed torch and numpy
     torch.manual_seed(seed)
