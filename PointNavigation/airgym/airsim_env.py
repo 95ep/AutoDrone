@@ -53,7 +53,7 @@ class AirsimEnv(gym.Env):
         observations = utils.get_camera_observation(self.client, sensor_types=sensor_types, max_dist=10)
 
         if 'pointgoal_with_gps_compass' in self.sensors:
-            compass = utils.get_compass_reading(self.client, self.target_position)
+            compass = utils.get_compass_reading(self.client, self.target_position, self.max_dist)
             observations.update({'pointgoal_with_gps_compass': compass})
 
         return observations

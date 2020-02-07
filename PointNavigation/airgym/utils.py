@@ -19,7 +19,7 @@ def get_orientation(client):
     return airsim.to_eularian_angles(q)[2]
 
 
-def get_compass_reading(client, target_position):
+def get_compass_reading(client, target_position, max_dist):
     # TODO: include height/z-dim?
     """
 
@@ -38,7 +38,8 @@ def get_compass_reading(client, target_position):
     angle_mag = np.arccos(np.clip(np.dot(u, v), -1.0, 1.0))
     angle_sign = np.sign(np.cross(u, v))
     angle_sign = 1 if angle_sign == 0 else angle_sign
-    return np.array([np.linalg.norm(direction_vector), angle_mag * angle_sign])
+    dist = np.clip(np.linalg.norm(direction_vector), None, max_dist) / max_dist
+    return np.array([dist, angle_mag * angle_sign])
 
 
 # Observations
@@ -76,7 +77,7 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10):
         depth = airsim.list_to_2d_float_array(
             responses[idx].image_data_float, responses[idx].width, responses[idx].height)
         # clip array after max_dist
-        depth = np.clip(depth, None, max_dist)
+        depth = np.clip(depth, None, max_dist)/max_dist
         depth = np.expand_dims(depth, axis=2)
         images.update({'depth': depth})
 
