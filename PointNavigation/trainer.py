@@ -171,6 +171,10 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
     # Set up logger
     logg_writer = SummaryWriter(log_dir=log_dir)
+    # Set up model dir
+    directory = os.path.dirname(save_path)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
     # Seed torch and numpy
     torch.manual_seed(seed)
@@ -218,14 +222,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 [0.0] if done else [1.0], dtype=torch.float
             )
 
-            # Save to buffer, cast to np first
-            '''obs
-            action
-            value
-            log_prob
-            hidden_state
-            mask
-            prev_action'''
+            # Save to buffer
             buffer.store(obs, action, reward, value, log_prob, hidden_state, mask, prev_action)
 
             # Update obs and prev_action
@@ -246,10 +243,9 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 else:
                     value = 0
                 buffer.finish_path(value)
-                if terminal:
-                    # only save EpRet / EpLen if trajectory finished
-                    episode_returns_epoch.append(episode_return)
-                    episode_len_epoch.append(episode_len)
+                # only save EpRet / EpLen if trajectory finished
+                episode_returns_epoch.append(episode_return)
+                episode_len_epoch.append(episode_len)
                 # Reset if episode ended
                 obs, episode_return, episode_len = env.reset(), 0, 0
                 obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in next_obs.items()}
@@ -302,7 +298,7 @@ if __name__ == '__main__':
     args = parser.parse_args() """
 
     import json
-    with open('./parameters.json') as f:
+    with open('./PointNavigation/parameters.json') as f:
         parameters = json.load(f)
 
     import airgym

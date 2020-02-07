@@ -135,3 +135,4 @@ def custom_takeoff(client, z=-2.0):
 
 def hover(client):
     client.moveByVelocityAsync(0, 0, 0, duration=1e-6).join()
+    client.takeoffAsync().join()
