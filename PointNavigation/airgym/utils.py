@@ -98,8 +98,8 @@ def print_info(client):
     print('Current position is ({}, {}, {})'.format(pos.x_val, pos.y_val, pos.z_val))
 
 
-def target_found(client, target_position, threshold=0.5):
-    compass = get_compass_reading(client, target_position)
+def target_found(client, target_position, max_dist, threshold=0.5):
+    compass = get_compass_reading(client, target_position, max_dist)
     distance_to_target = compass[0]
     success = distance_to_target < threshold
     return success
