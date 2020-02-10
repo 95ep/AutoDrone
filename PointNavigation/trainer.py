@@ -39,7 +39,11 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     value_loss = (ret - values).pow(2).mean()
 
     total_loss = value_loss * value_loss_coef + action_loss - dist_entropy * entropy_coef
-    return total_loss, action_loss, value_loss, dist_entropy
+
+    # Compute approx kl for logging purposes
+    approx_kl = (logp_old-logp).mean().item()
+
+    return total_loss, action_loss, value_loss, dist_entropy, approx_kl
 
 
 def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss_coef, entropy_coef):
@@ -52,7 +56,7 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
 
     for i in range(train_iters):
         optimizer.zero_grad()
-        total_loss, action_loss, value_loss, entropy = _total_loss(data, actor_critic, clip_ratio,
+        total_loss, action_loss, value_loss, entropy, approx_kl = _total_loss(data, actor_critic, clip_ratio,
                                                                    value_loss_coef, entropy_coef)
         total_loss.backward()
         optimizer.step()
@@ -65,7 +69,7 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
     mean_action_loss = np.mean(action_loss_in_epoch)
     mean_value_loss = np.mean(value_loss_in_epoch)
     mean_entropy = np.mean(entropy_in_epoch)
-    return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy
+    return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, approx_kl
 
 
 class PPOBuffer:
@@ -243,10 +247,9 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
         # Perform PPO update
         actor_critic = actor_critic.to(device=device)
-        mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy = _update(actor_critic, buffer, train_iters,
-                                                                                   optimizer, clip_ratio,
-                                                                                   value_loss_coef,
-                                                                                   entropy_coef)
+        mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy, approx_kl = _update(actor_critic, buffer,
+                                                                                  train_iters, optimizer, clip_ratio,
+                                                                                    value_loss_coef, entropy_coef)
 
         actor_critic = actor_critic.cpu()
         # Calc metrics and log info about epoch
@@ -267,6 +270,8 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         log_writer.add_scalar('Progress/ElapsedTimeMinutes', (time.time() - start_time) / 60, epoch + 1)
         # Entropy of action outputs
         log_writer.add_scalar('Entropy/mean', mean_entropy, epoch + 1)
+        # Approx kl
+        log_writer.add_scalar('ApproxKL', approx_kl, epoch + 1)
 
     log_writer.close()
 
