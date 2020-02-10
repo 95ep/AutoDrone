@@ -8,6 +8,15 @@ import os
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+def zero_pad_obs(obs, width=256, height=256, channels=3):
+    padded = np.zeros((width, height, channels))
+    w_idx = width-obs.shape[1]//2
+    h_idx = height-obs.shape[0]//2
+    padded[h_idx:obs.shape[0]+h_idx, w_idx:obs.shape[1]+w_idx, :] = obs
+
+    obs_dict = {'rgb':padded}
+    return obs_dict
+
 def discount_cumsum(x, discount):
     # Helper function. Some magic from scipy.
     return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
@@ -189,6 +198,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     # Prepare for interaction with env
     start_time = time.time()
     obs, episode_return, episode_len = env.reset(), 0, 0
+    obs = zero_pad_obs(obs)
     obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
     # Shape of hidden state is (n_rec_layers, num_envs, recurrent_hidden_state_size).
     # should be able to access these from PointNavResNetNet properties
@@ -208,6 +218,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                     obs, hidden_state, prev_action, mask)
 
             next_obs, reward, done, _ = env.step(action)
+            next_obs = zero_pad_obs(next_obs)
             episode_return += reward
             episode_len += 1
 
@@ -241,6 +252,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 episode_len_epoch.append(episode_len)
                 # Reset if episode ended
                 obs, episode_return, episode_len = env.reset(), 0, 0
+                obs = zero_pad_obs(obs)
                 obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
 
         # A epoch of experience is collected
@@ -281,48 +293,43 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
 if __name__ == '__main__':
     import argparse
+    import json
+    import gym
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--parameters', type=str)
     parser.add_argument('--logdir', type=str)
     args = parser.parse_args()
 
-    import json
     with open(args.parameters) as f:
         parameters = json.load(f)
 
-    # Write AirSim settings to a json file
-    with open(parameters['training']['airsim_settings_path'], 'w') as f:
-        json.dump(parameters['airsim'], f, indent='\t')
-
-    print('Copied AirSim settings to Documents folder.')
-    input('(Re)Start AirSim and then press enter to start training...')
-
     # Create the directories for logs and saved models
-    dir_name = os.path.dirname(args.logdir)
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    dir_name = os.path.dirname(args.logdir + 'saved_models/')
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    dir_name = os.path.dirname(args.logdir + 'log/')
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
+    dir = os.path.dirname(args.logdir)
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    dir = os.path.dirname(args.logdir + 'saved_models/')
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    dir = os.path.dirname(args.logdir + 'log/')
+    if not os.path.exists(dir):
+        os.makedirs(dir)
 
     # Copy all parameters to log dir
     with open(parameters['training']['log_dir'] + 'parameters.json', 'w') as f:
         json.dump(parameters, f, indent='\t')
 
-    import airgym
-    import risenet.tools as rsn
 
-    sensors = parameters['environment']['sensors']
-    env = airgym.make(sensors=sensors, max_dist=parameters['environment']['max_dist'])
+    env = gym.make('Pong-v0')
 
-    ac = rsn.neural_agent(rgb=('rbg' in sensors), depth=('depth' in sensors), gps_compass=(
-        'pointgoal_with_gps_compass' in sensors))
-    rsn.load_pretrained_weights(ac, parameters['training']['weights'])
-    dim_actions = 6
-    rsn.change_action_dim(ac, dim_actions)
+    from risenet.gymAgent import GymResNetPolicy
+    from gym import spaces
+
+    space_dict = {}
+    space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
+    observation_space = spaces.Dict(space_dict)
+
+    ac = GymResNetPolicy(observation_space, env.action_space)
 
     n_hidden_l = ac.net.num_recurrent_layers
     hidden_size = ac.net.output_size
