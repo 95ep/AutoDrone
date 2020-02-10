@@ -6,7 +6,7 @@ import torch.nn as nn
 from .utils import CategoricalNet, Flatten
 from .rnn_state_encoder import RNNStateEncoder
 from .resnet_encoder import ResNetEncoder
-from PointNavigation import resnet
+import resnet
 
 class Policy(nn.Module):
     def __init__(self, net, dim_actions):
