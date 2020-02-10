@@ -3,10 +3,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from . import resnet
 from .utils import CategoricalNet, Flatten
 from .rnn_state_encoder import RNNStateEncoder
 from .resnet_encoder import ResNetEncoder
-import resnet
+
 
 class Policy(nn.Module):
     def __init__(self, net, dim_actions):
