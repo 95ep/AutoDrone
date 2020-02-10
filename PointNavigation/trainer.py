@@ -298,27 +298,19 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
 
 if __name__ == '__main__':
-    # TODO: Replace flags with json
-    """import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dir', type=str, default='runs/' + time.ctime())
-    parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--epochs', type=int, default=50)
-    parser.add_argument('--steps', type=int, default=4000)
-    #parser.add_argument('--sensors', type=str, default='depth')
-    parser.add_argument('--dist', type=int, default=10)
-    parser.add_argument('--weights', type=str, default=None)
-    args = parser.parse_args() """
-
     import json
     with open('./PointNavigation/parameters.json') as f:
         parameters = json.load(f)
 
+    # Write AirSim settings to a json file
+    with open(parameters['training']['airsim_settings_path'], 'w') as f:
+        json.dump(parameters['airsim'], f, indent="\t")
+
+    print('Copied AirSim settings to Documents folder.')
+    print('(Re)Start AirSim and then press enter to start training')
     import airgym
     import risenet.tools as rsn
     env = airgym.make(sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=parameters['environment']['max_dist'])
-    #env = AirsimEnv(sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=args.dist)
 
     ac = rsn.neural_agent(rgb=False)
     rsn.load_pretrained_weights(ac, parameters['training']['weights'])
