@@ -272,8 +272,14 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--parameters', type=str)
+    parser.add_argument('--logdir', type=str)
+    args = parser.parse_args()
+
     import json
-    with open('./PointNavigation/parameters.json') as f:
+    with open(args.parameters) as f:
         parameters = json.load(f)
 
     # Write AirSim settings to a json file
@@ -284,13 +290,13 @@ if __name__ == '__main__':
     input('(Re)Start AirSim and then press enter to start training...')
 
     # Create the directories for logs and saved models
-    dir = os.path.dirname(parameters['training']['log_dir'])
+    dir = os.path.dirname(args.logdir)
     if not os.path.exists(dir):
         os.makedirs(dir)
-    dir = os.path.dirname(parameters['training']['log_dir'] + 'saved_models/')
+    dir = os.path.dirname(args.logdir + 'saved_models/')
     if not os.path.exists(dir):
         os.makedirs(dir)
-    dir = os.path.dirname(parameters['training']['log_dir'] + 'log/')
+    dir = os.path.dirname(args.logdir + 'log/')
     if not os.path.exists(dir):
         os.makedirs(dir)
 

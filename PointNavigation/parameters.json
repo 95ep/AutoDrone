@@ -8,7 +8,6 @@
         "distance_threshold": 0.5
     },
     "training": {
-        "log_dir": "runs/test-02-10/",
         "seed": 0,
         "gamma": 0.99,
         "epochs": 2500,
