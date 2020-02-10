@@ -65,7 +65,7 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
         action_loss_in_epoch[i] = action_loss.item()
         value_loss_in_epoch[i] = value_loss.item()
         entropy_in_epoch[i] = entropy.item()
-        approx_kl_in_epoch[i] = approx_kl.item()
+        approx_kl_in_epoch[i] = approx_kl
 
     mean_total_loss = np.mean(total_loss_in_epoch)
     mean_action_loss = np.mean(action_loss_in_epoch)
