@@ -8,7 +8,7 @@
         "distance_threshold": 0.5
     },
     "training": {
-        "log_dir": "runs/weekendTest/log",
+        "log_dir": "runs/test-02-10/log",
         "seed": 0,
         "gamma": 0.99,
         "epochs": 2500,
@@ -23,6 +23,6 @@
         "value_loss_coef": 0.5,
         "entropy_coef": 0.01,
         "save_freq": 10,
-        "save_dir": "runs/weekendTest/saved_models/"
+        "save_dir": "runs/test-02-10/saved_models/"
     }
 }
