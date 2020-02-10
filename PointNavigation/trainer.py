@@ -298,15 +298,15 @@ if __name__ == '__main__':
     input('(Re)Start AirSim and then press enter to start training...')
 
     # Create the directories for logs and saved models
-    dir = os.path.dirname(args.logdir)
-    if not os.path.exists(dir):
-        os.makedirs(dir)
-    dir = os.path.dirname(args.logdir + 'saved_models/')
-    if not os.path.exists(dir):
-        os.makedirs(dir)
-    dir = os.path.dirname(args.logdir + 'log/')
-    if not os.path.exists(dir):
-        os.makedirs(dir)
+    dir_name = os.path.dirname(args.logdir)
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    dir_name = os.path.dirname(args.logdir + 'saved_models/')
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    dir_name = os.path.dirname(args.logdir + 'log/')
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
 
     # Copy all parameters to log dir
     with open(parameters['training']['log_dir'] + 'parameters.json', 'w') as f:
