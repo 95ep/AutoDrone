@@ -53,6 +53,7 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
     action_loss_in_epoch = np.zeros(train_iters)
     value_loss_in_epoch = np.zeros(train_iters)
     entropy_in_epoch = np.zeros(train_iters)
+    approx_kl_in_epoch = np.zeros(train_iters)
 
     for i in range(train_iters):
         optimizer.zero_grad()
@@ -64,12 +65,14 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
         action_loss_in_epoch[i] = action_loss.item()
         value_loss_in_epoch[i] = value_loss.item()
         entropy_in_epoch[i] = entropy.item()
+        approx_kl_in_epoch[i] = approx_kl.item()
 
     mean_total_loss = np.mean(total_loss_in_epoch)
     mean_action_loss = np.mean(action_loss_in_epoch)
     mean_value_loss = np.mean(value_loss_in_epoch)
     mean_entropy = np.mean(entropy_in_epoch)
-    return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, approx_kl
+    mean_approx_kl = np.mean(approx_kl_in_epoch)
+    return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, mean_approx_kl
 
 
 class PPOBuffer:
@@ -247,7 +250,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
         # Perform PPO update
         actor_critic = actor_critic.to(device=device)
-        mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy, approx_kl = _update(actor_critic, buffer,
+        mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy, mean_approx_kl = _update(actor_critic, buffer,
                                                                                   train_iters, optimizer, clip_ratio,
                                                                                     value_loss_coef, entropy_coef)
 
@@ -271,7 +274,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         # Entropy of action outputs
         log_writer.add_scalar('Entropy/mean', mean_entropy, epoch + 1)
         # Approx kl
-        log_writer.add_scalar('ApproxKL', approx_kl, epoch + 1)
+        log_writer.add_scalar('ApproxKL/mean', mean_approx_kl, epoch + 1)
 
     log_writer.close()
 
