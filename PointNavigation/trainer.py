@@ -309,7 +309,7 @@ if __name__ == '__main__':
         os.makedirs(dir_name)
 
     # Copy all parameters to log dir
-    with open(parameters['training']['log_dir'] + 'parameters.json', 'w') as f:
+    with open(args.logdir + 'parameters.json', 'w') as f:
         json.dump(parameters, f, indent='\t')
 
     import airgym
