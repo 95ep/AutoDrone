@@ -5,7 +5,8 @@
         "REWARD_COLLISION": -1,
         "REWARD_MOVE_TOWARDS_GOAL": 0.1,
         "max_dist": 10,
-        "distance_threshold": 0.5
+        "distance_threshold": 0.5,
+        "sensors": ["depth", "pointgoal_with_gps_compass"]
     },
     "training": {
         "seed": 0,

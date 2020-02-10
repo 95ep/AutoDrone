@@ -314,9 +314,12 @@ if __name__ == '__main__':
 
     import airgym
     import risenet.tools as rsn
-    env = airgym.make(sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=parameters['environment']['max_dist'])
 
-    ac = rsn.neural_agent(rgb=False)
+    sensors = parameters['environment']['sensors']
+    env = airgym.make(sensors=sensors, max_dist=parameters['environment']['max_dist'])
+
+    ac = rsn.neural_agent(rgb=('rbg' in sensors), depth=('depth' in sensors), gps_compass=(
+        'pointgoal_with_gps_compass' in sensors))
     rsn.load_pretrained_weights(ac, parameters['training']['weights'])
     dim_actions = 6
     rsn.change_action_dim(ac, dim_actions)
