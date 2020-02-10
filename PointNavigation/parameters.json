@@ -15,7 +15,7 @@
         "steps_per_epoch": 250,
         "sensors": "depth",
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/PointNavigation/habitat_baselines/ddppo-models/gibson-2plus-resnet50.pth",
-        "airsim_settings_path": "/Users/erikpersson/settings.json",
+        "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
         "clip_ratio": 0.2,
         "lr": 3e-4,
         "train_iters": 10,
@@ -26,19 +26,41 @@
         "save_freq": 10
     },
     "airsim": {
-        "SettingsVersion": 1.2,
-        "CameraDefaults": {
-            "CaptureSettings": [
-                {
-                    "ImageType": 0,
-                    "Width": 256
-                },
-                {
-                    "ImageType": 2,
-                    "Width": 256
-                }
-            ]
-        }
-
+      "SettingsVersion": 1.2,
+      "SimMode": "Multirotor",
+      "ViewMode": "NoDisplay",
+      "ClockSpeed": 2,
+      "CameraDefaults": {
+        "CaptureSettings": [
+          {
+            "ImageType": 0,
+            "Width": 256,
+            "Height": 256,
+            "FOV_Degrees": 90,
+            "AutoExposureSpeed": 100,
+            "AutoExposureBias": 0,
+            "AutoExposureMaxBrightness": 0.64,
+            "AutoExposureMinBrightness": 0.03,
+            "MotionBlurAmount": 0,
+            "TargetGamma": 1.0,
+            "ProjectionMode": "",
+            "OrthoWidth": 5.12
+          },
+          {
+            "ImageType": 2,
+            "Width": 256,
+            "Height": 256,
+            "FOV_Degrees": 90,
+            "AutoExposureSpeed": 100,
+            "AutoExposureBias": 0,
+            "AutoExposureMaxBrightness": 0.64,
+            "AutoExposureMinBrightness": 0.03,
+            "MotionBlurAmount": 0,
+            "TargetGamma": 1.0,
+            "ProjectionMode": "",
+            "OrthoWidth": 5.12
+          }
+        ]
+      }
     }
 }

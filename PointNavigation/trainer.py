@@ -281,18 +281,18 @@ if __name__ == '__main__':
         json.dump(parameters['airsim'], f, indent='\t')
 
     print('Copied AirSim settings to Documents folder.')
-    print('(Re)Start AirSim and then press enter to start training')
+    input('(Re)Start AirSim and then press enter to start training...')
 
     # Create the directories for logs and saved models
-    directory = os.path.dirname(parameters['training']['log_dir'])
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    sub_dir = os.path.dirname(parameters['training']['log_dir']+'saved_models/')
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    sub_dir = os.path.dirname(parameters['training']['log_dir'] + 'log/')
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    dir = os.path.dirname(parameters['training']['log_dir'])
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    dir = os.path.dirname(parameters['training']['log_dir'] + 'saved_models/')
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    dir = os.path.dirname(parameters['training']['log_dir'] + 'log/')
+    if not os.path.exists(dir):
+        os.makedirs(dir)
 
     # Copy all parameters to log dir
     with open(parameters['training']['log_dir'] + 'parameters.json', 'w') as f:
