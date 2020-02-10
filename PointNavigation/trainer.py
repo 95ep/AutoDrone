@@ -156,37 +156,11 @@ class PPOBuffer:
 def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, steps_per_epoch=4000,
                 epochs=50, gamma=0.99, clip_ratio=0.2, lr=3e-4, train_iters=80, lam=0.97,
                 max_episode_len=1000, value_loss_coef=1, entropy_coef=0.01, save_freq=10,
-                save_dir='runs', log_dir='runs'):
+                log_dir='runs'):
     # value_loss_coef and entropy_coef taken from https://arxiv.org/abs/1707.06347
-    # TODO: check input parameters and their descriptions
-    """
-    :param env: environment object. Should fulfill OpenAI Gym API
-    :param actor_critic: PyTorch Module
-    :param num_rec_layers:
-    :param hidden_state_size:
-    :param seed: Random seed, do we need it?
-    :param steps_per_epoch:
-    :param epochs:
-    :param gamma: Discount factor, between 0 and 1
-    :param clip_ratio:
-    :param lr:
-    :param train_iters:
-    :param lam: Lambda for Generalized Advantage Estimation (GAE). Used in buffer to calc advantages
-                of state-action pairs
-    :param max_episode_len:
-    :param value_loss_coef:
-    :param entropy_coef:
-    :param save_freq: How often to save policy and value functions
-    :param save_path:
-    :return: Trained network.
-    """
 
-    # Set up model dir
-    directory = os.path.dirname(save_dir)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
     # Set up logger
-    logg_writer = SummaryWriter(log_dir=log_dir)
+    log_writer = SummaryWriter(log_dir=log_dir + 'log/')
 
     # Seed torch and numpy
     torch.manual_seed(seed)
@@ -265,7 +239,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         # A epoch of experience is collected
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
-            torch.save(actor_critic.state_dict(), save_dir + 'model{}.pth'.format(epoch))
+            torch.save(actor_critic.state_dict(), log_dir + 'saved_models/model{}.pth'.format(epoch))
 
         # Perform PPO update
         actor_critic = actor_critic.to(device=device)
@@ -280,21 +254,21 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         episode_len_mean = np.mean(np.array(episode_len_epoch))
 
         # Total env interactions:
-        logg_writer.add_scalar('Progress/TotalEnvInteractions', steps_per_epoch * (epoch + 1), epoch + 1)
+        log_writer.add_scalar('Progress/TotalEnvInteractions', steps_per_epoch * (epoch + 1), epoch + 1)
         # Episode return: average, std, min, max
-        logg_writer.add_scalar('EpisodesReturn/mean', episode_return_mean, epoch + 1)
+        log_writer.add_scalar('EpisodesReturn/mean', episode_return_mean, epoch + 1)
         # Episode len: average, std, min, max
-        logg_writer.add_scalar('EpisodeLength/mean', episode_len_mean, epoch + 1)
+        log_writer.add_scalar('EpisodeLength/mean', episode_len_mean, epoch + 1)
         # Total loss:
-        logg_writer.add_scalar('Loss/TotalLoss/Mean', mean_loss_total, epoch + 1)
-        logg_writer.add_scalar('Loss/ActionLoss/Mean', mean_loss_action, epoch + 1)
-        logg_writer.add_scalar('Loss/ValueLoss/Mean', mean_loss_value, epoch + 1)
+        log_writer.add_scalar('Loss/TotalLoss/Mean', mean_loss_total, epoch + 1)
+        log_writer.add_scalar('Loss/ActionLoss/Mean', mean_loss_action, epoch + 1)
+        log_writer.add_scalar('Loss/ValueLoss/Mean', mean_loss_value, epoch + 1)
         # Elapsed time
-        logg_writer.add_scalar('Progress/ElapsedTimeMinutes', (time.time() - start_time) / 60, epoch + 1)
+        log_writer.add_scalar('Progress/ElapsedTimeMinutes', (time.time() - start_time) / 60, epoch + 1)
         # Entropy of action outputs
-        logg_writer.add_scalar('Entropy/mean', mean_entropy, epoch + 1)
+        log_writer.add_scalar('Entropy/mean', mean_entropy, epoch + 1)
 
-    logg_writer.close()
+    log_writer.close()
 
 
 if __name__ == '__main__':
@@ -304,10 +278,26 @@ if __name__ == '__main__':
 
     # Write AirSim settings to a json file
     with open(parameters['training']['airsim_settings_path'], 'w') as f:
-        json.dump(parameters['airsim'], f, indent="\t")
+        json.dump(parameters['airsim'], f, indent='\t')
 
     print('Copied AirSim settings to Documents folder.')
     print('(Re)Start AirSim and then press enter to start training')
+
+    # Create the directories for logs and saved models
+    directory = os.path.dirname(parameters['training']['log_dir'])
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    sub_dir = os.path.dirname(parameters['training']['log_dir']+'saved_models/')
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    sub_dir = os.path.dirname(parameters['training']['log_dir'] + 'log/')
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    # Copy all parameters to log dir
+    with open(parameters['training']['log_dir'] + 'parameters.json', 'w') as f:
+        json.dump(parameters, f, indent='\t')
+
     import airgym
     import risenet.tools as rsn
     env = airgym.make(sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=parameters['environment']['max_dist'])
@@ -327,5 +317,4 @@ if __name__ == '__main__':
                 lam=parameters['training']['lambda'], max_episode_len=parameters['training']['max_episode_len'],
                 value_loss_coef=parameters['training']['value_loss_coef'],
                 entropy_coef=parameters['training']['entropy_coef'], save_freq=parameters['training']['save_freq'],
-                save_dir=parameters['training']['save_dir'],
                 log_dir=parameters['training']['log_dir'])
