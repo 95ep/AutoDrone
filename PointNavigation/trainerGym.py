@@ -341,4 +341,4 @@ if __name__ == '__main__':
                 lam=parameters['training']['lambda'], max_episode_len=parameters['training']['max_episode_len'],
                 value_loss_coef=parameters['training']['value_loss_coef'],
                 entropy_coef=parameters['training']['entropy_coef'], save_freq=parameters['training']['save_freq'],
-                log_dir=parameters['training']['log_dir'])
+                log_dir=args.logdir)
