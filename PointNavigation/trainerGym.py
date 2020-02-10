@@ -10,8 +10,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def zero_pad_obs(obs, width=256, height=256, channels=3):
     padded = np.zeros((width, height, channels))
-    w_idx = width-obs.shape[1]//2
-    h_idx = height-obs.shape[0]//2
+    w_idx = (width-obs.shape[1]) // 2
+    h_idx = (height-obs.shape[0]) // 2
     padded[h_idx:obs.shape[0]+h_idx, w_idx:obs.shape[1]+w_idx, :] = obs
 
     obs_dict = {'rgb':padded}
@@ -74,7 +74,7 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
         action_loss_in_epoch[i] = action_loss.item()
         value_loss_in_epoch[i] = value_loss.item()
         entropy_in_epoch[i] = entropy.item()
-        approx_kl_in_epoch[i] = approx_kl.item()
+        approx_kl_in_epoch[i] = approx_kl
 
     mean_total_loss = np.mean(total_loss_in_epoch)
     mean_action_loss = np.mean(action_loss_in_epoch)
@@ -183,7 +183,12 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     np.random.seed(seed)
 
     # Get some env variables
-    obs_space = env.observation_space
+    #obs_space = env.observation_space
+    # TODO: hard coded fix
+    from gym import spaces
+    space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
+    obs_space = spaces.Dict(space_dict)
+    # end TODO:
     act_shape = env.action_space.n
 
     # Count variables. Something they do and add to logg in spinningUp but not necessary
@@ -218,6 +223,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                     obs, hidden_state, prev_action, mask)
 
             next_obs, reward, done, _ = env.step(action)
+            env.render()
             next_obs = zero_pad_obs(next_obs)
             episode_return += reward
             episode_len += 1
