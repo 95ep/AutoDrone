@@ -73,9 +73,17 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10):
 
     if 'depth' in sensor_types:
         idx = sensor_idx['depth']
-        # convert to 2D numpy array
-        depth = airsim.list_to_2d_float_array(
-            responses[idx].image_data_float, responses[idx].width, responses[idx].height)
+        # convert to 2D numpy array. Had unexpected exception here. Try: Catch
+        try:
+            depth = airsim.list_to_2d_float_array(
+                responses[idx].image_data_float, responses[idx].width, responses[idx].height)
+        except ValueError as err:
+            print('========================================================')
+            print('Value err when converting depth image: {0}'.format(err))
+            print('Replacing depth map with all max dist values')
+            print('========================================================')
+            depth = np.ones((256,256), dtype=np.float32)*max_dist
+
         # clip array after max_dist
         depth = np.clip(depth, None, max_dist)/max_dist
         depth = np.expand_dims(depth, axis=2)
