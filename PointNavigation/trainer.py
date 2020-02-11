@@ -161,7 +161,7 @@ class PPOBuffer:
 
 
 def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, steps_per_epoch=4000,
-                epochs=50, gamma=0.99, clip_ratio=0.2, lr=3e-4, train_iters=80, lam=0.97,
+                epochs=50, start_epoch=0, gamma=0.99, clip_ratio=0.2, lr=3e-4, train_iters=80, lam=0.97,
                 max_episode_len=1000, value_loss_coef=1, entropy_coef=0.01, save_freq=10,
                 log_dir='runs'):
     # value_loss_coef and entropy_coef taken from https://arxiv.org/abs/1707.06347
@@ -197,7 +197,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     mask = torch.zeros(1,1)
 
     # Main loop: collect experience in env and update/log each epoch
-    for epoch in range(epochs):
+    for epoch in range(start_epoch, epochs):
         print('Epoch {} started'.format(epoch))
         # list of episode returns and episode lengths to put to logg
         episode_returns_epoch = []
@@ -320,18 +320,24 @@ if __name__ == '__main__':
 
     ac = rsn.neural_agent(rgb=('rbg' in sensors), depth=('depth' in sensors), gps_compass=(
         'pointgoal_with_gps_compass' in sensors))
-    rsn.load_pretrained_weights(ac, parameters['training']['weights'])
+
     dim_actions = 6
-    rsn.change_action_dim(ac, dim_actions)
+    if parameters['training']['from_scratch']:
+        rsn.load_pretrained_weights(ac, parameters['training']['weights'])
+        rsn.change_action_dim(ac, dim_actions)
+    else:
+        rsn.change_action_dim(ac, dim_actions)
+        weight_dict = torch.load(parameters['training']['weights'])
+        ac.load_state_dict(weight_dict)
 
     n_hidden_l = ac.net.num_recurrent_layers
     hidden_size = ac.net.output_size
 
     PPO_trainer(env, ac, num_rec_layers=n_hidden_l, hidden_state_size=hidden_size, seed=parameters['training']['seed'],
                 steps_per_epoch=parameters['training']['steps_per_epoch'], epochs=parameters['training']['epochs'],
-                gamma=parameters['training']['gamma'], clip_ratio=parameters['training']['clip_ratio'],
-                lr=parameters['training']['lr'], train_iters=parameters['training']['train_iters'],
-                lam=parameters['training']['lambda'], max_episode_len=parameters['training']['max_episode_len'],
-                value_loss_coef=parameters['training']['value_loss_coef'],
+                start_epoch=parameters['training']['start_epoch'], gamma=parameters['training']['gamma'],
+                clip_ratio=parameters['training']['clip_ratio'], lr=parameters['training']['lr'],
+                train_iters=parameters['training']['train_iters'], lam=parameters['training']['lambda'],
+                max_episode_len=parameters['training']['max_episode_len'], value_loss_coef=parameters['training']['value_loss_coef'],
                 entropy_coef=parameters['training']['entropy_coef'], save_freq=parameters['training']['save_freq'],
                 log_dir=args.logdir)
