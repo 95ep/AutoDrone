@@ -14,22 +14,17 @@ def discount_cumsum(x, discount):
 
 
 def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
-    obs, act, ret, adv, logp_old, hidden, prev_actions, masks = data['obs'], data['act'], data['ret'], \
-                                                                data['adv'], data['logp'], data['hidden'], \
-                                                                data['prev_act'], data['mask']
+    obs, act, ret, adv, logp_old = data['obs'], data['act'], data['ret'], data['adv'], data['logp']
 
-    for k,v in obs.items():
-        obs[k]=v.to(device=device)
+
+    obs = obs.to(device=device)
     act = act.to(device=device)
     ret = ret.to(device=device)
     adv = adv.to(device=device)
     logp_old = logp_old.to(device=device)
-    hidden = hidden.to(device=device)
-    prev_actions = prev_actions.to(device=device)
-    masks = masks.to(device=device)
 
-    values, logp, dist_entropy, _ = actor_critic.evaluate_actions(obs, hidden[0], prev_actions, masks, act)
-    orig_vals = data['val']
+
+    values, logp, dist_entropy, _ = actor_critic.evaluate_actions(obs, act)
     #print("Orig vals")
     #print(orig_vals)
     #print("New pred vals")
@@ -88,39 +83,29 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
 class PPOBuffer:
     # Stores trajectories collected.
     def __init__(self, obs_space, act_shape, steps, num_rec_layers, hidden_state_size, gamma, lam, n_envs=1):
-        self.obs_buf = {}
-        for sensor in obs_space.spaces:
-            # * operator unpacks arguments, I think
-            self.obs_buf[sensor] = np.zeros((steps, *obs_space.spaces[sensor].shape), dtype=np.float32)
+        self.obs_buf = np.zeros((steps, *obs_space.shape), dtype=np.float32)
         self.act_buf = np.zeros((steps, 1), dtype=np.int)
-        self.prev_act_buf = np.zeros((steps, 1), dtype=np.int)
-        self.hidden_buf = np.zeros((steps, num_rec_layers, n_envs, hidden_state_size), dtype=np.float32)
         self.rew_buf = np.zeros(steps, dtype=np.float32)
         self.adv_buf = np.zeros(steps, dtype=np.float32)
         self.ret_buf = np.zeros(steps, dtype=np.float32)
         self.val_buf = np.zeros(steps, dtype=np.float32)
         self.logp_buf = np.zeros(steps, dtype=np.float32)
-        self.mask_buf = np.zeros((steps, 1), dtype=np.float32)
         self.gamma = gamma
         self.lam = lam
         self.ptr = 0  # Keeps track of number of interaction in buffer
         self.path_start_idx = 0
         self.max_size = steps
 
-    def store(self, obs, act, rew, val, logp, hidden_state, mask, prev_act):
+    def store(self, obs, act, rew, val, logp):
         """
         Add one step of interactions to the buffer
         """
         assert self.ptr < self.max_size
-        for k,v in obs.items():
-            self.obs_buf[k][self.ptr] = v
+        self.obs_buf[self.ptr] = obs
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
-        #self.hidden_buf[self.ptr] = hidden_state
-        self.mask_buf[self.ptr] = mask
-        self.prev_act_buf[self.ptr] = prev_act
         self.ptr += 1
 
     def finish_path(self, last_val=0):
@@ -157,16 +142,14 @@ class PPOBuffer:
         # Advantage normalization
         adv_mean = np.mean(self.adv_buf)
         adv_std = np.std(self.adv_buf)
-        #self.adv_buf = (self.adv_buf - adv_mean) / adv_std
+        self.adv_buf = (self.adv_buf - adv_mean) / adv_std
 
-        data = dict(act=self.act_buf, ret=self.ret_buf, adv=self.adv_buf, logp=self.logp_buf,
-                    hidden=self.hidden_buf, mask=self.mask_buf, prev_act=self.prev_act_buf, val=self.val_buf)
+        data = dict(act=self.act_buf, ret=self.ret_buf, adv=self.adv_buf, logp=self.logp_buf, val=self.val_buf,
+                    obs=self.obs_buf)
 
         # Make into torch tensors
         data = {k: torch.as_tensor(v, dtype=torch.float32) for k, v in data.items()}
 
-        # Add obs manually since itself is a dict
-        data['obs'] = {k: torch.as_tensor(v, dtype=torch.float32) for k,v in  self.obs_buf.items()}
         return data
 
 
@@ -184,10 +167,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     np.random.seed(seed)
 
     # Get some env variables
-    space_dict = {}
-    from gym import spaces
-    space_dict['pointgoal_with_gps_compass'] = env.observation_space
-    obs_space = spaces.Dict(space_dict)
+    obs_space = env.observation_space
     act_shape = env.action_space.n
 
     # Count variables. Something they do and add to logg in spinningUp but not necessary
@@ -201,14 +181,11 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
     # Prepare for interaction with env
     start_time = time.time()
-    obs, episode_return, episode_len = env.reset(), 0, 0
-    obs = {'pointgoal_with_gps_compass': obs}
-    obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
+    obs, episode_return, episode_len = torch.as_tensor(env.reset(), dtype=torch.float32).unsqueeze(0), 0, 0
+
     # Shape of hidden state is (n_rec_layers, num_envs, recurrent_hidden_state_size).
     # should be able to access these from PointNavResNetNet properties
-    hidden_state = torch.zeros(actor_critic.net.num_recurrent_layers, 1, actor_critic.net.output_size)
     prev_action = torch.tensor([[1]])
-    mask = torch.zeros(1,1)
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
@@ -218,26 +195,20 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         episode_len_epoch = []
         for t in range(steps_per_epoch):
             with torch.no_grad():
-                value, action, log_prob, hidden_state = actor_critic.act(
-                    obs, hidden_state, prev_action, mask)
+                value, action, log_prob = actor_critic.act(
+                    obs)
 
             next_obs, reward, done, _ = env.step(action.item())
-            next_obs = {'pointgoal_with_gps_compass': next_obs}
 
             #env.render()
             episode_return += reward
             episode_len += 1
 
-            mask = torch.tensor(
-                [0.0] if done else [1.0], dtype=torch.float
-            )
-
             # Save to buffer
-            buffer.store(obs, action, reward, value, log_prob, hidden_state, mask, prev_action)
+            buffer.store(obs, action, reward, value, log_prob)
 
             # Update obs and prev_action
-            obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in next_obs.items()}
-            prev_action = action
+            obs = torch.as_tensor(next_obs, dtype=torch.float32).unsqueeze(0)
 
             timeout = episode_len == max_episode_len
             terminal = done or timeout
@@ -249,7 +220,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
                     with torch.no_grad():
-                        value = actor_critic.get_value(obs, hidden_state, prev_action, mask)
+                        value = actor_critic.get_value(obs)
                 else:
                     value = 0
                 buffer.finish_path(value)
@@ -257,9 +228,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 episode_returns_epoch.append(episode_return)
                 episode_len_epoch.append(episode_len)
                 # Reset if episode ended
-                obs, episode_return, episode_len = env.reset(), 0, 0
-                obs = {'pointgoal_with_gps_compass': obs}
-                obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
+                obs, episode_return, episode_len = torch.as_tensor(env.reset(), dtype=torch.float32).unsqueeze(0), 0, 0
 
         # A epoch of experience is collected
         # Save model
@@ -333,14 +302,8 @@ if __name__ == '__main__':
     env = gym.make('CartPole-v0')
 
     from risenet.vanilla_net import CartpolePolicy
-    from gym import spaces
 
-    sensors = ['pointgoal_with_gps_compass']
-    space_dict = {}
-    space_dict['pointgoal_with_gps_compass'] = env.observation_space
-    obs_space = spaces.Dict(space_dict)
-
-    ac = CartpolePolicy(obs_space, env.action_space, hidden_size=64)
+    ac = CartpolePolicy(env.observation_space, env.action_space, hidden_size=64)
 
     n_hidden_l = ac.net.num_recurrent_layers
     hidden_size = ac.net.output_size
