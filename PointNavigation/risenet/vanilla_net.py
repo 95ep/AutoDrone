@@ -346,9 +346,11 @@ class CartpoleNet(Net):
 
         self._hidden_size = hidden_size
 
-        rnn_input_size = self._n_input_goal + self._n_prev_action
+        #rnn_input_size = self._n_input_goal + self._n_prev_action
+        rnn_input_size = self._n_input_goal
 
         self.fake_rnn = nn.Linear(rnn_input_size, hidden_size)
+        self.fake_rnn2 = nn.Linear(hidden_size, hidden_size)
 
         self.train()
 
@@ -380,13 +382,15 @@ class CartpoleNet(Net):
     def forward(self, observations, rnn_hidden_states, prev_actions, masks):
         x = []
 
-        tgt_encoding = self.get_tgt_encoding(observations)
-        prev_actions = self.prev_action_embedding(
+        tgt_encoding = F.relu(self.get_tgt_encoding(observations))
+        '''prev_actions = self.prev_action_embedding(
             prev_actions.long().squeeze(-1)
-        )
-        x += [tgt_encoding, prev_actions]
-        x = torch.cat(x, dim=1)
+        )'''
+        #x += [tgt_encoding, prev_actions]
+        #x = torch.cat(x, dim=1)
+        x = tgt_encoding
 
         x = F.relu(self.fake_rnn(x))
+        x = F.relu(self.fake_rnn2(x))
 
         return x, (None, None)

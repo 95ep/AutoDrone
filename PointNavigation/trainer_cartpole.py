@@ -29,6 +29,16 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     masks = masks.to(device=device)
 
     values, logp, dist_entropy, _ = actor_critic.evaluate_actions(obs, hidden[0], prev_actions, masks, act)
+    orig_vals = data['val']
+    #print("Orig vals")
+    #print(orig_vals)
+    #print("New pred vals")
+    #print(values.t())
+    #print("Returns")
+    #print(ret)
+    #print("Obs")
+    #print(obs)
+    #input("Press enter: ")
 
     # Calc ratio of logp
     ratio = torch.exp(logp - logp_old)
@@ -147,10 +157,10 @@ class PPOBuffer:
         # Advantage normalization
         adv_mean = np.mean(self.adv_buf)
         adv_std = np.std(self.adv_buf)
-        self.adv_buf = (self.adv_buf - adv_mean) / adv_std
+        #self.adv_buf = (self.adv_buf - adv_mean) / adv_std
 
         data = dict(act=self.act_buf, ret=self.ret_buf, adv=self.adv_buf, logp=self.logp_buf,
-                    hidden=self.hidden_buf, mask=self.mask_buf, prev_act=self.prev_act_buf)
+                    hidden=self.hidden_buf, mask=self.mask_buf, prev_act=self.prev_act_buf, val=self.val_buf)
 
         # Make into torch tensors
         data = {k: torch.as_tensor(v, dtype=torch.float32) for k, v in data.items()}
