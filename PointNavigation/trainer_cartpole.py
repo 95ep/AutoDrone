@@ -108,7 +108,7 @@ class PPOBuffer:
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
-        self.hidden_buf[self.ptr] = hidden_state
+        #self.hidden_buf[self.ptr] = hidden_state
         self.mask_buf[self.ptr] = mask
         self.prev_act_buf[self.ptr] = prev_act
         self.ptr += 1
@@ -167,7 +167,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     # value_loss_coef and entropy_coef taken from https://arxiv.org/abs/1707.06347
 
     # Set up logger
-    #log_writer = SummaryWriter(log_dir=log_dir + 'log/')
+    log_writer = SummaryWriter(log_dir=log_dir + 'log/')
 
     # Seed torch and numpy
     torch.manual_seed(seed)
@@ -197,7 +197,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     # Shape of hidden state is (n_rec_layers, num_envs, recurrent_hidden_state_size).
     # should be able to access these from PointNavResNetNet properties
     hidden_state = torch.zeros(actor_critic.net.num_recurrent_layers, 1, actor_critic.net.output_size)
-    prev_action = torch.tensor([1])
+    prev_action = torch.tensor([[1]])
     mask = torch.zeros(1,1)
 
     # Main loop: collect experience in env and update/log each epoch
@@ -268,7 +268,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         print('Episode return mean: {}'.format(episode_return_mean))
         episode_len_mean = np.mean(np.array(episode_len_epoch))
 
-        """
+
         # Total env interactions:
         log_writer.add_scalar('Progress/TotalEnvInteractions', steps_per_epoch * (epoch + 1), epoch + 1)
         # Episode return: average, std, min, max
@@ -285,9 +285,9 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         log_writer.add_scalar('Entropy/mean', mean_entropy, epoch + 1)
         # Approx kl
         log_writer.add_scalar('ApproxKL/mean', mean_approx_kl, epoch + 1)
-    
+
     log_writer.close()
-    """
+
 
 if __name__ == '__main__':
     import argparse
@@ -322,7 +322,7 @@ if __name__ == '__main__':
 
     env = gym.make('CartPole-v0')
 
-    from risenet.cartpole_agent import CartpolePolicy
+    from risenet.vanilla_net import CartpolePolicy
     from gym import spaces
 
     sensors = ['pointgoal_with_gps_compass']
@@ -330,7 +330,7 @@ if __name__ == '__main__':
     space_dict['pointgoal_with_gps_compass'] = env.observation_space
     obs_space = spaces.Dict(space_dict)
 
-    ac = CartpolePolicy(obs_space, env.action_space)
+    ac = CartpolePolicy(obs_space, env.action_space, hidden_size=64)
 
     n_hidden_l = ac.net.num_recurrent_layers
     hidden_size = ac.net.output_size

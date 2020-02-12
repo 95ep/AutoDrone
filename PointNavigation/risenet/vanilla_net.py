@@ -384,7 +384,6 @@ class CartpoleNet(Net):
         prev_actions = self.prev_action_embedding(
             prev_actions.long().squeeze(-1)
         )
-
         x += [tgt_encoding, prev_actions]
         x = torch.cat(x, dim=1)
 
