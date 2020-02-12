@@ -82,9 +82,9 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
 
 class PPOBuffer:
     # Stores trajectories collected.
-    def __init__(self, obs_space, act_shape, steps, num_rec_layers, hidden_state_size, gamma, lam, n_envs=1):
+    def __init__(self, obs_space, act_shape, steps,  gamma, lam):
         self.obs_buf = np.zeros((steps, *obs_space.shape), dtype=np.float32)
-        self.act_buf = np.zeros((steps, 1), dtype=np.int)
+        self.act_buf = np.zeros((steps, act_shape), dtype=np.int)
         self.rew_buf = np.zeros(steps, dtype=np.float32)
         self.adv_buf = np.zeros(steps, dtype=np.float32)
         self.ret_buf = np.zeros(steps, dtype=np.float32)
@@ -173,7 +173,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     # Count variables. Something they do and add to logg in spinningUp but not necessary
 
     # Set up experience buffer
-    buffer = PPOBuffer(obs_space, act_shape, steps_per_epoch, num_rec_layers, hidden_state_size, gamma, lam, )
+    buffer = PPOBuffer(obs_space, act_shape, steps_per_epoch, gamma, lam)
 
     # This is just copied from baseline. My understanding is that filter passes each parameter to the lambda function
     # and then creates a list of alla parameters for which .requires_grad is True
@@ -185,7 +185,6 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
     # Shape of hidden state is (n_rec_layers, num_envs, recurrent_hidden_state_size).
     # should be able to access these from PointNavResNetNet properties
-    prev_action = torch.tensor([[1]])
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
@@ -200,7 +199,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
             next_obs, reward, done, _ = env.step(action.item())
 
-            #env.render()
+            # env.render()
             episode_return += reward
             episode_len += 1
 
