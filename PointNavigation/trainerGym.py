@@ -38,6 +38,8 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     masks = masks.to(device=device)
 
     values, logp, dist_entropy, _ = actor_critic.evaluate_actions(obs, hidden[0], prev_actions, masks, act)
+    values = values.squeeze()
+    logp = logp.squeeze()
 
     # Calc ratio of logp
     ratio = torch.exp(logp - logp_old)
@@ -223,7 +225,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                     obs, hidden_state, prev_action, mask)
 
             next_obs, reward, done, _ = env.step(action)
-            env.render()
+            #env.render()
             next_obs = zero_pad_obs(next_obs)
             episode_return += reward
             episode_len += 1

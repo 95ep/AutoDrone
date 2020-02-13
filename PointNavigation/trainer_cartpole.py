@@ -24,8 +24,21 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     adv = adv.to(device=device)
     logp_old = logp_old.to(device=device)
 
+    # print('Obs is leaf: {}'.format(obs.is_leaf))
+    # print('act is leaf: {}'.format(act.is_leaf))
 
     values, logp, dist_entropy = actor_critic.evaluate_actions(obs, act)
+    values = values.squeeze()
+    logp = logp.squeeze()
+    # print("Values")
+    # print(values)
+    # print("Returns")
+    # print(ret)
+
+    # for t in range(len(obs)):
+    #     print("step {} -- obs: {} action: {}, old_logp: {}, new_logp: {}, return: {}".format(t, obs[t], act[t], logp_old[t], logp[t].item(), ret[t]))
+    #
+    # print("value: {}".format(values))
 
     '''ref_values = torch.zeros(values.shape, device=device)
     ref_logp = torch.zeros(logp.shape, device=device)
@@ -56,16 +69,38 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     #nput("Press enter: ")
 
     # Calc ratio of logp
+    # print("Shape of logp: {}".format(logp.shape))
+    # print("Shape of logp_old: {}".format(logp_old.shape))
     ratio = torch.exp(logp - logp_old)
+    # print("Shape of ratio: {}".format(ratio.shape))
+    # print("Shape of adv: {}".format(adv.shape))
     surr1 = ratio * adv
     surr2 = torch.clamp(ratio, 1.0 - clip_ratio, 1.0 + clip_ratio) * adv
+    # print("Shape of surr1 {}".format(surr1.shape))
+    # print("Shape of surr2 {}".format(surr2.shape))
+    # print("Shape of -torch.min(surr1, surr2) {} ".format((-torch.min(surr1, surr2)).shape))
     action_loss = -torch.min(surr1, surr2).mean()
+    # print("ActionLoss")
+    # print(action_loss)
+    # print("entropy")
+    # print(dist_entropy)
+    # print("shape of dist_entropy: {}".format(dist_entropy.shape))
+    #
+    # print("Shape of ret {}".format(ret.shape))
+    # print("Shape of values {}".format(values.shape))
+    # print("(ret-values).pow(2) {}".format((ret-values).pow(2).shape))
+    value_loss = 0.5*(ret - values).pow(2).mean()
 
-    value_loss = (ret - values).pow(2).mean()
-    #print("value_loss {}".format(value_loss))
+    # print("value_loss {}".format(value_loss))
+    # print(value_loss)
+    # print(value_loss.grad_fn)
 
     total_loss = value_loss * value_loss_coef + action_loss - dist_entropy * entropy_coef
-    #print("total loss {}".format(total_loss))
+    # total_loss = value_loss * value_loss_coef + action_loss
+    # print("Total loss")
+    # print(total_loss)
+    # print("Shape ot total_loss {}".format(total_loss.shape))
+    # print("total loss {}".format(total_loss))
 
     # Compute approx kl for logging purposes
     approx_kl = (logp_old-logp).mean().item()
@@ -86,7 +121,15 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
         optimizer.zero_grad()
         total_loss, action_loss, value_loss, entropy, approx_kl = _total_loss(data, actor_critic, clip_ratio,
                                                                    value_loss_coef, entropy_coef)
+        # print("Total loss at optim")
+        # print(total_loss)
+        #
+        # print("Grad in value w before backward")
+        # print(actor_critic.critic.weight.grad)
+
         total_loss.backward()
+        # print("Grad in value w after backward")
+        # print(actor_critic.critic.weight.grad)
         optimizer.step()
         total_loss_in_epoch[i] = total_loss.item()
         action_loss_in_epoch[i] = action_loss.item()
@@ -185,8 +228,8 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     log_writer = SummaryWriter(log_dir=log_dir + 'log/')
 
     # Seed torch and numpy
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    # torch.manual_seed(seed)
+    # np.random.seed(seed)
 
     # Get some env variables
     obs_space = env.observation_space
@@ -230,12 +273,17 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
             # Save to buffer
             buffer.store(obs, action, reward, value, log_prob)
 
+            # print("step {} -- obs: {} action: {}, logp: {}, reward: {}, done {}".format(t, obs, action, log_prob, reward, done))
+            if epoch % 50 == 0:
+                print(value)
+
             # Update obs and prev_action
             obs = torch.as_tensor(next_obs, dtype=torch.float32).unsqueeze(0)
 
             timeout = episode_len == max_episode_len
             terminal = done or timeout
             epoch_ended = t == steps_per_epoch - 1
+
 
             if terminal or epoch_ended:
                 if epoch_ended and not terminal:
@@ -244,12 +292,16 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 if timeout or epoch_ended:
                     with torch.no_grad():
                         value = actor_critic.get_value(obs)
+                        # print('Bootstraping with value {}'.format(value))
                 else:
+                    if epoch % 50 == 0:
+                        print("Terminal state (died)")
                     value = 0
                 buffer.finish_path(value)
 
-                episode_returns_epoch.append(episode_return)
-                episode_len_epoch.append(episode_len)
+                if done or timeout:
+                    episode_returns_epoch.append(episode_return)
+                    episode_len_epoch.append(episode_len)
                 # Reset if episode ended
                 obs, episode_return, episode_len = torch.as_tensor(env.reset(), dtype=torch.float32).unsqueeze(0), 0, 0
 
@@ -326,7 +378,7 @@ if __name__ == '__main__':
 
     from risenet.simple_net import SimpleNet
 
-    ac = SimpleNet(*env.observation_space.shape, env.action_space.n)
+    ac = SimpleNet(*env.observation_space.shape, env.action_space.n, hidden_size=64)
 
     PPO_trainer(env, ac, num_rec_layers=None, hidden_state_size=None, seed=parameters['training']['seed'],
                 steps_per_epoch=parameters['training']['steps_per_epoch'], epochs=parameters['training']['epochs'],
