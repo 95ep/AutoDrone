@@ -2,17 +2,17 @@
     "training": {
         "seed": 0,
         "gamma": 0.99,
-        "epochs": 50000,
-        "steps_per_epoch": 512,
+        "epochs": 1000,
+        "steps_per_epoch": 128,
         "sensors": "rgb",
         "weights": "",
         "clip_ratio": 0.2,
-        "lr": 3e-4,
-        "train_iters": 10,
+        "lr": 1e-3,
+        "train_iters": 5,
         "lambda": 0.97,
-        "max_episode_len": 64,
+        "max_episode_len": 199,
         "value_loss_coef": 0.5,
         "entropy_coef": 0.01,
-        "save_freq": 10
+        "save_freq": 100
     }
 }

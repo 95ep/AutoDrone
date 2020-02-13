@@ -6,7 +6,8 @@ import numpy as np
 import scipy.signal
 import os
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cpu'
 
 def discount_cumsum(x, discount):
     # Helper function. Some magic from scipy.
@@ -24,13 +25,15 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     logp_old = logp_old.to(device=device)
 
 
-    values, logp, dist_entropy, _ = actor_critic.evaluate_actions(obs, act)
+    values, logp, dist_entropy = actor_critic.evaluate_actions(obs, act)
 
-    ref_values = torch.zeros(values.shape)
-    ref_logp = torch.zeros(logp.shape)
+    '''ref_values = torch.zeros(values.shape, device=device)
+    ref_logp = torch.zeros(logp.shape, device=device)
     for i in range(len(obs)):
-        v, p, _ = actor_critic.act(obs)
-        lp = torch.log(p[act[i]])
+        v, p = actor_critic(obs[i].unsqueeze(0))
+        p = p.squeeze()
+        v = v.squeeze()
+        lp = torch.log(p[act[i].long()])
         ref_values[i] = v
         ref_logp[i] = lp
 
@@ -44,7 +47,7 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     print('orig logp')
     print(logp)
     print('new ref logp')
-    print(ref_logp)
+    print(ref_logp)'''
     #print("Returns")
     #print(ret)
     #print("Obs")
