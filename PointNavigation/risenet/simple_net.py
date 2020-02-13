@@ -17,7 +17,7 @@ class SimpleNet(nn.Module):
         value, policy = self(obs)
         action = Categorical(policy).sample()
         log_prob = torch.log(policy)
-        return value, action, log_prob[action]
+        return value, action, log_prob[0,action]
 
     def get_value(self, obs):
         value, policy = self(obs)
@@ -25,9 +25,10 @@ class SimpleNet(nn.Module):
 
     def evaluate_actions(self, obs, action):
         value, policy = self(obs)
-        entropy = Categorical(policy).entropy()
+        entropy = Categorical(policy).entropy().mean()
         log_prob = torch.log(policy)
-        log_list = [log_prob[i, action[i]].unsqueeze(0) for i in range(len(action))]
+
+        log_list = [log_prob[i, action[i].long().item()].unsqueeze(0) for i in range(len(action))]
         log_prob = torch.cat(log_list)
         log_prob = log_prob.view(len(action), 1)
         return value, log_prob, entropy

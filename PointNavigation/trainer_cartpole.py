@@ -23,8 +23,8 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     adv = adv.to(device=device)
     logp_old = logp_old.to(device=device)
 
-
-    values, logp, dist_entropy, _ = actor_critic.evaluate_actions(obs, act)
+    # print(obs)
+    values, logp, dist_entropy = actor_critic.evaluate_actions(obs, act)
     #print("Orig vals")
     #print(orig_vals)
     #print("New pred vals")
@@ -33,7 +33,8 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     #print(ret)
     #print("Obs")
     #print(obs)
-    #input("Press enter: ")
+    #print(ret)
+    #nput("Press enter: ")
 
     # Calc ratio of logp
     ratio = torch.exp(logp - logp_old)
@@ -42,8 +43,10 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     action_loss = -torch.min(surr1, surr2).mean()
 
     value_loss = (ret - values).pow(2).mean()
+    #print("value_loss {}".format(value_loss))
 
     total_loss = value_loss * value_loss_coef + action_loss - dist_entropy * entropy_coef
+    #print("total loss {}".format(total_loss))
 
     # Compute approx kl for logging purposes
     approx_kl = (logp_old-logp).mean().item()
@@ -168,7 +171,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
     # Get some env variables
     obs_space = env.observation_space
-    act_shape = env.action_space.n
+    act_shape = 1
 
     # Count variables. Something they do and add to logg in spinningUp but not necessary
 
@@ -178,6 +181,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     # This is just copied from baseline. My understanding is that filter passes each parameter to the lambda function
     # and then creates a list of alla parameters for which .requires_grad is True
     optimizer = Adam(list(filter(lambda p: p.requires_grad, actor_critic.parameters())), lr=lr)
+    #optimizer = Adam(actor_critic.parameters(), lr=lr)
 
     # Prepare for interaction with env
     start_time = time.time()
@@ -188,6 +192,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
+        #input("Press enter to start next epoch")
         print('Epoch {} started'.format(epoch))
         # list of episode returns and episode lengths to put to logg
         episode_returns_epoch = []
@@ -300,14 +305,11 @@ if __name__ == '__main__':
 
     env = gym.make('CartPole-v0')
 
-    from risenet.vanilla_net import CartpolePolicy
+    from risenet.simple_net import SimpleNet
 
-    ac = CartpolePolicy(env.observation_space, env.action_space, hidden_size=64)
+    ac = SimpleNet(*env.observation_space.shape, env.action_space.n)
 
-    n_hidden_l = ac.net.num_recurrent_layers
-    hidden_size = ac.net.output_size
-
-    PPO_trainer(env, ac, num_rec_layers=n_hidden_l, hidden_state_size=hidden_size, seed=parameters['training']['seed'],
+    PPO_trainer(env, ac, num_rec_layers=None, hidden_state_size=None, seed=parameters['training']['seed'],
                 steps_per_epoch=parameters['training']['steps_per_epoch'], epochs=parameters['training']['epochs'],
                 gamma=parameters['training']['gamma'], clip_ratio=parameters['training']['clip_ratio'],
                 lr=parameters['training']['lr'], train_iters=parameters['training']['train_iters'],
