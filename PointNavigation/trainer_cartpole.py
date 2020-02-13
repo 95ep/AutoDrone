@@ -25,10 +25,26 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
 
 
     values, logp, dist_entropy, _ = actor_critic.evaluate_actions(obs, act)
-    #print("Orig vals")
-    #print(orig_vals)
-    #print("New pred vals")
-    #print(values.t())
+
+    ref_values = torch.zeros(values.shape)
+    ref_logp = torch.zeros(logp.shape)
+    for i in range(len(obs)):
+        v, p, _ = actor_critic.act(obs)
+        lp = torch.log(p[act[i]])
+        ref_values[i] = v
+        ref_logp[i] = lp
+
+
+
+    print("Orig vals")
+    print(values.t())
+    print("New ref vals")
+    print(ref_values.t())
+    print('')
+    print('orig logp')
+    print(logp)
+    print('new ref logp')
+    print(ref_logp)
     #print("Returns")
     #print(ret)
     #print("Obs")
