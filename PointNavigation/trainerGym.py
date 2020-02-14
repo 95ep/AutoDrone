@@ -1,6 +1,8 @@
 import torch
 from torch.optim import Adam
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from dictloader import ExperienceDataset, ExperienceSampler
 import time
 import numpy as np
 import scipy.signal
@@ -29,6 +31,7 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
 
     for k,v in obs.items():
         obs[k]=v.to(device=device)
+    #     print("Shape of obs {} is {}".format(k, obs[k].shape))
     act = act.to(device=device)
     ret = ret.to(device=device)
     adv = adv.to(device=device)
@@ -37,19 +40,34 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     prev_actions = prev_actions.to(device=device)
     masks = masks.to(device=device)
 
+
+    # print("Shape of action: {}".format(act.shape))
+    # print("Shape of prev_actions {}".format(prev_actions.shape))
     values, logp, dist_entropy, _ = actor_critic.evaluate_actions(obs, hidden[0], prev_actions, masks, act)
-    values = values.squeeze()
-    logp = logp.squeeze()
+    # values = values.squeeze()
+    # logp = logp.squeeze()
 
     # Calc ratio of logp
+    # print("Shape of logp: {}".format(logp.shape))
+    # print("Shape of logp_old: {}".format(logp_old.shape))
     ratio = torch.exp(logp - logp_old)
+    # print("Shape of ratio: {}".format(ratio.shape))
+    # print("Shape of adv: {}".format(adv.shape))
     surr1 = ratio * adv
     surr2 = torch.clamp(ratio, 1.0 - clip_ratio, 1.0 + clip_ratio) * adv
+    # print("Shape of surr1: {}".format(surr1.shape))
+    # print("Shape of surr2: {}".format(surr2.shape))
     action_loss = -torch.min(surr1, surr2).mean()
 
+    # print("Shape of ret: {}".format(ret.shape))
+    # print("Shape of values: {}".format(values.shape))
+    # print(" (ret - values).pow(2) {}".format( (ret - values).pow(2).shape))
     value_loss = (ret - values).pow(2).mean()
 
+    # print("Shape of entropy: {}".format(dist_entropy.shape))
     total_loss = value_loss * value_loss_coef + action_loss - dist_entropy * entropy_coef
+    # print("TotalLoss {}".format(total_loss.shape))
+    # print(total_loss)
 
     # Compute approx kl for logging purposes
     approx_kl = (logp_old-logp).mean().item()
@@ -57,33 +75,45 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     return total_loss, action_loss, value_loss, dist_entropy, approx_kl
 
 
-def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss_coef, entropy_coef):
+def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss_coef, entropy_coef, target_kl, minibatch_size):
     # Spinning up used target_kl for early stopping. Is it smart thing to include?
     data = buffer.get()
-    total_loss_in_epoch = np.zeros(train_iters)
-    action_loss_in_epoch = np.zeros(train_iters)
-    value_loss_in_epoch = np.zeros(train_iters)
-    entropy_in_epoch = np.zeros(train_iters)
-    approx_kl_in_epoch = np.zeros(train_iters)
+    total_loss_in_epoch = []
+    action_loss_in_epoch = []
+    value_loss_in_epoch = []
+    entropy_in_epoch = []
+
+    dataset = ExperienceDataset(data)
+    sampler = ExperienceSampler(dataset, minibatch_size, drop_last=True)
+    data_loader = DataLoader(dataset, batch_size=minibatch_size, sampler=sampler)
 
     for i in range(train_iters):
         optimizer.zero_grad()
-        total_loss, action_loss, value_loss, entropy, approx_kl = _total_loss(data, actor_critic, clip_ratio,
+        approx_kl_iter = []
+        for i_batch, minibatch in enumerate(data_loader):
+            total_loss, action_loss, value_loss, entropy, approx_kl = _total_loss(minibatch, actor_critic, clip_ratio,
                                                                    value_loss_coef, entropy_coef)
-        total_loss.backward()
-        optimizer.step()
-        total_loss_in_epoch[i] = total_loss.item()
-        action_loss_in_epoch[i] = action_loss.item()
-        value_loss_in_epoch[i] = value_loss.item()
-        entropy_in_epoch[i] = entropy.item()
-        approx_kl_in_epoch[i] = approx_kl
 
-    mean_total_loss = np.mean(total_loss_in_epoch)
-    mean_action_loss = np.mean(action_loss_in_epoch)
-    mean_value_loss = np.mean(value_loss_in_epoch)
-    mean_entropy = np.mean(entropy_in_epoch)
-    mean_approx_kl = np.mean(approx_kl_in_epoch)
-    return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, mean_approx_kl
+            total_loss_in_epoch.append(total_loss.item())
+            action_loss_in_epoch.append(action_loss.item())
+            value_loss_in_epoch.append(value_loss.item())
+            entropy_in_epoch.append(entropy.item())
+            approx_kl_iter.append(approx_kl)
+
+            total_loss.backward()
+            optimizer.step()
+
+        if np.array(approx_kl_iter).mean() > target_kl:
+           print("Early stopping at step {} due to reaching max kl.".format(i))
+           break
+
+
+    mean_total_loss = np.mean(np.array(total_loss_in_epoch))
+    mean_action_loss = np.mean(np.array(action_loss_in_epoch))
+    mean_value_loss = np.mean(np.array(value_loss_in_epoch))
+    mean_entropy = np.mean(np.array(entropy_in_epoch))
+
+    return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, approx_kl
 
 
 class PPOBuffer:
@@ -93,14 +123,14 @@ class PPOBuffer:
         for sensor in obs_space.spaces:
             # * operator unpacks arguments, I think
             self.obs_buf[sensor] = np.zeros((steps, *obs_space.spaces[sensor].shape), dtype=np.float32)
-        self.act_buf = np.zeros((steps, 1), dtype=np.int)
-        self.prev_act_buf = np.zeros((steps, 1), dtype=np.int)
+        self.act_buf = np.zeros((steps,1), dtype=np.int)
+        self.prev_act_buf = np.zeros((steps,1), dtype=np.int)
         self.hidden_buf = np.zeros((steps, num_rec_layers, n_envs, hidden_state_size), dtype=np.float32)
         self.rew_buf = np.zeros(steps, dtype=np.float32)
-        self.adv_buf = np.zeros(steps, dtype=np.float32)
-        self.ret_buf = np.zeros(steps, dtype=np.float32)
+        self.adv_buf = np.zeros((steps,1), dtype=np.float32)
+        self.ret_buf = np.zeros((steps,1), dtype=np.float32)
         self.val_buf = np.zeros(steps, dtype=np.float32)
-        self.logp_buf = np.zeros(steps, dtype=np.float32)
+        self.logp_buf = np.zeros((steps, 1), dtype=np.float32)
         self.mask_buf = np.zeros((steps, 1), dtype=np.float32)
         self.gamma = gamma
         self.lam = lam
@@ -144,10 +174,10 @@ class PPOBuffer:
 
         # GAE-lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
-        self.adv_buf[path_slice] = discount_cumsum(deltas, self.gamma * self.lam)
+        self.adv_buf[path_slice] = np.expand_dims(discount_cumsum(deltas, self.gamma * self.lam), axis=1)
 
         # the next line computes rewards-to-go, to be targets for the value function
-        self.ret_buf[path_slice] = discount_cumsum(rews, self.gamma)[:-1]
+        self.ret_buf[path_slice] = np.expand_dims(discount_cumsum(rews, self.gamma)[:-1], axis=1)
 
         self.path_start_idx = self.ptr
 
@@ -172,8 +202,8 @@ class PPOBuffer:
 
 
 def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, steps_per_epoch=4000,
-                epochs=50, gamma=0.99, clip_ratio=0.2, lr=3e-4, train_iters=80, lam=0.97,
-                max_episode_len=1000, value_loss_coef=1, entropy_coef=0.01, save_freq=10,
+                epochs=50, minibatch_size=64 ,gamma=0.99, clip_ratio=0.2, lr=3e-4, train_iters=80, lam=0.97,
+                max_episode_len=1000, value_loss_coef=1, entropy_coef=0.01, target_kl=0.01, save_freq=10,
                 log_dir='runs'):
     # value_loss_coef and entropy_coef taken from https://arxiv.org/abs/1707.06347
 
@@ -181,14 +211,15 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     log_writer = SummaryWriter(log_dir=log_dir + 'log/')
 
     # Seed torch and numpy
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    # torch.manual_seed(seed)
+    # np.random.seed(seed)
 
     # Get some env variables
     #obs_space = env.observation_space
     # TODO: hard coded fix
     from gym import spaces
     space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
+    # space_dict['pointgoal_with_gps_compass'] = env.observation_space
     obs_space = spaces.Dict(space_dict)
     # end TODO:
     act_shape = env.action_space.n
@@ -206,11 +237,12 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     start_time = time.time()
     obs, episode_return, episode_len = env.reset(), 0, 0
     obs = zero_pad_obs(obs)
+    # obs = {"pointgoal_with_gps_compass":obs}
     obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
     # Shape of hidden state is (n_rec_layers, num_envs, recurrent_hidden_state_size).
     # should be able to access these from PointNavResNetNet properties
     hidden_state = torch.zeros(actor_critic.net.num_recurrent_layers, 1, actor_critic.net.output_size)
-    prev_action = torch.tensor([1])
+    prev_action = torch.tensor([0])
     mask = torch.zeros(1,1)
 
     # Main loop: collect experience in env and update/log each epoch
@@ -221,33 +253,41 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         episode_len_epoch = []
         for t in range(steps_per_epoch):
             with torch.no_grad():
-                value, action, log_prob, hidden_state = actor_critic.act(
+                value, action, log_prob, next_hidden_state = actor_critic.act(
                     obs, hidden_state, prev_action, mask)
 
-            next_obs, reward, done, _ = env.step(action)
-            #env.render()
+            next_obs, reward, done, _ = env.step(action.item())
+            # env.render()
             next_obs = zero_pad_obs(next_obs)
+            # next_obs = {"pointgoal_with_gps_compass":next_obs}
+
             episode_return += reward
             episode_len += 1
 
-            mask = torch.tensor(
+            next_mask = torch.tensor(
                 [0.0] if done else [1.0], dtype=torch.float
             )
 
             # Save to buffer
+            # for k,v in obs.items():
+            #     print("Shape of obs {} is {}".format(k, v.shape))
+            # print("Shape of action: {}, reward: {}, value: {}".format(action.shape, reward, value.shape))
+            # print("... logp: {}, hidden_state: {}, mask: {}, prev_act, {}".format(log_prob.shape, hidden_state.shape, mask.shape, prev_action.shape))
             buffer.store(obs, action, reward, value, log_prob, hidden_state, mask, prev_action)
 
             # Update obs and prev_action
             obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in next_obs.items()}
             prev_action = action
+            mask = next_mask
+            hidden_state = next_hidden_state
 
             timeout = episode_len == max_episode_len
             terminal = done or timeout
             epoch_ended = t == steps_per_epoch - 1
 
             if terminal or epoch_ended:
-                if epoch_ended and not terminal:
-                    print('Warning, trajectory cut off by epoch at {} steps.'.format(episode_len), flush=True)
+                # if epoch_ended and not terminal:
+                #     print('Warning, trajectory cut off by epoch at {} steps.'.format(episode_len), flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
                     with torch.no_grad():
@@ -261,6 +301,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 # Reset if episode ended
                 obs, episode_return, episode_len = env.reset(), 0, 0
                 obs = zero_pad_obs(obs)
+                # obs = {"pointgoal_with_gps_compass":obs}
                 obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
 
         # A epoch of experience is collected
@@ -270,9 +311,9 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
         # Perform PPO update
         actor_critic = actor_critic.to(device=device)
-        mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy, mean_approx_kl = _update(actor_critic, buffer,
+        mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy, approx_kl = _update(actor_critic, buffer,
                                                                                   train_iters, optimizer, clip_ratio,
-                                                                                    value_loss_coef, entropy_coef)
+                                                                                    value_loss_coef, entropy_coef, target_kl, minibatch_size)
 
         actor_critic = actor_critic.cpu()
         # Calc metrics and log info about epoch
@@ -294,7 +335,7 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         # Entropy of action outputs
         log_writer.add_scalar('Entropy/mean', mean_entropy, epoch + 1)
         # Approx kl
-        log_writer.add_scalar('ApproxKL/mean', mean_approx_kl, epoch + 1)
+        log_writer.add_scalar('ApproxKL', approx_kl, epoch + 1)
 
     log_writer.close()
 
@@ -330,13 +371,16 @@ if __name__ == '__main__':
 
     env = gym.make('Pong-v0')
 
+    # from risenet.cartpole_agent import CartpolePolicy
     from risenet.gymAgent import GymResNetPolicy
     from gym import spaces
 
     space_dict = {}
     space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
+    # space_dict['pointgoal_with_gps_compass'] = env.observation_space
     observation_space = spaces.Dict(space_dict)
 
+    # ac = CartpolePolicy(observation_space, env.action_space)
     ac = GymResNetPolicy(observation_space, env.action_space)
 
     n_hidden_l = ac.net.num_recurrent_layers
@@ -344,9 +388,10 @@ if __name__ == '__main__':
 
     PPO_trainer(env, ac, num_rec_layers=n_hidden_l, hidden_state_size=hidden_size, seed=parameters['training']['seed'],
                 steps_per_epoch=parameters['training']['steps_per_epoch'], epochs=parameters['training']['epochs'],
+                minibatch_size=parameters['training']['minibatch_size'],
                 gamma=parameters['training']['gamma'], clip_ratio=parameters['training']['clip_ratio'],
                 lr=parameters['training']['lr'], train_iters=parameters['training']['train_iters'],
                 lam=parameters['training']['lambda'], max_episode_len=parameters['training']['max_episode_len'],
                 value_loss_coef=parameters['training']['value_loss_coef'],
-                entropy_coef=parameters['training']['entropy_coef'], save_freq=parameters['training']['save_freq'],
-                log_dir=args.logdir)
+                entropy_coef=parameters['training']['entropy_coef'], target_kl=parameters['training']['target_kl'],
+                save_freq=parameters['training']['save_freq'], log_dir=args.logdir)
