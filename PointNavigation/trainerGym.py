@@ -113,7 +113,7 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
     mean_value_loss = np.mean(np.array(value_loss_in_epoch))
     mean_entropy = np.mean(np.array(entropy_in_epoch))
 
-    return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, approx_kl
+    return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, approx_kl_iter.mean()
 
 
 class PPOBuffer:
@@ -218,8 +218,8 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     #obs_space = env.observation_space
     # TODO: hard coded fix
     from gym import spaces
-    space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
-    # space_dict['pointgoal_with_gps_compass'] = env.observation_space
+    # space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
+    space_dict['pointgoal_with_gps_compass'] = env.observation_space
     obs_space = spaces.Dict(space_dict)
     # end TODO:
     act_shape = env.action_space.n
@@ -236,8 +236,8 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     # Prepare for interaction with env
     start_time = time.time()
     obs, episode_return, episode_len = env.reset(), 0, 0
-    obs = zero_pad_obs(obs)
-    # obs = {"pointgoal_with_gps_compass":obs}
+    # obs = zero_pad_obs(obs)
+    obs = {"pointgoal_with_gps_compass":obs}
     obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
     # Shape of hidden state is (n_rec_layers, num_envs, recurrent_hidden_state_size).
     # should be able to access these from PointNavResNetNet properties
@@ -258,15 +258,12 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
             next_obs, reward, done, _ = env.step(action.item())
             # env.render()
-            next_obs = zero_pad_obs(next_obs)
-            # next_obs = {"pointgoal_with_gps_compass":next_obs}
+            # next_obs = zero_pad_obs(next_obs)
+            next_obs = {"pointgoal_with_gps_compass":next_obs}
 
             episode_return += reward
             episode_len += 1
 
-            next_mask = torch.tensor(
-                [0.0] if done else [1.0], dtype=torch.float
-            )
 
             # Save to buffer
             # for k,v in obs.items():
@@ -278,12 +275,15 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
             # Update obs and prev_action
             obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in next_obs.items()}
             prev_action = action
-            mask = next_mask
             hidden_state = next_hidden_state
 
             timeout = episode_len == max_episode_len
             terminal = done or timeout
             epoch_ended = t == steps_per_epoch - 1
+
+            mask = torch.tensor(
+                [0.0] if terminal or epoch_ended else [1.0], dtype=torch.float
+            )
 
             if terminal or epoch_ended:
                 # if epoch_ended and not terminal:
@@ -300,8 +300,8 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 episode_len_epoch.append(episode_len)
                 # Reset if episode ended
                 obs, episode_return, episode_len = env.reset(), 0, 0
-                obs = zero_pad_obs(obs)
-                # obs = {"pointgoal_with_gps_compass":obs}
+                # obs = zero_pad_obs(obs)
+                obs = {"pointgoal_with_gps_compass":obs}
                 obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
 
         # A epoch of experience is collected
@@ -369,19 +369,19 @@ if __name__ == '__main__':
         json.dump(parameters, f, indent='\t')
 
 
-    env = gym.make('Pong-v0')
+    env = gym.make('CartPole-v0')
 
-    # from risenet.cartpole_agent import CartpolePolicy
-    from risenet.gymAgent import GymResNetPolicy
+    from risenet.cartpole_agent import CartpolePolicy
+    # from risenet.gymAgent import GymResNetPolicy
     from gym import spaces
 
     space_dict = {}
-    space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
-    # space_dict['pointgoal_with_gps_compass'] = env.observation_space
+    # space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
+    space_dict['pointgoal_with_gps_compass'] = env.observation_space
     observation_space = spaces.Dict(space_dict)
 
-    # ac = CartpolePolicy(observation_space, env.action_space)
-    ac = GymResNetPolicy(observation_space, env.action_space)
+    ac = CartpolePolicy(observation_space, env.action_space, hidden_size=32)
+    # ac = GymResNetPolicy(observation_space, env.action_space)
 
     n_hidden_l = ac.net.num_recurrent_layers
     hidden_size = ac.net.output_size
