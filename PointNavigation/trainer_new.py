@@ -8,7 +8,7 @@ import time
 import numpy as np
 import scipy.signal
 import os
-from cv2 import resize, INTER_LINEAR
+from cv2 import resize, INTER_CUBIC
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -47,8 +47,14 @@ def process_obs(obs_from_env, env_str, param):
     elif env_str == 'Atari':
         # To np array and put in range (0,1)
         ary = np.array(obs_from_env.__array__(), dtype=np.float32)/255
-        ary = resize(ary, (param['height'], param('width'), ary.shape[2]), interpolation=INTER_LINEAR)
-        obs_visual = torch.as_tensor(ary).unsqueeze(0)
+        ary  = np.concatenate(ary, axis=-1)
+        h = param['training']['height']
+        w = param['training']['width']
+        c = ary.shape[2]
+        new_ary = np.zeros((h, w, c), dtype=np.float32)
+        for i in range(c):
+            new_ary[:, :, i] = resize(ary[:, :, i], dsize=(h, w), interpolation=INTER_CUBIC)
+        obs_visual = torch.as_tensor(new_ary).unsqueeze(0)
     else:
         raise NotImplementedError
 
@@ -247,7 +253,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
 
     # Wrap environment in FrameStack if Atari
     if env_str == 'Atari':
-        env = FrameStack(env, 4)
+        env = FrameStack(env, parameters['training']['frame_stack'])
 
     # Set up experience buffer
     vector_shape = None
@@ -256,7 +262,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
     if env_str == 'CartPole':
         vector_shape = obs_shape
     elif env_str == 'Atari':
-        visual_shape = obs_shape
+        visual_shape = (parameters['training']['height'], parameters['training']['width'], 3*parameters['training']['frame_stack'])
     elif env_str == 'AirSim':
         raise NotImplementedError
     else:
@@ -399,20 +405,20 @@ if __name__ == '__main__':
     if parameters['training']['env_str'] == 'CartPole':
         env = gym.make('CartPole-v0')
     elif parameters['training']['env_str'] == 'Atari':
-        env = gym.make('PongNoFrameskip-v0')
+        env = gym.make('PongDeterministic-v4')
     vector_encoder, visual_encoder, compass_encoder = False, False, False
-    vector_shape, visal_shape, compass_shape = None, None, None
+    vector_shape, visual_shape, compass_shape = None, None, None
     n_actions = env.action_space.n
 
     if parameters['training']['env_str'] == 'Atari':
         visual_encoder = True
-        visual_shape = (parameters['height'], parameters['width'], 3*parameters['frame_stack'])
+        visual_shape = (parameters['training']['height'], parameters['training']['width'], 3*parameters['training']['frame_stack'])
     elif parameters['training']['env_str'] == 'CartPole':
         vector_encoder = True
         vector_shape = obs_shape = env.observation_space.shape
 
     ac = NeutralNet(has_vector_encoder=vector_encoder, vector_input_shape=vector_shape,
-                    has_visual_encoder=visual_encoder, visual_input_shape=visal_shape,
+                    has_visual_encoder=visual_encoder, visual_input_shape=visual_shape,
                     has_compass_encoder=compass_encoder, compass_input_shape=compass_shape,
                     num_actions=n_actions, has_previous_action_encoder=False)
 
