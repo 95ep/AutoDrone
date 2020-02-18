@@ -112,6 +112,7 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
     data_loader = DataLoader(dataset, batch_size=minibatch_size, sampler=sampler)
 
     for i in range(train_iters):
+        print_progress_bar(i+1, train_iters)
         optimizer.zero_grad()
         approx_kl_iter = []
         for i_batch, minibatch in enumerate(data_loader):
@@ -128,6 +129,7 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
             optimizer.step()
 
         if np.array(approx_kl_iter).mean() > target_kl:
+            print_progress_bar(1, 1)
             print("Early stopping at step {} due to reaching max kl.".format(i))
             break
 
@@ -271,20 +273,23 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
-        print('Epoch {} started'.format(epoch))
+        print("Epoch {} started".format(epoch))
         if epoch % eval_freq == 0:
             total_eval_ret = 0
             for i in range(n_eval):
-                with torch.no_grad:
-                    _, action, _ = actor_critic.act(comb_obs, deterministic=True)
-                next_obs, reward, done, _ = env.step(action.item())
-                total_eval_ret += reward
-                obs_vector, obs_visual, obs_compass = process_obs(next_obs, env_str, parameters)
-                comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
-                if done:
-                    obs, episode_return, episode_len = env.reset(), 0, 0
-                    obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
+                done = False
+                while not done:
+                    with torch.no_grad():
+                        _, action, _ = actor_critic.act(comb_obs, deterministic=True)
+                    next_obs, reward, done, _ = env.step(action.item())
+                    env.render()
+                    total_eval_ret += reward
+                    obs_vector, obs_visual, obs_compass = process_obs(next_obs, env_str, parameters)
                     comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+                    if done:
+                        obs, episode_return, episode_len = env.reset(), 0, 0
+                        obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
+                        comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
 
             log_writer.add_scalar('Eval/returnMean', total_eval_ret/n_eval, epoch + 1)
 

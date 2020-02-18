@@ -101,11 +101,7 @@ class NeutralNet(nn.Module):
     def act(self, obs, deterministic=False):
         value, policy = self(obs)
         if deterministic:
-            print("Policy")
-            print(policy)
             action = policy.argmax(dim=-1, keepdim=True)
-            print("Deterministic action")
-            print(action)
         else:
             action = Categorical(policy).sample()
         log_prob = torch.log(policy)
