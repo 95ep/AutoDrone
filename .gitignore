@@ -14,6 +14,9 @@ AutoDrone/PointNavigation/habitat_baselines/rl/ppo/__pycache__/
 AutoDrone/PointNavigation/habitat_baselines/ddppo-models/gibson-2plus-resnet50.pth
 PointNavigation/risenet/.idea/*
 
+# parameters
+PointNavigation/parameters/*
+
 # gym_airsim
 AutoDrone/gym-airsim/gym_airsim.egg-info/*
 

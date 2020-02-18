@@ -1,11 +1,6 @@
-import os
 import torch
-import pandas as pd
-from skimage import io, transform
-import numpy as np
-import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader, Sampler
-from torchvision import transforms, utils
+
 
 """
 DataLoader(dataset, batch_size=1, shuffle=False, sampler=None,
@@ -16,9 +11,11 @@ DataLoader(dataset, batch_size=1, shuffle=False, sampler=None,
 import random
 import itertools
 
-class CustomDataset(Dataset):
+class ExperienceDataset(Dataset):
 
     def __init__(self, data):
+        self.obs = data['obs']
+        del data['obs']
         self.data = data
         #self.observations = data['obs']
         #self.actions = data['act']
@@ -32,10 +29,12 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, idx):
         #return self.observations[idx], self.actions[idx], self.rewards[idx]
-        return {k: v[idx] for k, v in self.data.items()}
+        ret_dict = {k: v[idx] for k, v in self.data.items()}
+        ret_dict['obs'] = {k:v[idx] for k,v in self.obs.items()}
+        return ret_dict
 
 
-class CustomSampler(Sampler):
+class ExperienceSampler(Sampler):
 
     def __init__(self, data_source, minibatch_size, shuffle=True, drop_last=True):
         self.data_source = data_source
@@ -64,13 +63,18 @@ class CustomSampler(Sampler):
 
 if __name__ == '__main__':
 
-    obs = torch.tensor([0,1,2,3,4,5,6,7,8,9,10,11,12,13]).view(7,2)
+    obs = {'sensor':torch.tensor([0,1,2,3,4,5,6,7,8,9,10,11,12,13]).view(7,2)}
+    obs['sensors'] =  torch.tensor([0,1,2,3,4,5,6]).view(7,1)
     act = torch.tensor([0,1,2,3,4,5,6]).view(7,1)
     rew = torch.tensor([-6,-5,-4,-3,-2,-1,0]).view(7,1)
     data = {'obs': obs, 'act': act, 'rew': rew}
 
-    dataset = CustomDataset(data)
-    sampler = CustomSampler(dataset, 3, drop_last=False)
+    dataset = ExperienceDataset(data)
+    sampler = ExperienceSampler(dataset, 3, drop_last=False)
+    data_loader = DataLoader(dataset, batch_size=3, sampler=sampler)
+
+    for i_batch, sample_batched in enumerate(data_loader):
+        print(i_batch, sample_batched)
     data_loader = DataLoader(dataset, batch_size=3, sampler=sampler)
 
     for i_batch, sample_batched in enumerate(data_loader):
