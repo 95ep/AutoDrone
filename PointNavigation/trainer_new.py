@@ -3,23 +3,32 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from dictloader import ExperienceDataset, ExperienceSampler
+from gym.wrappers.frame_stack import FrameStack
 import time
 import numpy as np
 import scipy.signal
 import os
+from cv2 import resize, INTER_LINEAR
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-# TODO: Is this function to be used or not?
-def zero_pad_obs(obs, width=256, height=256, channels=3):
-    padded = np.zeros((width, height, channels))
-    w_idx = (width-obs.shape[1]) // 2
-    h_idx = (height-obs.shape[0]) // 2
-    padded[h_idx:obs.shape[0]+h_idx, w_idx:obs.shape[1]+w_idx, :] = obs
 
-    obs_dict = {'rgb':padded}
-    return obs_dict
+def process_obs(obs_from_env, env_str, param):
+    obs_vector = None
+    obs_visual = None
+    obs_compass = None
+    if env_str == 'CartPole':
+        obs_vector = torch.as_tensor(obs_from_env)
+    elif env_str == 'Atari':
+        # To np array and put in range (0,1)
+        ary = np.array(obs_from_env.__array__(), dtype=np.float32)/255
+        ary = resize(ary, (param['height'], param('width'), ary.shape[2]), interpolation=INTER_LINEAR)
+        obs_visual = torch.as_tensor(ary)
+    else:
+        raise NotImplementedError
+
+    return obs_vector, obs_visual, obs_compass
 
 
 def discount_cumsum(x, discount):
@@ -28,21 +37,27 @@ def discount_cumsum(x, discount):
 
 
 def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
-    obs, act, ret, adv, logp_old, hidden, prev_actions, masks = data['obs'], data['act'], data['ret'], \
-                                                                data['adv'], data['logp'], data['hidden'], \
-                                                                data['prev_act'], data['mask']
+    act, ret, adv, logp_old, hidden, prev_actions, masks = data['act'], data['ret'], data['adv'], data['logp'], \
+                                                           data['hidden'], data['prev_act'], data['mask']
 
-    for k,v in obs.items():
-        obs[k]=v.to(device=device)
+    obs_vector = None
+    obs_visual = None
+    obs_compass = None
+    if hasattr(data, 'obs_vector'):
+        obs_vector = data['obs_vector'].to(device=device)
+    if hasattr(data, 'obs_visual'):
+        obs_visual = data['obs_visual'].to(device=device)
+    if hasattr(data, 'obs_compass'):
+        obs_compass = data['obs_compass'].to(device=device)
+
+    comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+
     act = act.to(device=device)
     ret = ret.to(device=device)
     adv = adv.to(device=device)
     logp_old = logp_old.to(device=device)
-    hidden = hidden.to(device=device)
-    prev_actions = prev_actions.to(device=device)
-    masks = masks.to(device=device)
 
-    values, logp, dist_entropy, _ = actor_critic.evaluate_actions(obs, hidden[0], prev_actions, masks, act)
+    values, logp, dist_entropy, _ = actor_critic.evaluate_actions(comb_obs, act)
 
     ratio = torch.exp(logp - logp_old)
     surr1 = ratio * adv
@@ -59,7 +74,8 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     return total_loss, action_loss, value_loss, dist_entropy, approx_kl
 
 
-def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss_coef, entropy_coef, target_kl, minibatch_size):
+def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss_coef,
+            entropy_coef, target_kl, minibatch_size):
     # Spinning up used target_kl for early stopping. Is it smart thing to include?
     global approx_kl_iter
     data = buffer.get()
@@ -104,12 +120,12 @@ class PPOBuffer:
     """
     Stores trajectories collected.
     """
-    def __init__(self, steps, rgb_shape, depth_shape, compass_shape, gamma, lam):
+    def __init__(self, steps, vector_shape, visual_shape, compass_shape, gamma, lam):
         # Constructor - set xxx_shape to None if not used
-        if rgb_shape is not None:
-            self.obs_rgb = np.zeros((steps, *rgb_shape), dtype=np.float32)
-        if depth_shape is not None:
-            self.obs_depth = np.zeros((steps, *depth_shape), dtype=np.float32)
+        if vector_shape is not None:
+            self.obs_vector = np.zeros((steps, *vector_shape), dtype=np.float32)
+        if visual_shape is not None:
+            self.obs_visual = np.zeros((steps, *visual_shape), dtype=np.float32)
         if compass_shape is not None:
             self.obs_compass = np.zeros((steps, *compass_shape), dtype=np.float32)
 
@@ -125,15 +141,15 @@ class PPOBuffer:
         self.path_start_idx = 0
         self.max_size = steps
 
-    def store(self, obs_rgb, obs_depth, obs_compass, act, rew, val, logp):
+    def store(self, obs_vector, obs_visual, obs_compass, act, rew, val, logp):
         """
         Add one step of interactions to the buffer, set obs_xx to None (or whatever) if not used
         """
         assert self.ptr < self.max_size
-        if hasattr(self, 'obs_rgb'):
-            self.obs_rgb[self.ptr] = obs_rgb
-        if hasattr(self, 'obs_depth'):
-            self.obs_depth[self.ptr] = obs_depth
+        if hasattr(self, 'obs_vector'):
+            self.obs_vector[self.ptr] = obs_vector
+        if hasattr(self, 'obs_visual'):
+            self.obs_visual[self.ptr] = obs_visual
         if hasattr(self, 'obs_compass'):
             self.obs_compass[self.ptr] = obs_compass
         self.act_buf[self.ptr] = act
@@ -165,10 +181,10 @@ class PPOBuffer:
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
 
         data = dict(act=self.act_buf, ret=self.ret_buf, adv=self.adv_buf, logp=self.logp_buf)
-        if hasattr(self, 'obs_rgb'):
-            data['obs_rgb'] = self.obs_rgb
-        if hasattr(self, 'obs_depth'):
-            data['obs_depth'] = self.obs_depth
+        if hasattr(self, 'obs_vector'):
+            data['obs_vector'] = self.obs_vector
+        if hasattr(self, 'obs_visual'):
+            data['obs_visual'] = self.obs_visual
         if hasattr(self, 'obs_compass'):
             data['obs_compass'] = self.obs_compass
 
@@ -178,44 +194,55 @@ class PPOBuffer:
         return data
 
 
-def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, steps_per_epoch=4000,
-                epochs=50, minibatch_size=64 ,gamma=0.99, clip_ratio=0.2, lr=3e-4, train_iters=80, lam=0.97,
-                max_episode_len=1000, value_loss_coef=1, entropy_coef=0.01, target_kl=0.01, save_freq=10,
-                log_dir='runs'):
-    # value_loss_coef and entropy_coef taken from https://arxiv.org/abs/1707.06347
+def PPO_trainer(env, actor_critic, parameters, log_dir):
+
+    # Extract parameters
+    env_str = parameters['training']['env_str']
+    steps_per_epoch = parameters['training']['steps_per_epoch']
+    max_episode_len = parameters['training']['max_episode_len']
+    epochs = parameters['training']['epochs']
+    minibatch_size = parameters['training']['minibatch_size']
+    gamma = parameters['training']['gamma']
+    lam = parameters['training']['lambda']
+    clip_ratio = parameters['training']['clip_ratio']
+    lr = parameters['training']['lr']
+    train_iters = parameters['training']['train_iters']
+    value_loss_coef = parameters['training']['value_loss_coef']
+    entropy_coef = parameters['training']['entropy_coef']
+    target_kl = parameters['training']['target_kl']
+    save_freq = parameters['training']['save_freq']
 
     # Set up logger
     log_writer = SummaryWriter(log_dir=log_dir + 'log/')
 
-    # Seed torch and numpy
-    # torch.manual_seed(seed)
-    # np.random.seed(seed)
-
     # Get some env variables
-    # obs_space = env.observation_space
-    # TODO: hard coded fix
-    from gym import spaces
-    # space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
-    space_dict['pointgoal_with_gps_compass'] = env.observation_space
-    obs_space = spaces.Dict(space_dict)
-    # end TODO:
-    act_shape = env.action_space.n
+    obs_shape = env.observation_space.shape
 
-    # Count variables. Something they do and add to logg in spinningUp but not necessary
+    # Wrap environment in FrameStack if Atari
+    if env_str == 'Atari':
+        env = FrameStack(env, 4)
 
     # Set up experience buffer
-    buffer = PPOBuffer(obs_space, act_shape, steps_per_epoch, num_rec_layers, hidden_state_size, gamma, lam, )
+    rgb_shape = None
+    depth_shape = None
+    compass_shape = None
+    if env_str == 'CartPole':
+        compass_shape = obs_shape
+    elif env_str == 'Atari':
+        rgb_shape = obs_shape
+    elif env_str == 'AirSim':
+        raise NotImplementedError
+    else:
+        raise NameError('env_str not recognized')
+    buffer = PPOBuffer(steps_per_epoch, rgb_shape, depth_shape, compass_shape, gamma, lam)
 
-    # This is just copied from baseline. My understanding is that filter passes each parameter to the lambda function
-    # and then creates a list of alla parameters for which .requires_grad is True
     optimizer = Adam(list(filter(lambda p: p.requires_grad, actor_critic.parameters())), lr=lr)
 
     # Prepare for interaction with env
     start_time = time.time()
     obs, episode_return, episode_len = env.reset(), 0, 0
-    # obs = zero_pad_obs(obs)
-    obs = {"pointgoal_with_gps_compass":obs}
-    obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
+    obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
+    comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
@@ -225,45 +252,28 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
         episode_len_epoch = []
         for t in range(steps_per_epoch):
             with torch.no_grad():
-                value, action, log_prob, next_hidden_state = actor_critic.act(
-                    obs)
+                value, action, log_prob, next_hidden_state = actor_critic.act(comb_obs)
 
             next_obs, reward, done, _ = env.step(action.item())
-            # env.render()
-            # next_obs = zero_pad_obs(next_obs)
-            next_obs = {"pointgoal_with_gps_compass":next_obs}
 
             episode_return += reward
             episode_len += 1
 
+            buffer.store(obs_vector, obs_visual, obs_compass, action, reward, value, log_prob)
 
-            # Save to buffer
-            # for k,v in obs.items():
-            #     print("Shape of obs {} is {}".format(k, v.shape))
-            # print("Shape of action: {}, reward: {}, value: {}".format(action.shape, reward, value.shape))
-            # print("... logp: {}, hidden_state: {}, mask: {}, prev_act, {}".format(log_prob.shape, hidden_state.shape, mask.shape, prev_action.shape))
-            buffer.store(obs, action, reward, value, log_prob, hidden_state, mask, prev_action)
-
-            # Update obs and prev_action
-            obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in next_obs.items()}
-            prev_action = action
-            hidden_state = next_hidden_state
+            # Update obs
+            obs_vector, obs_visual, obs_compass = process_obs(next_obs, env_str, parameters)
+            comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
 
             timeout = episode_len == max_episode_len
             terminal = done or timeout
             epoch_ended = t == steps_per_epoch - 1
 
-            mask = torch.tensor(
-                [0.0] if terminal or epoch_ended else [1.0], dtype=torch.float
-            )
-
             if terminal or epoch_ended:
-                # if epoch_ended and not terminal:
-                #     print('Warning, trajectory cut off by epoch at {} steps.'.format(episode_len), flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
                     with torch.no_grad():
-                        value = actor_critic.get_value(obs, hidden_state, prev_action, mask)
+                        value = actor_critic.get_value(comb_obs)
                 else:
                     value = 0
                 buffer.finish_path(value)
@@ -272,9 +282,8 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 episode_len_epoch.append(episode_len)
                 # Reset if episode ended
                 obs, episode_return, episode_len = env.reset(), 0, 0
-                # obs = zero_pad_obs(obs)
-                obs = {"pointgoal_with_gps_compass":obs}
-                obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
+                obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
+                comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
 
         # A epoch of experience is collected
         # Save model
@@ -316,6 +325,7 @@ if __name__ == '__main__':
     import argparse
     import json
     import gym
+    from risenet.neutral_net import NeutralNet
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--parameters', type=str)
@@ -340,30 +350,24 @@ if __name__ == '__main__':
     with open(args.logdir + 'parameters.json', 'w') as f:
         json.dump(parameters, f, indent='\t')
 
+    if parameters['training']['env_str'] == 'CartPole':
+        env = gym.make('CartPole-v0')
+    elif parameters['training']['env_str'] == 'Atari':
+        env = gym.make('PongNoFrameskip-v0')
+    vector_encoder, visual_encoder, compass_encoder = False, False, False
+    vector_shape, visal_shape, compass_shape = None, None, None
+    n_actions = env.action_space.n
 
-    env = gym.make('CartPole-v0')
+    if parameters['training']['env_str'] == 'Atari':
+        visual_encoder = True
+        visual_shape = (parameters['height'], parameters['width'], 3*parameters['FrameStack'])
+    elif parameters['training']['env_str'] == 'CartPole':
+        vector_encoder = True
+        vector_shape = obs_shape = env.observation_space.shape
 
-    from risenet.cartpole_agent import CartpolePolicy
-    # from risenet.gymAgent import GymResNetPolicy
-    from gym import spaces
+    ac = NeutralNet(has_vector_encoder=vector_encoder, vector_input_shape=vector_shape,
+                    has_visual_encoder=visual_encoder, visual_input_shape=visal_shape,
+                    has_compass_encoder=compass_encoder, compass_input_shape=compass_shape,
+                    num_actions=n_actions, has_previous_action_encoder=False)
 
-    space_dict = {}
-    # space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
-    space_dict['pointgoal_with_gps_compass'] = env.observation_space
-    observation_space = spaces.Dict(space_dict)
-
-    ac = CartpolePolicy(observation_space, env.action_space, hidden_size=32)
-    # ac = GymResNetPolicy(observation_space, env.action_space)
-
-    n_hidden_l = ac.net.num_recurrent_layers
-    hidden_size = ac.net.output_size
-
-    PPO_trainer(env, ac, num_rec_layers=n_hidden_l, hidden_state_size=hidden_size, seed=parameters['training']['seed'],
-                steps_per_epoch=parameters['training']['steps_per_epoch'], epochs=parameters['training']['epochs'],
-                minibatch_size=parameters['training']['minibatch_size'],
-                gamma=parameters['training']['gamma'], clip_ratio=parameters['training']['clip_ratio'],
-                lr=parameters['training']['lr'], train_iters=parameters['training']['train_iters'],
-                lam=parameters['training']['lambda'], max_episode_len=parameters['training']['max_episode_len'],
-                value_loss_coef=parameters['training']['value_loss_coef'],
-                entropy_coef=parameters['training']['entropy_coef'], target_kl=parameters['training']['target_kl'],
-                save_freq=parameters['training']['save_freq'], log_dir=args.logdir)
+    PPO_trainer(env, ac, parameters, log_dir=args.logdir)
