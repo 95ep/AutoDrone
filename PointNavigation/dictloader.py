@@ -14,14 +14,7 @@ import itertools
 class ExperienceDataset(Dataset):
 
     def __init__(self, data):
-        self.obs = data['obs']
-        del data['obs']
         self.data = data
-        #self.observations = data['obs']
-        #self.actions = data['act']
-        #self.rewards = data['rew']
-
-        #self.length = self.actions.shape[0]
         self.length = self.data['act'].shape[0]
 
     def __len__(self):
@@ -30,7 +23,6 @@ class ExperienceDataset(Dataset):
     def __getitem__(self, idx):
         #return self.observations[idx], self.actions[idx], self.rewards[idx]
         ret_dict = {k: v[idx] for k, v in self.data.items()}
-        ret_dict['obs'] = {k:v[idx] for k,v in self.obs.items()}
         return ret_dict
 
 

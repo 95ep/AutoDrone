@@ -77,6 +77,7 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
 
 def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss_coef, entropy_coef, target_kl, minibatch_size):
     # Spinning up used target_kl for early stopping. Is it smart thing to include?
+    global approx_kl_iter
     data = buffer.get()
     total_loss_in_epoch = []
     action_loss_in_epoch = []
@@ -113,7 +114,7 @@ def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss
     mean_value_loss = np.mean(np.array(value_loss_in_epoch))
     mean_entropy = np.mean(np.array(entropy_in_epoch))
 
-    return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, approx_kl_iter.mean()
+    return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, np.array(approx_kl_iter).mean()
 
 
 class PPOBuffer:
@@ -215,11 +216,11 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     # np.random.seed(seed)
 
     # Get some env variables
-    #obs_space = env.observation_space
+    # obs_space = env.observation_space
     # TODO: hard coded fix
     from gym import spaces
-    # space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
-    space_dict['pointgoal_with_gps_compass'] = env.observation_space
+    space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
+    # space_dict['pointgoal_with_gps_compass'] = env.observation_space
     obs_space = spaces.Dict(space_dict)
     # end TODO:
     act_shape = env.action_space.n
@@ -236,8 +237,8 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
     # Prepare for interaction with env
     start_time = time.time()
     obs, episode_return, episode_len = env.reset(), 0, 0
-    # obs = zero_pad_obs(obs)
-    obs = {"pointgoal_with_gps_compass":obs}
+    obs = zero_pad_obs(obs)
+    # obs = {"pointgoal_with_gps_compass":obs}
     obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
     # Shape of hidden state is (n_rec_layers, num_envs, recurrent_hidden_state_size).
     # should be able to access these from PointNavResNetNet properties
@@ -258,8 +259,8 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
 
             next_obs, reward, done, _ = env.step(action.item())
             # env.render()
-            # next_obs = zero_pad_obs(next_obs)
-            next_obs = {"pointgoal_with_gps_compass":next_obs}
+            next_obs = zero_pad_obs(next_obs)
+            # next_obs = {"pointgoal_with_gps_compass":next_obs}
 
             episode_return += reward
             episode_len += 1
@@ -300,8 +301,8 @@ def PPO_trainer(env, actor_critic, num_rec_layers, hidden_state_size, seed=0, st
                 episode_len_epoch.append(episode_len)
                 # Reset if episode ended
                 obs, episode_return, episode_len = env.reset(), 0, 0
-                # obs = zero_pad_obs(obs)
-                obs = {"pointgoal_with_gps_compass":obs}
+                obs = zero_pad_obs(obs)
+                # obs = {"pointgoal_with_gps_compass":obs}
                 obs = {k:torch.as_tensor(v, dtype=torch.float32).unsqueeze(0) for k,v in obs.items()}
 
         # A epoch of experience is collected
@@ -369,19 +370,19 @@ if __name__ == '__main__':
         json.dump(parameters, f, indent='\t')
 
 
-    env = gym.make('CartPole-v0')
+    env = gym.make('BoxingDeterministic-v4')
 
-    from risenet.cartpole_agent import CartpolePolicy
-    # from risenet.gymAgent import GymResNetPolicy
+    # from risenet.cartpole_agent import CartpolePolicy
+    from risenet.gymAgent import GymResNetPolicy
     from gym import spaces
 
     space_dict = {}
-    # space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
-    space_dict['pointgoal_with_gps_compass'] = env.observation_space
+    space_dict['rgb'] = spaces.Box(low=0, high=255, shape=(256, 256, 3))
+    # space_dict['pointgoal_with_gps_compass'] = env.observation_space
     observation_space = spaces.Dict(space_dict)
 
-    ac = CartpolePolicy(observation_space, env.action_space, hidden_size=32)
-    # ac = GymResNetPolicy(observation_space, env.action_space)
+    # ac = CartpolePolicy(observation_space, env.action_space, hidden_size=32)
+    ac = GymResNetPolicy(observation_space, env.action_space, hidden_size=64)
 
     n_hidden_l = ac.net.num_recurrent_layers
     hidden_size = ac.net.output_size

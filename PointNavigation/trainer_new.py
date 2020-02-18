@@ -19,12 +19,12 @@ def process_obs(obs_from_env, env_str, param):
     obs_visual = None
     obs_compass = None
     if env_str == 'CartPole':
-        obs_vector = torch.as_tensor(obs_from_env)
+        obs_vector = torch.as_tensor(obs_from_env, dtype=torch.float32).unsqueeze(0)
     elif env_str == 'Atari':
         # To np array and put in range (0,1)
         ary = np.array(obs_from_env.__array__(), dtype=np.float32)/255
         ary = resize(ary, (param['height'], param('width'), ary.shape[2]), interpolation=INTER_LINEAR)
-        obs_visual = torch.as_tensor(ary)
+        obs_visual = torch.as_tensor(ary).unsqueeze(0)
     else:
         raise NotImplementedError
 
@@ -37,17 +37,16 @@ def discount_cumsum(x, discount):
 
 
 def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
-    act, ret, adv, logp_old, hidden, prev_actions, masks = data['act'], data['ret'], data['adv'], data['logp'], \
-                                                           data['hidden'], data['prev_act'], data['mask']
+    act, ret, adv, logp_old = data['act'], data['ret'], data['adv'], data['logp']
 
     obs_vector = None
     obs_visual = None
     obs_compass = None
-    if hasattr(data, 'obs_vector'):
+    if 'obs_vector' in data:
         obs_vector = data['obs_vector'].to(device=device)
-    if hasattr(data, 'obs_visual'):
+    if 'obs_visual' in data:
         obs_visual = data['obs_visual'].to(device=device)
-    if hasattr(data, 'obs_compass'):
+    if 'obs_compass' in data:
         obs_compass = data['obs_compass'].to(device=device)
 
     comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
@@ -57,7 +56,7 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     adv = adv.to(device=device)
     logp_old = logp_old.to(device=device)
 
-    values, logp, dist_entropy, _ = actor_critic.evaluate_actions(comb_obs, act)
+    values, logp, dist_entropy = actor_critic.evaluate_actions(comb_obs, act)
 
     ratio = torch.exp(logp - logp_old)
     surr1 = ratio * adv
@@ -223,18 +222,18 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
         env = FrameStack(env, 4)
 
     # Set up experience buffer
-    rgb_shape = None
-    depth_shape = None
+    vector_shape = None
+    visual_shape = None
     compass_shape = None
     if env_str == 'CartPole':
-        compass_shape = obs_shape
+        vector_shape = obs_shape
     elif env_str == 'Atari':
-        rgb_shape = obs_shape
+        visual_shape = obs_shape
     elif env_str == 'AirSim':
         raise NotImplementedError
     else:
         raise NameError('env_str not recognized')
-    buffer = PPOBuffer(steps_per_epoch, rgb_shape, depth_shape, compass_shape, gamma, lam)
+    buffer = PPOBuffer(steps_per_epoch, vector_shape, visual_shape, compass_shape, gamma, lam)
 
     optimizer = Adam(list(filter(lambda p: p.requires_grad, actor_critic.parameters())), lr=lr)
 
@@ -252,7 +251,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
         episode_len_epoch = []
         for t in range(steps_per_epoch):
             with torch.no_grad():
-                value, action, log_prob, next_hidden_state = actor_critic.act(comb_obs)
+                value, action, log_prob = actor_critic.act(comb_obs)
 
             next_obs, reward, done, _ = env.step(action.item())
 
@@ -360,7 +359,7 @@ if __name__ == '__main__':
 
     if parameters['training']['env_str'] == 'Atari':
         visual_encoder = True
-        visual_shape = (parameters['height'], parameters['width'], 3*parameters['FrameStack'])
+        visual_shape = (parameters['height'], parameters['width'], 3*parameters['frame_stack'])
     elif parameters['training']['env_str'] == 'CartPole':
         vector_encoder = True
         vector_shape = obs_shape = env.observation_space.shape

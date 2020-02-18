@@ -148,8 +148,3 @@ class NeutralNet(nn.Module):
         value = self.critic(x)
 
         return value, policy
-
-
-net = NeutralNet(has_previous_action_encoder=True)
-input = torch.zeros(1,4), torch.zeros(1,128,128,2), torch.ones(1,3), torch.LongTensor([0])
-print(net.get_value(input))
