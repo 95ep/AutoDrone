@@ -210,6 +210,8 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
     entropy_coef = parameters['training']['entropy_coef']
     target_kl = parameters['training']['target_kl']
     save_freq = parameters['training']['save_freq']
+    eval_freq = parameters['training']['eval_freq']
+    n_eval = parameters['training']['n_eval']
 
     # Set up logger
     log_writer = SummaryWriter(log_dir=log_dir + 'log/')
@@ -246,6 +248,22 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
         print('Epoch {} started'.format(epoch))
+        if epoch % eval_freq == 0:
+            total_eval_ret = 0
+            for i in range(n_eval):
+                with torch.no_grad:
+                    _, action, _ = actor_critic.act(comb_obs, deterministic=True)
+                next_obs, reward, done, _ = env.step(action.item())
+                total_eval_ret += reward
+                obs_vector, obs_visual, obs_compass = process_obs(next_obs, env_str, parameters)
+                comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+                if done:
+                    obs, episode_return, episode_len = env.reset(), 0, 0
+                    obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
+                    comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+
+            log_writer.add_scalar('Eval/returnMean', total_eval_ret/n_eval, epoch + 1)
+
         # list of episode returns and episode lengths to put to logg
         episode_returns_epoch = []
         episode_len_epoch = []

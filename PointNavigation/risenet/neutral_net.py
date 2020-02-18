@@ -98,9 +98,16 @@ class NeutralNet(nn.Module):
         self.actor = nn.Linear(hidden_size, num_actions)
         self.critic = nn.Linear(hidden_size, 1)
 
-    def act(self, obs):
+    def act(self, obs, deterministic=False):
         value, policy = self(obs)
-        action = Categorical(policy).sample()
+        if deterministic:
+            print("Policy")
+            print(policy)
+            action = policy.argmax(dim=-1, keepdim=True)
+            print("Deterministic action")
+            print(action)
+        else:
+            action = Categorical(policy).sample()
         log_prob = torch.log(policy)
         return value, action, log_prob[0, action]
 
