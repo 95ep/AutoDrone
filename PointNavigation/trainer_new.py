@@ -96,6 +96,14 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     value_loss = (ret - values).pow(2).mean()
 
     total_loss = value_loss * value_loss_coef + action_loss - dist_entropy * entropy_coef
+    if torch.isnan(total_loss):
+        print("Total loss is 'nan'")
+        print("ValueLoss {}".format(value_loss))
+        print("action_loss {}".format(action_loss))
+        print("entropy {}".format(entropy))
+        print("Ratio {}".format(ratio))
+        print("logp {} and logp_old {}".format(logp, logp_old))
+        raise ValueError
 
     # Compute approx kl for logging purposes
     approx_kl = (logp_old-logp).mean().item()
@@ -309,7 +317,8 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                 except:
                     print(actor_critic.parameters())
                     print("Saving weights")
-                    torch.save(actor_critic.state_dict(), log_dir + 'saved_models/model{}.pth'.format(epoch))
+                    torch.save(actor_critic.state_dict(), log_dir + 'saved_models/model-act{}.pth'.format(epoch))
+                    break
 
             next_obs, reward, done, _ = env.step(action.item())
 
@@ -349,9 +358,15 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
 
         # Perform PPO update
         actor_critic = actor_critic.to(device=device)
-        mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy, approx_kl = _update(actor_critic, buffer,
-                                                                                  train_iters, optimizer, clip_ratio,
-                                                                                    value_loss_coef, entropy_coef, target_kl, minibatch_size)
+        try:
+            mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy, approx_kl = _update(actor_critic, buffer,
+                                                                                        train_iters, optimizer, clip_ratio,
+                                                                                        value_loss_coef, entropy_coef, target_kl, minibatch_size)
+        except:
+            print("Failed to update network, saving model")
+            torch.save(actor_critic.state_dict(), log_dir + 'saved_models/model-update{}.pth'.format(epoch))
+            break
+
 
         actor_critic = actor_critic.cpu()
         # Calc metrics and log info about epoch
@@ -359,21 +374,21 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
         episode_len_mean = np.mean(np.array(episode_len_epoch))
 
         # Total env interactions:
-        log_writer.add_scalar('Progress/TotalEnvInteractions', steps_per_epoch * (epoch + 1), epoch + 1)
+        log_writer.add_scalar('Progress/TotalEnvInteractions', steps_per_epoch * (epoch + 1), epoch)
         # Episode return: average, std, min, max
-        log_writer.add_scalar('EpisodesReturn/mean', episode_return_mean, epoch + 1)
+        log_writer.add_scalar('EpisodesReturn/mean', episode_return_mean, epoch)
         # Episode len: average, std, min, max
-        log_writer.add_scalar('EpisodeLength/mean', episode_len_mean, epoch + 1)
+        log_writer.add_scalar('EpisodeLength/mean', episode_len_mean, epoch)
         # Total loss:
-        log_writer.add_scalar('Loss/TotalLoss/Mean', mean_loss_total, epoch + 1)
-        log_writer.add_scalar('Loss/ActionLoss/Mean', mean_loss_action, epoch + 1)
-        log_writer.add_scalar('Loss/ValueLoss/Mean', mean_loss_value, epoch + 1)
+        log_writer.add_scalar('Loss/TotalLoss/Mean', mean_loss_total, epoch)
+        log_writer.add_scalar('Loss/ActionLoss/Mean', mean_loss_action, epoch)
+        log_writer.add_scalar('Loss/ValueLoss/Mean', mean_loss_value, epoch)
         # Elapsed time
-        log_writer.add_scalar('Progress/ElapsedTimeMinutes', (time.time() - start_time) / 60, epoch + 1)
+        log_writer.add_scalar('Progress/ElapsedTimeMinutes', (time.time() - start_time) / 60, epoch)
         # Entropy of action outputs
-        log_writer.add_scalar('Entropy/mean', mean_entropy, epoch + 1)
+        log_writer.add_scalar('Entropy/mean', mean_entropy, epoch)
         # Approx kl
-        log_writer.add_scalar('ApproxKL', approx_kl, epoch + 1)
+        log_writer.add_scalar('ApproxKL', approx_kl, epoch)
 
     log_writer.close()
 
