@@ -103,7 +103,13 @@ class NeutralNet(nn.Module):
         if deterministic:
             action = policy.argmax(dim=-1, keepdim=True)
         else:
-            action = Categorical(policy).sample()
+            try:
+                action = Categorical(policy).sample()
+            except:
+                print("Policy that fucked up")
+                print(policy)
+                raise
+
         log_prob = torch.log(policy)
         return value, action, log_prob[0, action]
 

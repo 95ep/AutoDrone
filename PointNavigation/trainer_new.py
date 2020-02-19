@@ -54,7 +54,7 @@ def process_obs(obs_from_env, env_str, param):
         new_ary = np.zeros((h, w, c), dtype=np.float32)
         for i in range(c):
             new_ary[:, :, i] = resize(ary[:, :, i], dsize=(h, w), interpolation=INTER_CUBIC)
-        obs_visual = torch.as_tensor(new_ary).unsqueeze(0)
+        obs_visual = torch.clamp(torch.as_tensor(new_ary).unsqueeze(0), 0, 1)
     else:
         raise NotImplementedError
 
@@ -304,7 +304,12 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
         episode_len_epoch = []
         for t in range(steps_per_epoch):
             with torch.no_grad():
-                value, action, log_prob = actor_critic.act(comb_obs)
+                try:
+                    value, action, log_prob = actor_critic.act(comb_obs)
+                except:
+                    print(actor_critic.parameters())
+                    print("Saving weights")
+                    torch.save(actor_critic.state_dict(), log_dir + 'saved_models/model{}.pth'.format(epoch))
 
             next_obs, reward, done, _ = env.step(action.item())
 
@@ -421,5 +426,8 @@ if __name__ == '__main__':
                     has_visual_encoder=visual_encoder, visual_input_shape=visual_shape,
                     has_compass_encoder=compass_encoder, compass_input_shape=compass_shape,
                     num_actions=n_actions, has_previous_action_encoder=False)
+
+    if parameters['training']['weights'] != "":
+        ac.load_state_dict(torch.load(parameters['training']['weights']))
 
     PPO_trainer(env, ac, parameters, log_dir=args.logdir)
