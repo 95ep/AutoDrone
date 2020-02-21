@@ -96,14 +96,6 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     value_loss = (ret - values).pow(2).mean()
 
     total_loss = value_loss * value_loss_coef + action_loss - dist_entropy * entropy_coef
-    if torch.isnan(total_loss):
-        print("Total loss is 'nan'")
-        print("ValueLoss {}".format(value_loss))
-        print("action_loss {}".format(action_loss))
-        print("entropy {}".format(entropy))
-        print("Ratio {}".format(ratio))
-        print("logp {} and logp_old {}".format(logp, logp_old))
-        raise ValueError
 
     # Compute approx kl for logging purposes
     approx_kl = (logp_old-logp).mean().item()
@@ -219,7 +211,7 @@ class PPOBuffer:
         adv_std = np.std(self.adv_buf)
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
 
-        data = dict(act=self.act_buf, ret=self.ret_buf, adv=self.adv_buf, logp=self.logp_buf)
+        data = dict(act=self.act_buf, ret=self.ret_buf, adv=self.adv_buf, logp=self.logp_buf, val = self.val_buf)
         if hasattr(self, 'obs_vector'):
             data['obs_vector'] = self.obs_vector
         if hasattr(self, 'obs_visual'):
@@ -294,7 +286,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                 done = False
                 while not done:
                     with torch.no_grad():
-                        _, action, _ = actor_critic.act(comb_obs, deterministic=True)
+                        value, action, _ = actor_critic.act(comb_obs, deterministic=True)
                     next_obs, reward, done, _ = env.step(action.item())
                     env.render()
                     total_eval_ret += reward
@@ -305,20 +297,14 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                         obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
                         comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
 
-            log_writer.add_scalar('Eval/returnMean', total_eval_ret/n_eval, epoch + 1)
+            log_writer.add_scalar('Eval/returnMean', total_eval_ret/n_eval, epoch)
 
         # list of episode returns and episode lengths to put to logg
         episode_returns_epoch = []
         episode_len_epoch = []
         for t in range(steps_per_epoch):
             with torch.no_grad():
-                try:
-                    value, action, log_prob = actor_critic.act(comb_obs)
-                except:
-                    print(actor_critic.parameters())
-                    print("Saving weights")
-                    torch.save(actor_critic.state_dict(), log_dir + 'saved_models/model-act{}.pth'.format(epoch))
-                    break
+                value, action, log_prob = actor_critic.act(comb_obs)
 
             next_obs, reward, done, _ = env.step(action.item())
 
@@ -358,15 +344,9 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
 
         # Perform PPO update
         actor_critic = actor_critic.to(device=device)
-        try:
-            mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy, approx_kl = _update(actor_critic, buffer,
+        mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy, approx_kl = _update(actor_critic, buffer,
                                                                                         train_iters, optimizer, clip_ratio,
                                                                                         value_loss_coef, entropy_coef, target_kl, minibatch_size)
-        except:
-            print("Failed to update network, saving model")
-            torch.save(actor_critic.state_dict(), log_dir + 'saved_models/model-update{}.pth'.format(epoch))
-            break
-
 
         actor_critic = actor_critic.cpu()
         # Calc metrics and log info about epoch
@@ -391,6 +371,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
         log_writer.add_scalar('ApproxKL', approx_kl, epoch)
 
     log_writer.close()
+    env.close()
 
 
 if __name__ == '__main__':
@@ -434,13 +415,14 @@ if __name__ == '__main__':
         visual_encoder = True
         visual_shape = (parameters['training']['height'], parameters['training']['width'], 3*parameters['training']['frame_stack'])
     elif parameters['training']['env_str'] == 'CartPole':
-        vector_encoder = True
-        vector_shape = obs_shape = env.observation_space.shape
+        compass_encoder = True
+        compass_shape = obs_shape = env.observation_space.shape
 
     ac = NeutralNet(has_vector_encoder=vector_encoder, vector_input_shape=vector_shape,
                     has_visual_encoder=visual_encoder, visual_input_shape=visual_shape,
                     has_compass_encoder=compass_encoder, compass_input_shape=compass_shape,
-                    num_actions=n_actions, has_previous_action_encoder=False)
+                    num_actions=n_actions, has_previous_action_encoder=False,
+                    hidden_size=32, num_hidden_layers=0)
 
     if parameters['training']['weights'] != "":
         ac.load_state_dict(torch.load(parameters['training']['weights']))
