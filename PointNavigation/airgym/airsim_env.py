@@ -7,37 +7,47 @@ import json
 from . import utils
 from . import agent_controller as ac
 
-with open('./PointNavigation/parameters.json') as f:
-    parameters = json.load(f)
+# with open('./PointNavigation/parameters.json') as f:
+#     parameters = json.load(f)
+#
+# REWARD_SUCCESS = parameters["environment"]['REWARD_SUCCESS']
+# REWARD_FAILURE = parameters["environment"]['REWARD_FAILURE']
+# REWARD_COLLISION = parameters["environment"]['REWARD_COLLISION']
+# REWARD_MOVE_TOWARDS_GOAL = parameters["environment"]['REWARD_MOVE_TOWARDS_GOAL']
 
-REWARD_SUCCESS = parameters["environment"]['REWARD_SUCCESS']
-REWARD_FAILURE = parameters["environment"]['REWARD_FAILURE']
-REWARD_COLLISION = parameters["environment"]['REWARD_COLLISION']
-REWARD_MOVE_TOWARDS_GOAL = parameters["environment"]['REWARD_MOVE_TOWARDS_GOAL']
+REWARD_SUCCESS = 0
+REWARD_FAILURE = 0
+REWARD_COLLISION = 0
+REWARD_MOVE_TOWARDS_GOAL = 0
 
 
 def make(**kwargs):
-    return AirsimEnv(**kwargs)
+    global REWARD_SUCCESS
+    global REWARD_FAILURE
+    global REWARD_COLLISION
+    global REWARD_MOVE_TOWARDS_GOAL
+    REWARD_SUCCESS = kwargs['REWARD_SUCCESS']
+    REWARD_FAILURE = kwargs['REWARD_FAILURE']
+    REWARD_COLLISION = kwargs['REWARD_COLLISION']
+    REWARD_MOVE_TOWARDS_GOAL = kwargs['REWARD_MOVE_TOWARDS_GOAL']
+
+    return AirsimEnv(kwargs['sensors'], kwargs['max_dist'], kwargs['height'], kwargs['width'])
 
 
 class AirsimEnv(gym.Env):
 
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=10):
-
-        #self.airsim_process = subprocess.Popen(
-        #    'C:/Users/Filip/Documents/Skola/Exjobb/Blocks/Blocks.exe')
-
+    def __init__(self, sensors=['depth', 'pointgoal_with_gps_compass'], max_dist=10, height=256, width=256):
         self.sensors = sensors
         self.max_dist = max_dist
         self.distance_threshold = 0.5
         self.agent_dead = True
         space_dict = {}
         if 'rgb' in sensors:
-            space_dict.update({"rgb": spaces.Box(low=0, high=255, shape=(256, 256, 3))})
+            space_dict.update({"rgb": spaces.Box(low=0, high=255, shape=(height, width, 3))})
         if 'depth' in sensors:
-            space_dict.update({"depth": spaces.Box(low=0, high=255, shape=(256, 256, 1))})
+            space_dict.update({"depth": spaces.Box(low=0, high=255, shape=(height, width, 1))})
         if 'pointgoal_with_gps_compass' in sensors:
             space_dict.update({"pointgoal_with_gps_compass" : spaces.Box(low=0, high=20, shape=(2,))})
         self.observation_space = spaces.Dict(space_dict)

@@ -55,8 +55,21 @@ def process_obs(obs_from_env, env_str, param):
         for i in range(c):
             new_ary[:, :, i] = resize(ary[:, :, i], dsize=(h, w), interpolation=INTER_CUBIC)
         obs_visual = torch.clamp(torch.as_tensor(new_ary).unsqueeze(0), 0, 1)
+    elif env_str == 'AirSim':
+        if 'pointgoal_with_gps_compass' in obs_from_env:
+            dist = obs_from_env['pointgoal_with_gps_compass'][0]
+            angle = obs_from_env['pointgoal_with_gps_compass'][1]
+            obs_vector = torch.as_tensor([dist, np.sin(angle), np.cos(angle)], dtype=torch.float32).unsqueeze(0)
+        if 'rgb' in obs_from_env and 'dept' in obs_from_env:
+            rgb = torch.as_tensor(obs_from_env['rgb'], dtype=torch.float32)
+            depth = torch.as_tensor(obs_from_env['depth'], dtype=torch.float32)
+            obs_visual = torch.cat((rgb, depth), dim=2).unsqueeze(0)
+        elif 'rgb' in obs_from_env:
+            obs_visual = torch.as_tensor(obs_from_env['rgb'], dtype=torch.float32).unsqueeze(0)
+        elif 'depth' in obs_from_env:
+            obs_visual = torch.as_tensor(obs_from_env['depth'], dtype=torch.float32).unsqueeze(0)
     else:
-        raise NotImplementedError
+        raise ValueError("env_str not recognized.")
 
     return obs_vector, obs_visual, obs_compass
 
@@ -249,7 +262,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
     log_writer = SummaryWriter(log_dir=log_dir + 'log/')
 
     # Get some env variables
-    obs_shape = env.observation_space.shape
+    obs_space = env.observation_space
 
     # Wrap environment in FrameStack if Atari
     if env_str == 'Atari':
@@ -260,11 +273,27 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
     visual_shape = None
     compass_shape = None
     if env_str == 'CartPole':
-        vector_shape = obs_shape
+        vector_shape = obs_space.shape
     elif env_str == 'Atari':
         visual_shape = (parameters['training']['height'], parameters['training']['width'], 3*parameters['training']['frame_stack'])
     elif env_str == 'AirSim':
-        raise NotImplementedError
+        if 'rgb' in parameters['environment']['sensors']:
+            h = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
+            w = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
+            visual_shape = (h, w, 3)
+
+        if 'depth' in parameters['environment']['sensors']:
+            h = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
+            w = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
+            visual_shape = (h, w, 1)
+
+        if 'rgb' in parameters['environment']['sensors'] and 'depth' in parameters['environment']['sensors']:
+            h = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
+            w = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
+            visual_shape = (h, w, 4)
+
+        if 'pointgoal_with_gps_compass' in parameters['environment']['sensors']:
+            vector_shape = (3,)
     else:
         raise NameError('env_str not recognized')
     buffer = PPOBuffer(steps_per_epoch, vector_shape, visual_shape, compass_shape, gamma, lam)
@@ -281,21 +310,44 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
     for epoch in range(epochs):
         print("Epoch {} started".format(epoch))
         if epoch % eval_freq == 0:
-            total_eval_ret = 0
-            for i in range(n_eval):
+            if env_str == 'AirSim':
+                total_eval_ret = 0
                 done = False
-                while not done:
+                for step in range(n_eval): # Use n_eval as steps to evaluate in
                     with torch.no_grad():
                         value, action, _ = actor_critic.act(comb_obs, deterministic=True)
                     next_obs, reward, done, _ = env.step(action.item())
-                    env.render()
                     total_eval_ret += reward
+                    print(next_obs)
                     obs_vector, obs_visual, obs_compass = process_obs(next_obs, env_str, parameters)
+                    print(obs_vector)
                     comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
                     if done:
                         obs, episode_return, episode_len = env.reset(), 0, 0
                         obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
                         comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+
+                obs, episode_return, episode_len = env.reset(), 0, 0
+                obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
+                comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+
+                log_writer.add_scalar('Eval/returnTot', total_eval_ret, epoch)
+            else:
+                total_eval_ret = 0
+                for i in range(n_eval):
+                    done = False
+                    while not done:
+                        with torch.no_grad():
+                            value, action, _ = actor_critic.act(comb_obs, deterministic=True)
+                        next_obs, reward, done, _ = env.step(action.item())
+                        env.render()
+                        total_eval_ret += reward
+                        obs_vector, obs_visual, obs_compass = process_obs(next_obs, env_str, parameters)
+                        comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+                        if done:
+                            obs, episode_return, episode_len = env.reset(), 0, 0
+                            obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
+                            comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
 
             log_writer.add_scalar('Eval/returnMean', total_eval_ret/n_eval, epoch)
 
@@ -403,26 +455,67 @@ if __name__ == '__main__':
     with open(args.logdir + 'parameters.json', 'w') as f:
         json.dump(parameters, f, indent='\t')
 
+    # Set-up env
     if parameters['training']['env_str'] == 'CartPole':
         env = gym.make('CartPole-v0')
     elif parameters['training']['env_str'] == 'Atari':
         env = gym.make('PongDeterministic-v4')
+    elif parameters['training']['env_str'] == 'AirSim':
+        import airgym
+        # Write AirSim settings to a json file
+        with open(parameters['training']['airsim_settings_path'], 'w') as f:
+            json.dump(parameters['airsim'], f, indent='\t')
+        input('Copied AirSim settings to Documents folder. \n (Re)Start AirSim and then press enter to start training...')
+
+        env = airgym.make(sensors=parameters['environment']['sensors'], max_dist=parameters['environment']['max_dist'],
+                            REWARD_SUCCESS=parameters['environment']['REWARD_SUCCESS'],
+                            REWARD_FAILURE=parameters['environment']['REWARD_FAILURE'],
+                            REWARD_COLLISION=parameters['environment']['REWARD_COLLISION'],
+                            REWARD_MOVE_TOWARDS_GOAL=parameters['environment']['REWARD_MOVE_TOWARDS_GOAL'],
+                            height=parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height'],
+                            width=parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width'])
+
+    else:
+        raise ValueError("env_str not recognized.")
+
     vector_encoder, visual_encoder, compass_encoder = False, False, False
     vector_shape, visual_shape, compass_shape = None, None, None
     n_actions = env.action_space.n
 
+    # Set-up agent
     if parameters['training']['env_str'] == 'Atari':
         visual_encoder = True
         visual_shape = (parameters['training']['height'], parameters['training']['width'], 3*parameters['training']['frame_stack'])
+
     elif parameters['training']['env_str'] == 'CartPole':
-        compass_encoder = True
-        compass_shape = obs_shape = env.observation_space.shape
+        vector_encoder = True
+        vector_shape = env.observation_space.shape
+
+    elif parameters['training']['env_str'] == 'AirSim':
+        if 'rgb' in parameters['environment']['sensors']:
+            visual_encoder = True
+            h = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
+            w = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
+            visual_shape = (h, w, 3)
+
+        if 'depth' in parameters['environment']['sensors']:
+            visual_encoder = True
+            h = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
+            w = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
+            visual_shape = (h, w, 1)
+
+        if 'pointgoal_with_gps_compass' in parameters['environment']['sensors']:
+            vector_encoder = True
+            vector_shape = (3,)
+
+    else:
+        raise ValueError("env_str not recognized.")
 
     ac = NeutralNet(has_vector_encoder=vector_encoder, vector_input_shape=vector_shape,
                     has_visual_encoder=visual_encoder, visual_input_shape=visual_shape,
                     has_compass_encoder=compass_encoder, compass_input_shape=compass_shape,
                     num_actions=n_actions, has_previous_action_encoder=False,
-                    hidden_size=32, num_hidden_layers=0)
+                    hidden_size=32, num_hidden_layers=1)
 
     if parameters['training']['weights'] != "":
         ac.load_state_dict(torch.load(parameters['training']['weights']))
