@@ -117,14 +117,9 @@ class NeutralNet(nn.Module):
         if deterministic:
             action = policy_distribution.probs.argmax(dim=-1, keepdim=True)
         else:
-            try:
-                action = policy_distribution.sample()
-            except:
-                print("Policy that fucked up")
-                print(policy_distribution.probs)
-                raise
+            action = policy_distribution.sample()
 
-        log_prob = policy_distribution.logits[0, action] # TODO: indexing correct?
+        log_prob = policy_distribution.log_prob(action)
         return value, action, log_prob
 
     def get_value(self, obs):
@@ -134,14 +129,8 @@ class NeutralNet(nn.Module):
     def evaluate_actions(self, obs, action):
         value, policy_distribution = self(obs)
         entropy = policy_distribution.entropy().mean()
-        logits = policy_distribution.logits
-        log_prob = logits[range(len(action)), action].unsqueeze(0)
-        """
-        log_prob = torch.log(policy)
-        log_list = [log_prob[i, action[i].long().item()].unsqueeze(0) for i in range(len(action))]
-        log_prob = torch.cat(log_list)
-        log_prob = log_prob.view(len(action), 1)
-        """
+        log_prob = policy_distribution.log_prob(action.squeeze().long()).unsqueeze(-1)
+
         return value, log_prob, entropy
 
     def forward(self, input):
