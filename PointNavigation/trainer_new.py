@@ -60,14 +60,16 @@ def process_obs(obs_from_env, env_str, param):
             dist = obs_from_env['pointgoal_with_gps_compass'][0]
             angle = obs_from_env['pointgoal_with_gps_compass'][1]
             obs_vector = torch.as_tensor([dist, np.sin(angle), np.cos(angle)], dtype=torch.float32).unsqueeze(0)
-        if 'rgb' in obs_from_env and 'dept' in obs_from_env:
-            rgb = torch.as_tensor(obs_from_env['rgb'], dtype=torch.float32)
-            depth = torch.as_tensor(obs_from_env['depth'], dtype=torch.float32)
+        if 'rgb' in obs_from_env and 'depth' in obs_from_env:
+            rgb = torch.as_tensor(obs_from_env['rgb'], dtype=torch.float32)/255.0
+            depth = np.clip(obs_from_env['depth'], 0, param['environment']['max_dist'])/param['environment']['max_dist']
+            depth = torch.as_tensor(depth, dtype=torch.float32)
             obs_visual = torch.cat((rgb, depth), dim=2).unsqueeze(0)
         elif 'rgb' in obs_from_env:
-            obs_visual = torch.as_tensor(obs_from_env['rgb'], dtype=torch.float32).unsqueeze(0)
+            obs_visual = torch.as_tensor(obs_from_env['rgb'], dtype=torch.float32).unsqueeze(0)/255
         elif 'depth' in obs_from_env:
-            obs_visual = torch.as_tensor(obs_from_env['depth'], dtype=torch.float32).unsqueeze(0)
+            depth = np.clip(obs_from_env['depth'], 0, param['environment']['max_dist'])/param['environment']['max_dist']
+            obs_visual = torch.as_tensor(depth, dtype=torch.float32).unsqueeze(0)
     else:
         raise ValueError("env_str not recognized.")
 
@@ -497,10 +499,13 @@ if __name__ == '__main__':
             visual_shape = (h, w, 3)
 
         if 'depth' in parameters['environment']['sensors']:
-            visual_encoder = True
-            h = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
-            w = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
-            visual_shape = (h, w, 1)
+            if visual_encoder:
+                visual_shape = (visual_shape[0], visual_shape[1], visual_shape[2]+1)
+            else:
+                visual_encoder = True
+                h = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
+                w = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
+                visual_shape = (h, w, 1)
 
         if 'pointgoal_with_gps_compass' in parameters['environment']['sensors']:
             vector_encoder = True
