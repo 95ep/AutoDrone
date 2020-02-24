@@ -47,10 +47,10 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10):
     requests = []
     sensor_idx = {}
     idx_counter = 0
-    if 'rbg' in sensor_types:
+    if 'rgb' in sensor_types:
         requests.append(airsim.ImageRequest(
             'front_center', airsim.ImageType.Scene, pixels_as_float=False, compress=False))
-        sensor_idx.update({'rbg': idx_counter})
+        sensor_idx.update({'rgb': idx_counter})
         idx_counter += 1
     if 'depth' in sensor_types:
         requests.append(airsim.ImageRequest(
@@ -62,13 +62,20 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10):
 
     images = {}
 
-    if 'rbg' in sensor_types:
+    if 'rgb' in sensor_types:
         idx = sensor_idx['rgb']
         # convert to uint and reshape to matrix with 3 color channels
-        bgr = np.reshape(airsim.string_to_uint8_array(
-            responses[idx].image_data_uint8), (responses[idx].height, responses[idx].width, 3))
-        # move color channels around and change representation to float in range [0, 1]
-        rgb = np.array(bgr[:, :, [2, 1, 0]], dtype=np.float32)/255
+        try:
+            bgr = np.reshape(airsim.string_to_uint8_array(
+                responses[idx].image_data_uint8), (responses[idx].height, responses[idx].width, 3))
+            # move color channels around
+            rgb = np.array(bgr[:, :, [2, 1, 0]], dtype=np.float32)
+        except ValueError as err:
+            print('========================================================')
+            print('Value err when moving color channels: {0}'.format(err))
+            print('Replacing rgb with all zeros')
+            print('========================================================')
+            rgb = np.zeros(client.observation_space['rgb'].shape, dtype=np.float32)
         images.update({'rgb': rgb})
 
     if 'depth' in sensor_types:
@@ -82,10 +89,8 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10):
             print('Value err when converting depth image: {0}'.format(err))
             print('Replacing depth map with all max dist values')
             print('========================================================')
-            depth = np.ones((256,256), dtype=np.float32)*max_dist
+            depth = np.ones(client.observation_space['depth'].shape, dtype=np.float32)*max_dist.squeeze()
 
-        # clip array after max_dist
-        depth = np.clip(depth, None, max_dist)/max_dist
         depth = np.expand_dims(depth, axis=2)
         images.update({'depth': depth})
 
