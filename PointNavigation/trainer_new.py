@@ -518,7 +518,7 @@ if __name__ == '__main__':
                     has_visual_encoder=visual_encoder, visual_input_shape=visual_shape,
                     has_compass_encoder=compass_encoder, compass_input_shape=compass_shape,
                     num_actions=n_actions, has_previous_action_encoder=False,
-                    hidden_size=32, num_hidden_layers=1)
+                    hidden_size=32, num_hidden_layers=2)
 
     if parameters['training']['weights'] != "":
         ac.load_state_dict(torch.load(parameters['training']['weights']))
