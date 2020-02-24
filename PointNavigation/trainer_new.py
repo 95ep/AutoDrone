@@ -318,9 +318,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                         value, action, _ = actor_critic.act(comb_obs, deterministic=True)
                     next_obs, reward, done, _ = env.step(action.item())
                     total_eval_ret += reward
-                    print(next_obs)
                     obs_vector, obs_visual, obs_compass = process_obs(next_obs, env_str, parameters)
-                    print(obs_vector)
                     comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
                     if done:
                         obs, episode_return, episode_len = env.reset(), 0, 0
