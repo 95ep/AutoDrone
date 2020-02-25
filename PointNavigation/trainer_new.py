@@ -314,6 +314,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
         if epoch % eval_freq == 0:
             if env_str == 'AirSim':
                 total_eval_ret = 0
+                n_collisions = 0
                 done = False
                 for step in range(n_eval): # Use n_eval as steps to evaluate in
                     with torch.no_grad():
@@ -326,12 +327,14 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                         obs, episode_return, episode_len = env.reset(), 0, 0
                         obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
                         comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+                        n_collisions += 1
 
                 obs, episode_return, episode_len = env.reset(), 0, 0
                 obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
                 comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
 
                 log_writer.add_scalar('Eval/returnTot', total_eval_ret, epoch)
+                log_writer.add_scalar('Eval/nCollisions', n_collisions, epoch)
             else:
                 total_eval_ret = 0
                 for i in range(n_eval):
@@ -349,7 +352,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                             obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
                             comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
 
-            log_writer.add_scalar('Eval/returnMean', total_eval_ret/n_eval, epoch)
+                log_writer.add_scalar('Eval/returnMean', total_eval_ret/n_eval, epoch)
 
         # list of episode returns and episode lengths to put to logg
         episode_returns_epoch = []
