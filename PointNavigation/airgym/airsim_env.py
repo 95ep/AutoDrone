@@ -19,6 +19,7 @@ REWARD_SUCCESS = 0
 REWARD_FAILURE = 0
 REWARD_COLLISION = 0
 REWARD_MOVE_TOWARDS_GOAL = 0
+REWARD_ROTATE = 0
 
 
 def make(**kwargs):
@@ -26,10 +27,12 @@ def make(**kwargs):
     global REWARD_FAILURE
     global REWARD_COLLISION
     global REWARD_MOVE_TOWARDS_GOAL
+    global REWARD_ROTATE
     REWARD_SUCCESS = kwargs['REWARD_SUCCESS']
     REWARD_FAILURE = kwargs['REWARD_FAILURE']
     REWARD_COLLISION = kwargs['REWARD_COLLISION']
     REWARD_MOVE_TOWARDS_GOAL = kwargs['REWARD_MOVE_TOWARDS_GOAL']
+    REWARD_ROTATE = kwargs['REWARD_ROTATE']
 
     return AirsimEnv(kwargs['sensors'], kwargs['max_dist'], kwargs['height'], kwargs['width'])
 
@@ -84,19 +87,21 @@ class AirsimEnv(gym.Env):
             if success:
                 reward += REWARD_SUCCESS
                 self.client.simPrintLogMessage("Terminated at target - SUCCESS")
-                info['result'] = 'AtTarget'
+                info['terminated_at_target'] = True
             else:
                 reward += REWARD_FAILURE
                 self.client.simPrintLogMessage("Terminated not close to target - FAILURE")
-                info['result'] = 'NotAtTarget'
+                info['terminated_at_target'] = False
 
             self.target_position = utils.generate_target(self.client, self.max_dist/4)
         elif action == 1:
             ac.move_forward(self.client)
         elif action == 2:
             ac.rotate_left(self.client)
+            reward += REWARD_ROTATE
         elif action == 3:
             ac.rotate_right(self.client)
+            reward += REWARD_ROTATE
         elif action == 4:
             ac.move_up(self.client)
         elif action == 5:
@@ -115,11 +120,12 @@ class AirsimEnv(gym.Env):
         # reward moving towards the goal
         new_distance_to_target = observation['pointgoal_with_gps_compass'][0]
         movement = old_distance_to_target - new_distance_to_target
-        movement_threshold = 0.05/self.max_dist    # Give no reward when rotating
-        if movement > movement_threshold and action != 0:
-            reward += REWARD_MOVE_TOWARDS_GOAL
-        if movement < -movement_threshold and action != 0:
-            reward -= REWARD_MOVE_TOWARDS_GOAL
+        movement_threshold = 0.05/self.max_dist
+        if action != 0 and action != 2 and action != 3:
+            if movement > movement_threshold:
+                reward += REWARD_MOVE_TOWARDS_GOAL
+            elif movement < -movement_threshold:
+                reward -= REWARD_MOVE_TOWARDS_GOAL
         self.client.simPrintLogMessage("Goal distance, direction ", str([observation['pointgoal_with_gps_compass'][0],
                                                                             observation['pointgoal_with_gps_compass'][1]*180/3.14]))
         self.client.simPrintLogMessage("Step reward:", str(reward))
