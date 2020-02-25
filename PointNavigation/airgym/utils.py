@@ -19,7 +19,7 @@ def get_orientation(client):
     return airsim.to_eularian_angles(q)[2]
 
 
-def get_compass_reading(client, target_position, max_dist):
+def get_compass_reading(client, target_position):
     # TODO: include height/z-dim?. Yes but later
     """
 
@@ -38,7 +38,7 @@ def get_compass_reading(client, target_position, max_dist):
     angle_mag = np.arccos(np.clip(np.dot(u, v), -1.0, 1.0))
     angle_sign = np.sign(np.cross(u, v))
     angle_sign = 1 if angle_sign == 0 else angle_sign
-    dist = np.clip(np.linalg.norm(direction_vector), None, max_dist) / max_dist
+    dist = np.linalg.norm(direction_vector)
     return np.array([dist, angle_mag * angle_sign])
 
 
@@ -120,10 +120,10 @@ def print_info(client):
     print('Current position is ({}, {}, {})'.format(pos.x_val, pos.y_val, pos.z_val))
 
 
-def target_found(client, target_position, max_dist, threshold=0.5):
-    compass = get_compass_reading(client, target_position, max_dist)
+def target_found(client, target_position, threshold=0.5):
+    compass = get_compass_reading(client, target_position)
     distance_to_target = compass[0]
-    success = distance_to_target < threshold/max_dist
+    success = distance_to_target < threshold
     return success
 
 

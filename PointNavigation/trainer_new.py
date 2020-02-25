@@ -58,6 +58,7 @@ def process_obs(obs_from_env, env_str, param):
     elif env_str == 'AirSim':
         if 'pointgoal_with_gps_compass' in obs_from_env:
             dist = obs_from_env['pointgoal_with_gps_compass'][0]
+            dist = np.clip(dist, None, param['environment']['max_dist']) / param['environment']['max_dist']
             angle = obs_from_env['pointgoal_with_gps_compass'][1]
             obs_vector = torch.as_tensor([dist, np.sin(angle), np.cos(angle)], dtype=torch.float32).unsqueeze(0)
         if 'rgb' in obs_from_env and 'depth' in obs_from_env:
@@ -308,30 +309,46 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
     obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
     comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
 
+    if parameters['training']['resume_training']:
+        start_epoch = parameters['training']['epoch_to_resume']
+    else:
+        start_epoch = 0
     # Main loop: collect experience in env and update/log each epoch
-    for epoch in range(epochs):
+    for epoch in range(start_epoch, epochs):
         print("Epoch {} started".format(epoch))
         if epoch % eval_freq == 0:
             if env_str == 'AirSim':
-                total_eval_ret = 0
+                total_ret_eval = 0
+                n_collisions_eval = 0
+                n_terminate_correct_eval = 0
+                n_terminate_incorrect_eval = 0
                 done = False
                 for step in range(n_eval): # Use n_eval as steps to evaluate in
                     with torch.no_grad():
                         value, action, _ = actor_critic.act(comb_obs, deterministic=True)
-                    next_obs, reward, done, _ = env.step(action.item())
-                    total_eval_ret += reward
+                    next_obs, reward, done, info = env.step(action.item())
+                    if 'terminated_at_target' in info:
+                        if info['terminated_at_target']:
+                            n_terminate_correct_eval += 1
+                        else:
+                            n_terminate_incorrect_eval += 1
+                    total_ret_eval += reward
                     obs_vector, obs_visual, obs_compass = process_obs(next_obs, env_str, parameters)
                     comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
                     if done:
                         obs, episode_return, episode_len = env.reset(), 0, 0
                         obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
                         comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+                        n_collisions_eval += 1
 
                 obs, episode_return, episode_len = env.reset(), 0, 0
                 obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
                 comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
 
-                log_writer.add_scalar('Eval/returnTot', total_eval_ret, epoch)
+                log_writer.add_scalar('Eval/returnTot', total_ret_eval, epoch)
+                log_writer.add_scalar('Eval/nCollisions', n_collisions_eval, epoch)
+                log_writer.add_scalar('Eval/nTerminationsCorrect', n_terminate_correct_eval, epoch)
+                log_writer.add_scalar('Eval/nTerminationsIncorrect', n_terminate_incorrect_eval, epoch)
             else:
                 total_eval_ret = 0
                 for i in range(n_eval):
@@ -349,16 +366,24 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                             obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
                             comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
 
-            log_writer.add_scalar('Eval/returnMean', total_eval_ret/n_eval, epoch)
+                log_writer.add_scalar('Eval/returnMean', total_eval_ret/n_eval, epoch)
 
         # list of episode returns and episode lengths to put to logg
         episode_returns_epoch = []
         episode_len_epoch = []
+        n_collisions = 0
+        n_terminate_correct = 0
+        n_terminate_incorrect = 0
         for t in range(steps_per_epoch):
             with torch.no_grad():
                 value, action, log_prob = actor_critic.act(comb_obs)
 
-            next_obs, reward, done, _ = env.step(action.item())
+            next_obs, reward, done, info = env.step(action.item())
+            if 'terminated_at_target' in info:
+                if info['terminated_at_target']:
+                    n_terminate_correct += 1
+                else:
+                    n_terminate_incorrect += 1
 
             episode_return += reward
             episode_len += 1
@@ -372,6 +397,8 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
             timeout = episode_len == max_episode_len
             terminal = done or timeout
             epoch_ended = t == steps_per_epoch - 1
+            if done:
+                n_collisions += 1
 
             if terminal or epoch_ended:
                 # if trajectory didn't reach terminal state, bootstrap value target
@@ -407,11 +434,11 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
 
         # Total env interactions:
         log_writer.add_scalar('Progress/TotalEnvInteractions', steps_per_epoch * (epoch + 1), epoch)
-        # Episode return: average, std, min, max
         log_writer.add_scalar('EpisodesReturn/mean', episode_return_mean, epoch)
-        # Episode len: average, std, min, max
         log_writer.add_scalar('EpisodeLength/mean', episode_len_mean, epoch)
-        # Total loss:
+        log_writer.add_scalar('Episode/nCollisions', n_collisions, epoch)
+        log_writer.add_scalar('Episode/nTerminationsCorrect', n_terminate_correct, epoch)
+        log_writer.add_scalar('Episode/nTerminationsIncorrect', n_terminate_incorrect, epoch)
         log_writer.add_scalar('Loss/TotalLoss/Mean', mean_loss_total, epoch)
         log_writer.add_scalar('Loss/ActionLoss/Mean', mean_loss_action, epoch)
         log_writer.add_scalar('Loss/ValueLoss/Mean', mean_loss_value, epoch)
@@ -472,6 +499,7 @@ if __name__ == '__main__':
                             REWARD_FAILURE=parameters['environment']['REWARD_FAILURE'],
                             REWARD_COLLISION=parameters['environment']['REWARD_COLLISION'],
                             REWARD_MOVE_TOWARDS_GOAL=parameters['environment']['REWARD_MOVE_TOWARDS_GOAL'],
+                            REWARD_ROTATE=parameters['environment']['REWARD_ROTATE'],
                             height=parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height'],
                             width=parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width'])
 
@@ -518,9 +546,9 @@ if __name__ == '__main__':
                     has_visual_encoder=visual_encoder, visual_input_shape=visual_shape,
                     has_compass_encoder=compass_encoder, compass_input_shape=compass_shape,
                     num_actions=n_actions, has_previous_action_encoder=False,
-                    hidden_size=32, num_hidden_layers=1)
+                    hidden_size=32, num_hidden_layers=2)
 
-    if parameters['training']['weights'] != "":
+    if parameters['training']['resume_training']:
         ac.load_state_dict(torch.load(parameters['training']['weights']))
 
     PPO_trainer(env, ac, parameters, log_dir=args.logdir)
