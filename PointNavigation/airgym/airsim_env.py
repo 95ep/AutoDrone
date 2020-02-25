@@ -65,7 +65,7 @@ class AirsimEnv(gym.Env):
         observations = utils.get_camera_observation(self.client, sensor_types=sensor_types, max_dist=10)
 
         if 'pointgoal_with_gps_compass' in self.sensors:
-            compass = utils.get_compass_reading(self.client, self.target_position, self.max_dist)
+            compass = utils.get_compass_reading(self.client, self.target_position)
             observations.update({'pointgoal_with_gps_compass': compass})
 
         return observations
@@ -77,15 +77,18 @@ class AirsimEnv(gym.Env):
 
         old_distance_to_target = self._get_state()['pointgoal_with_gps_compass'][0]
         reward = 0
+        info = {}
         # actions: [terminate, move forward, rotate left, rotate right, ascend, descend, no-op?]
         if action == 0:
-            success = utils.target_found(self.client, self.target_position, self.max_dist, threshold=self.distance_threshold)
+            success = utils.target_found(self.client, self.target_position, threshold=self.distance_threshold)
             if success:
                 reward += REWARD_SUCCESS
                 self.client.simPrintLogMessage("Terminated at target - SUCCESS")
+                info['result'] = 'AtTarget'
             else:
                 reward += REWARD_FAILURE
                 self.client.simPrintLogMessage("Terminated not close to target - FAILURE")
+                info['result'] = 'NotAtTarget'
 
             self.target_position = utils.generate_target(self.client, self.max_dist/4)
         elif action == 1:
@@ -117,10 +120,10 @@ class AirsimEnv(gym.Env):
             reward += REWARD_MOVE_TOWARDS_GOAL
         if movement < -movement_threshold and action != 0:
             reward -= REWARD_MOVE_TOWARDS_GOAL
-        self.client.simPrintLogMessage("Goal distance, direction ", str([self.max_dist*observation['pointgoal_with_gps_compass'][0],
+        self.client.simPrintLogMessage("Goal distance, direction ", str([observation['pointgoal_with_gps_compass'][0],
                                                                             observation['pointgoal_with_gps_compass'][1]*180/3.14]))
         self.client.simPrintLogMessage("Step reward:", str(reward))
-        return observation, reward, episode_over, (position, orientation)
+        return observation, reward, episode_over, info
 
     def reset(self):
         utils.reset(self.client)

@@ -58,6 +58,7 @@ def process_obs(obs_from_env, env_str, param):
     elif env_str == 'AirSim':
         if 'pointgoal_with_gps_compass' in obs_from_env:
             dist = obs_from_env['pointgoal_with_gps_compass'][0]
+            dist = np.clip(dist, None, param['environment']['max_dist']) / param['environment']['max_dist']
             angle = obs_from_env['pointgoal_with_gps_compass'][1]
             obs_vector = torch.as_tensor([dist, np.sin(angle), np.cos(angle)], dtype=torch.float32).unsqueeze(0)
         if 'rgb' in obs_from_env and 'depth' in obs_from_env:
