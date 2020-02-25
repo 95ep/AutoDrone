@@ -437,6 +437,8 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
         log_writer.add_scalar('EpisodesReturn/mean', episode_return_mean, epoch)
         log_writer.add_scalar('EpisodeLength/mean', episode_len_mean, epoch)
         log_writer.add_scalar('Episode/nCollisions', n_collisions, epoch)
+        log_writer.add_scalar('Episode/nTerminationsCorrect', n_terminate_correct, epoch)
+        log_writer.add_scalar('Episode/nTerminationsIncorrect', n_terminate_incorrect, epoch)
         log_writer.add_scalar('Loss/TotalLoss/Mean', mean_loss_total, epoch)
         log_writer.add_scalar('Loss/ActionLoss/Mean', mean_loss_action, epoch)
         log_writer.add_scalar('Loss/ValueLoss/Mean', mean_loss_value, epoch)
