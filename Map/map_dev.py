@@ -15,6 +15,8 @@ class GlobalMap:
                  local_map_size=(5, 5, 1),
                  detection_threshold_obstacle=5,
                  detection_threshold_object=2,
+                 vision_range=0,
+                 fov_angle=2*np.pi,
                  ):
         """
         OBS! Do not report on obstacles/objects further away than the buffer distance.
@@ -24,17 +26,21 @@ class GlobalMap:
         :param starting_position: starting position of the agent
         :param buffer_distance: the furthest distance from border that triggers extension of the map
         :param local_map_size: number of CELLS in the local map. Manually enter map_size and cell_scale to match wanted output
+        :param vision_range: vision range in meters. Should probably be smaller than buffer_distance
+        :param fov_angle: field of view angle in radians. TODO: implement
         """
         assert len(map_size) == len(cell_scale) == len(starting_position) == len(buffer_distance), "different dimensions discovered in the input"
         self.dimensions = len(map_size)
         for dim in range(self.dimensions):
             if dim is not 2:
-                assert 2*buffer_distance[dim] >= local_map_size[dim]
+                if not 2*buffer_distance[dim] >= local_map_size[dim]:
+                    print('WARNING: buffer distance in dimension [{}] might be too short, which can result in a local map of smaller size than intended.'.format(dim))
         self.cell_scale = cell_scale
         self.position = starting_position
         self.buffer_distance = buffer_distance
         self.local_map_size = local_map_size
-        self.thresholds = {'visited': 1, 'obstacle': detection_threshold_obstacle, 'object': detection_threshold_object}
+        self.vision_range = vision_range
+        self.thresholds = {'visible': 1, 'visited': 1, 'obstacle': detection_threshold_obstacle, 'object': detection_threshold_object}
 
         map_borders = [(-length/2, length/2) for length in map_size]
         if self.dimensions == 3:
@@ -43,6 +49,7 @@ class GlobalMap:
         valid_start_pos = [map_borders[i][0] <= starting_position[i] <= map_borders[i][1] for i in range(self.dimensions)]
         assert all(valid_start_pos), 'starting position ' + str(starting_position) + ' is outside map with borders ' + str(map_borders) + ']'
 
+        self.map_size = map_size
         self.cell_map, self.cell_map_shape, self.cell_positions = self._create_map(map_borders)
         self.update(starting_position)
 
@@ -63,10 +70,12 @@ class GlobalMap:
             stop = map_borders[i][1] + buffer_length[i]
             cell_positions.append(np.linspace(start, stop, num_cells[i] + 1))
 
+        self.map_size = num_cells
+        visible_map = np.zeros(num_cells, dtype=int)
         visited_map = np.zeros(num_cells, dtype=int)
         obstacle_map = np.zeros(num_cells, dtype=int)
         object_map = np.zeros(num_cells, dtype=int)
-        cell_map = {'visited': visited_map, 'obstacle': obstacle_map, 'object': object_map}
+        cell_map = {'visible': visible_map, 'visited': visited_map, 'obstacle': obstacle_map, 'object': object_map}
         cell_map_shape = num_cells
 
         first_and_last = [[c[0], c[-1]] for c in cell_positions]
@@ -102,8 +111,10 @@ class GlobalMap:
         for i in range(3):
             #print('[dim]: {},  cel_pos[0]: {}, pos: {}, cel_pos[-1]: {}'.format(i, self.cell_positions[i][0], position[i], self.cell_positions[i][-1]))
             assert self.cell_positions[i][0] <= position[i] <= self.cell_positions[i][-1], 'trying to get cell index for position {} lying outside the map'.format(position)
-
-            idx = int(np.nonzero(position[i] >= self.cell_positions[i])[0][-1])
+            if position[i] == self.cell_positions[i][-1]:  # if at (top) border
+                idx = int(np.nonzero(position[i] > self.cell_positions[i])[0][-1])
+            else:
+                idx = int(np.nonzero(position[i] >= self.cell_positions[i])[0][-1])
             cell += (idx,)
 
         return cell
@@ -117,9 +128,8 @@ class GlobalMap:
 
     def _mark_cell(self, cell, label):
         if self.cell_map[label][cell] < 100: # Arbitrary large number
-            print(" val: " + str(self.cell_map[label][cell]))
             self.cell_map[label][cell] += 1
-            print("MARKING {} in cell {}. Value = {}".format(label, cell, self.cell_map[label][cell]))
+            #print("MARKING {} in cell {}. Value = {}".format(label, cell, self.cell_map[label][cell]))
 
     def _automatic_expansion(self, position):
         expand = False
@@ -136,27 +146,50 @@ class GlobalMap:
             print('expanding map automatically with size: ' + str(size_increase))
             self._expand(size_increase)
 
-    def update(self, current_position, detected_obstacles=(), detected_objects=()):
-        # TODO: add detected_objects
+    def _mark_visible_cells(self, center):
+        # currently only works in 2D
+        # TODO: generalize to 3D
+        # approximate function: distance is calculated from cell perspective, not position perspective
+        center_x = center[0]
+        center_y = center[1]
+
+        size_x = self.map_size[0]
+        size_y = self.map_size[1]
+        size_z = self.map_size[2]
+
+        scale_x, scale_y, _ = self.cell_scale
+        radius = self.vision_range
+
+        x, y = np.ogrid[-center_x:size_x-center_x, -center_y:size_y-center_y]
+        mask = (x*scale_x) ** 2 + (y*scale_y) ** 2 <= radius ** 2
+        mask_z = np.repeat(mask[:, :, np.newaxis], size_z, axis=2)
+        num_detected = np.sum(mask_z) - np.sum(self.cell_map['visible'][mask_z])
+        self.cell_map['visible'][mask_z] = 1
+
+        return num_detected
+
+
+    def update(self, new_position, detected_obstacles=(), detected_objects=()):
         """
 
-        :param current_position: tuple or list, (x, y, z)
+        :param new_position: tuple or list, (x, y, z)
         :param detected_obstacles: list of absolute positions
         :param detected_objects: list of absolute positions
         :return: updated local map
         """
         #print("current_position: {}".format(current_position))
-        self._automatic_expansion(current_position)
+        self._automatic_expansion(new_position)
         #print("_get_cell({}) = {}".format(current_position, self._get_cell(current_position)))
-        self.position = current_position
-        self._visit_cell(self._get_cell(current_position))
+        self.position = new_position
+        self._visit_cell(self._get_cell(new_position))
+        num_detected = self._mark_visible_cells(self._get_cell(new_position))
         #print("value of cell {} : {}".format(self._get_cell(current_position), self.cell_map[self._get_cell(current_position)]))
         for obstacle_position in detected_obstacles:
             self._mark_cell(self._get_cell(obstacle_position), 'obstacle')
         for object_position in detected_objects:
             self._mark_cell(self._get_cell(object_position), 'object')
 
-        return self.get_local_map()
+        return self.get_local_map(), num_detected
 
     def get_local_map(self):
         current_cell = self._get_cell(self.position)
@@ -168,7 +201,7 @@ class GlobalMap:
             local_idx.append(slice(start, end))
         local_idx = tuple(local_idx)
         #print("local idx: " + str(local_idx))
-        local_cell_map = np.concatenate([v[local_idx] // self.thresholds[k] for k, v in self.cell_map.items()], axis=2)
+        local_cell_map = np.concatenate([np.clip(v[local_idx] // self.thresholds[k], 0, 1) for k, v in self.cell_map.items()], axis=2)
         #local_cell_map = {k: v[local_idx] // self.thresholds[k] for k, v in self.cell_map.items()}
         return local_cell_map  # self.cell_map[local_idx]
 
@@ -188,8 +221,8 @@ class GlobalMap:
         #print(vis_map.max())
         vis_map = vis_map.transpose()
 
-        cmap = colors.ListedColormap(['midnightblue', 'limegreen', 'red', 'gold'])
-        bounds = [0, 1, 2, 3, 4]
+        cmap = colors.ListedColormap(['midnightblue', 'lightsteelblue', 'limegreen', 'red', 'gold'])
+        bounds = [0, 1, 2, 3, 4, 5]
         norm = colors.BoundaryNorm(bounds, cmap.N)
         plt.imshow(vis_map, origin='lower', cmap=cmap, norm=norm)
 
@@ -197,6 +230,7 @@ class GlobalMap:
             local_cell_positions = []
             for dim in range(self.dimensions):
                 start = self._get_cell(self.position)[dim] - self.local_map_size[dim] // 2
+                start = np.max([start, 0])
                 end = start + self.local_map_size[dim]
                 local_cell_positions.append(self.cell_positions[dim][(slice(start, end))])
 
@@ -217,87 +251,94 @@ class GlobalMap:
         plt.yticks(y_tick_pos[::y_ticks_skip], y_tick_val[::y_ticks_skip])
         plt.show()
 
+    def get_info(self, position):
+        return {k: bool(v[self._get_cell(position)]) for k, v in self.cell_map.items()}
+
+    def get_current_position(self):
+        return np.array(self.position, dtype=float)
+
 
 if __name__ == '__main__':
     print('===== 0 =====')
-    m = GlobalMap(map_size=(6, 6, 1), starting_position=(0, 0, 0), cell_scale=(1, 1, 1), buffer_distance=(5, 5, 0),
-                  local_map_size=(5,5,1), detection_threshold_obstacle=1, detection_threshold_object=1)
+    m = GlobalMap(map_size=(6, 6, 1), starting_position=(0, 0, 0), cell_scale=(1, 1, 1),
+                  buffer_distance=(5, 5, 0), local_map_size=(5, 5, 1), vision_range=5,
+                  detection_threshold_obstacle=1, detection_threshold_object=1)
     #m.visualize()
-    loc = m.get_local_map()
+    loc, _ = m.get_local_map()
     m.visualize(cell_map=loc)
     #print("visited: " + str(np.nonzero(m.cell_map)))
     print('===== 1 =====')
-    loc = m.update((-1, 0, 0), [[1,0,0],[1,1,0]])
+    loc, _ = m.update((-1, 0, 0), [[1,0,0],[1,1,0]])
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 2 =====')
-    loc = m.update((-2, 0, 0))
+    loc, _ = m.update((-2, 0, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 3 =====')
-    loc = m.update((-3, 0, 0), [[-4,1,0],[-4,0,0],[-4,-1,0]])
+    loc, _ = m.update((-3, 0, 0), [[-4,1,0],[-4,0,0],[-4,-1,0]])
    # m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 4 =====')
-    loc = m.update((-3, 1, 0))
+    loc, _ = m.update((-3, 1, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 5 =====')
-    loc = m.update((-3, 2, 0))
+    loc, _ = m.update((-3, 2, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 6 =====')
-    loc = m.update((-3, 3, 0), [[-3,5,0],[-2,5,0]])
+    loc, _ = m.update((-3, 3, 0), [[-3,5,0],[-2,5,0]])
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 7 =====')
-    loc = m.update((-4, 3, 0))
+    loc, _ = m.update((-4, 3, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 8 =====')
-    loc = m.update((-5, 3, 0))
+    loc, _ = m.update((-5, 3, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 9 =====')
-    loc = m.update((-6, 3, 0), [[-7,2,0],[-7,3,0],[-7,4,0]], detected_objects=[[-5,5,0]])
+    loc, _ = m.update((-6, 3, 0), [[-7,2,0],[-7,3,0],[-7,4,0]], detected_objects=[[-5,5,0]])
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 10 =====')
-    loc = m.update((-5, 3, 0))
+    loc, _ = m.update((-5, 3, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 11 =====')
-    loc = m.update((-4, 3, 0))
+    loc, _ = m.update((-4, 3, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 12 =====')
-    loc = m.update((-4, 4, 0))
+    loc, _ = m.update((-4, 4, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 13 =====')
-    loc = m.update((-3, 4, 0))
+    loc, _ = m.update((-3, 4, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 14 =====')
-    loc = m.update((-2, 4, 0))
+    loc, _ = m.update((-2, 4, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 15 =====')
-    loc = m.update((-1, 4, 0))
+    loc, _ = m.update((-1, 4, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
