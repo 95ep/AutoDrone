@@ -19,7 +19,9 @@ class MapEnv:
         self.direction = 0  # 0 radians = [1,0], pi/2 radians = [0,1]
         self.position = self.cell_map.get_current_position()
         self.reward_scaling = (self.cell_map.vision_range / self.cell_map.cell_scale[0]) * (self.cell_map.vision_range / self.cell_map.cell_scale[1]) * np.pi
-        self.observation_space = spaces.box(low=0, high=1, shape=(self.cell_map.local_map_size[0], self.cell_map.local_map_size[1]), dtype=np.int)
+        self.observation_space = spaces.box(low=0, high=1, shape=(self.cell_map.local_map_size[0],
+                                                                  self.cell_map.local_map_size[1],
+                                                                  4 * self.cell_map.local_map_size[2]), dtype=np.int)
         self.action_space = spaces.box(low=np.array([0.0, -1.0, -1.0]), high=np.array([np.inf, 1.0, 1.0]))
 
     def create_map(self, map_idx=0):
@@ -33,7 +35,7 @@ class MapEnv:
                           cell_scale=(1, 1, 1),
                           starting_position=(18, -18, z),
                           buffer_distance=(0, 0, 0),
-                          local_map_size=(10, 10, 1),
+                          local_map_size=(11, 11, 1),
                           detection_threshold_obstacle=1,
                           detection_threshold_object=1,
                           vision_range=3,
