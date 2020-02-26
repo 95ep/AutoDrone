@@ -1,7 +1,9 @@
 import numpy as np
 import sys
 import time
-sys.path.append('C:/Users/Filip/Documents/Skola/Exjobb/AutoDrone/Map')
+#sys.path.append('C:/Users/Filip/Documents/Skola/Exjobb/AutoDrone/Map')
+sys.path.append('../Map')
+
 from map_dev import GlobalMap
 
 def make():
