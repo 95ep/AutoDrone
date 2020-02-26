@@ -93,7 +93,7 @@ class AirsimEnv(gym.Env):
                 self.client.simPrintLogMessage("Terminated not close to target - FAILURE")
                 info['terminated_at_target'] = False
 
-            self.target_position = utils.generate_target(self.client, self.max_dist/4)
+            self.target_position = utils.generate_target(self.client, self.max_dist/2)
         elif action == 1:
             ac.move_forward(self.client)
         elif action == 2:
@@ -134,7 +134,7 @@ class AirsimEnv(gym.Env):
     def reset(self):
         utils.reset(self.client)
         self.agent_dead = False
-        self.target_position = utils.generate_target(self.client, self.max_dist/4)
+        self.target_position = utils.generate_target(self.client, self.max_dist/2)
         return self._get_state()
 
     def render(self, mode='human'):
