@@ -1,4 +1,10 @@
 {
+    "neural_network": {
+        "channel_config": [16, 32, 64],
+        "kernel_size_config": [3, 3, 3],
+        "padding_config": [1, 1, 1],
+        "max_pool_config": [true, true, false]
+    },
     "environment": {
         "REWARD_SUCCESS": 1,
         "REWARD_FAILURE": -0.5,

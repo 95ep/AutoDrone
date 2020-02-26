@@ -550,11 +550,12 @@ if __name__ == '__main__':
     else:
         raise ValueError("env_str not recognized.")
 
+    some_neural_net_kwargs = parameters['neural_network'] # TODO: check if it works on desk top
     ac = NeutralNet(has_vector_encoder=vector_encoder, vector_input_shape=vector_shape,
                     has_visual_encoder=visual_encoder, visual_input_shape=visual_shape,
                     has_compass_encoder=compass_encoder, compass_input_shape=compass_shape,
                     num_actions=n_actions, has_previous_action_encoder=False,
-                    hidden_size=32, num_hidden_layers=2)
+                    hidden_size=32, num_hidden_layers=2, **some_neural_net_kwargs)
 
     if parameters['training']['resume_training']:
         ac.load_state_dict(torch.load(parameters['training']['weights']))

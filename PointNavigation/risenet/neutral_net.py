@@ -72,6 +72,8 @@ class CategoricalActor(nn.Module):
 class NeutralNet(nn.Module):
     def __init__(self, has_vector_encoder=True, vector_input_shape=(4,),
                  has_visual_encoder=True, visual_input_shape=(128, 128, 2),
+                 channel_config=[16, 32, 64], kernel_size_config=[3, 3, 3],
+                 padding_config=[1, 1, 1], max_pool_config=[True, True, False],
                  has_compass_encoder=True, compass_input_shape=(3,),
                  num_actions=6, has_previous_action_encoder=False,
                  hidden_size=32, num_hidden_layers=2):
@@ -89,7 +91,9 @@ class NeutralNet(nn.Module):
             concatenation_size += output_dim
 
         if self.has_visual_encoder:
-            self.visual_encoder, output_dim = create_visual_encoder(visual_input_shape)
+            self.visual_encoder, output_dim = create_visual_encoder(visual_input_shape, channel_config=channel_config,
+                                                                    kernel_size_config=kernel_size_config,
+                                                                    padding_config=padding_config, max_pool_config=max_pool_config)
             concatenation_size += output_dim
 
         if self.has_compass_encoder:
