@@ -3,11 +3,14 @@ import sys
 import time
 #sys.path.append('C:/Users/Filip/Documents/Skola/Exjobb/AutoDrone/Map')
 sys.path.append('../Map')
+sys.path.append('./Map')
 
+from gym import spaces
 from map_dev import GlobalMap
 
+
 def make():
-    pass
+    return MapEnv()
 
 class MapEnv:
 
@@ -16,6 +19,8 @@ class MapEnv:
         self.direction = 0  # 0 radians = [1,0], pi/2 radians = [0,1]
         self.position = self.cell_map.get_current_position()
         self.reward_scaling = (self.cell_map.vision_range / self.cell_map.cell_scale[0]) * (self.cell_map.vision_range / self.cell_map.cell_scale[1]) * np.pi
+        self.observation_space = spaces.box(low=0, high=1, shape=(self.cell_map.local_map_size[0], self.cell_map.local_map_size[1]), dtype=np.int)
+        self.action_space = spaces.box(low=np.array([0.0, -1.0, -1.0]), high=np.array([np.inf, 1.0, 1.0]))
 
     def create_map(self, map_idx=0):
 
@@ -74,7 +79,7 @@ class MapEnv:
         self.position = self.cell_map.get_current_position()
         return self.cell_map.get_local_map()
 
-    def step(self, waypoint=None, compass=None):
+    def step(self, compass, waypoint=None):
         """
 
         :param waypoint: position of next waypoint - tuple-like: (x, y)

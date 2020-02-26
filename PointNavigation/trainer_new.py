@@ -9,7 +9,7 @@ import numpy as np
 import scipy.signal
 import os
 from cv2 import resize, INTER_CUBIC
-
+import sys
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -297,6 +297,8 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
 
         if 'pointgoal_with_gps_compass' in parameters['environment']['sensors']:
             vector_shape = (3,)
+    elif env_str == 'Maze':
+        visual_shape = obs_space.shape
     else:
         raise NameError('env_str not recognized')
     buffer = PPOBuffer(steps_per_epoch, vector_shape, visual_shape, compass_shape, gamma, lam)
@@ -502,7 +504,11 @@ if __name__ == '__main__':
                             REWARD_ROTATE=parameters['environment']['REWARD_ROTATE'],
                             height=parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height'],
                             width=parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width'])
-
+    elif parameters['training']['env_str'] == 'Maze':
+        sys.path.append('../Exploration')
+        sys.path.append('./Exploration')
+        import exploration_dev
+        env = exploration_dev.make()
     else:
         raise ValueError("env_str not recognized.")
 
@@ -538,7 +544,9 @@ if __name__ == '__main__':
         if 'pointgoal_with_gps_compass' in parameters['environment']['sensors']:
             vector_encoder = True
             vector_shape = (3,)
-
+    elif parameters['training']['env_str'] == 'Maze':
+        visual_encoder = True
+        visual_shape = env.observation_space.shape
     else:
         raise ValueError("env_str not recognized.")
 
