@@ -22,7 +22,6 @@ def create_vector_encoder(input_dim, layer_config=[32, 32]):
 def create_visual_encoder(input_shape, channel_config=[16, 32, 64], kernel_size_config=[3, 3, 3],
                           padding_config=[1, 1, 1], max_pool_config=[True, True, False]):
     # TODOs:
-    # - change padding to fit other kernel sizes than 3
     # - calculate output dimension for 'non-same' paddings
     input_channels = input_shape[2]
     num_layers = len(channel_config)
@@ -43,7 +42,7 @@ def create_visual_encoder(input_shape, channel_config=[16, 32, 64], kernel_size_
     layer_stack.append(nn.Flatten())
 
     output_dim = input_shape[0] * input_shape[1] * channel_config[-1] / (size_reduction ** 2)
-    assert float(output_dim).is_integer() # should be integer. If not, check that input shape is correct
+    assert float(output_dim).is_integer()  # should be integer. If not, check that input shape is correct
 
     return nn.Sequential(*layer_stack), int(output_dim)
 
@@ -73,6 +72,8 @@ class CategoricalActor(nn.Module):
 class NeutralNet(nn.Module):
     def __init__(self, has_vector_encoder=True, vector_input_shape=(4,),
                  has_visual_encoder=True, visual_input_shape=(128, 128, 2),
+                 channel_config=[16, 32, 64], kernel_size_config=[3, 3, 3],
+                 padding_config=[1, 1, 1], max_pool_config=[True, True, False],
                  has_compass_encoder=True, compass_input_shape=(3,),
                  num_actions=6, has_previous_action_encoder=False,
                  hidden_size=32, num_hidden_layers=2):
@@ -90,7 +91,9 @@ class NeutralNet(nn.Module):
             concatenation_size += output_dim
 
         if self.has_visual_encoder:
-            self.visual_encoder, output_dim = create_visual_encoder(visual_input_shape)
+            self.visual_encoder, output_dim = create_visual_encoder(visual_input_shape, channel_config=channel_config,
+                                                                    kernel_size_config=kernel_size_config,
+                                                                    padding_config=padding_config, max_pool_config=max_pool_config)
             concatenation_size += output_dim
 
         if self.has_compass_encoder:

@@ -3,11 +3,15 @@ import sys
 import time
 #sys.path.append('C:/Users/Filip/Documents/Skola/Exjobb/AutoDrone/Map')
 sys.path.append('../Map')
+sys.path.append('./Map')
 
+from gym import spaces
 from map_dev import GlobalMap
+import random
+
 
 def make():
-    pass
+    return MapEnv()
 
 class MapEnv:
 
@@ -16,22 +20,28 @@ class MapEnv:
         self.direction = 0  # 0 radians = [1,0], pi/2 radians = [0,1]
         self.position = self.cell_map.get_current_position()
         self.reward_scaling = (self.cell_map.vision_range / self.cell_map.cell_scale[0]) * (self.cell_map.vision_range / self.cell_map.cell_scale[1]) * np.pi
+        self.observation_space = spaces.Box(low=0, high=1, shape=(self.cell_map.local_map_size[0],
+                                                                  self.cell_map.local_map_size[1],
+                                                                  4 * self.cell_map.local_map_size[2]), dtype=np.int)
+        self.action_space = spaces.Box(low=np.array([0.0, -1.0, -1.0]), high=np.array([np.inf, 1.0, 1.0]), dtype=np.float32)
 
     def create_map(self, map_idx=0):
 
         if map_idx == 0:
-            x_size = 51
-            y_size = 51
-            border_thickness = 5
+            x_size = 61
+            y_size = 61
+            border_thickness = 10
             z = 0
+            starting_position = [(18, 18, z), (0, 0, z), (-18, -18, z), (-18, 18, z), (18, -18, z),
+                                 (0, 15, z), (0, -15, z), (15, 0, z), (-15, 0, z)]
             m = GlobalMap(map_size=(x_size, y_size, 1),
                           cell_scale=(1, 1, 1),
-                          starting_position=(18, -18, z),
+                          starting_position=random.choice(starting_position),
                           buffer_distance=(0, 0, 0),
-                          local_map_size=(10, 10, 1),
+                          local_map_size=(11, 11, 1),
                           detection_threshold_obstacle=1,
                           detection_threshold_object=1,
-                          vision_range=3,
+                          vision_range=2,
                           )
             # make walls
             for x in range(x_size):
@@ -74,7 +84,7 @@ class MapEnv:
         self.position = self.cell_map.get_current_position()
         return self.cell_map.get_local_map()
 
-    def step(self, waypoint=None, compass=None):
+    def step(self, compass, waypoint=None):
         """
 
         :param waypoint: position of next waypoint - tuple-like: (x, y)
@@ -124,7 +134,6 @@ class MapEnv:
         for step in range(num_steps):
             pos += v_norm * step_length
             if self.cell_map.get_info(pos)['obstacle']:
-                print("CRASHED INTO OBSTACLE")
                 success = False
                 break
             _, num_detected = self.cell_map.update(pos)
