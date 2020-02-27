@@ -65,7 +65,7 @@ class AirsimEnv(gym.Env):
     def _get_state(self):
         sensor_types = [x for x in self.sensors if x != 'pointgoal_with_gps_compass']
         # get camera images
-        observations = utils.get_camera_observation(self.client, sensor_types=sensor_types, max_dist=10)
+        observations = utils.get_camera_observation(self.client, sensor_types=sensor_types, max_dist=10, height, width)
 
         if 'pointgoal_with_gps_compass' in self.sensors:
             compass = utils.get_compass_reading(self.client, self.target_position)
