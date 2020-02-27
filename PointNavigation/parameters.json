@@ -1,0 +1,80 @@
+{
+    "neural_network": {
+        "continuous_actions": true,
+        "channel_config": [16, 32, 64],
+        "kernel_size_config": [3, 3, 3],
+        "padding_config": [1, 1, 1],
+        "max_pool_config": [false, false, false]
+    },
+    "environment": {
+        "REWARD_SUCCESS": 1,
+        "REWARD_FAILURE": -0.5,
+        "REWARD_COLLISION": -1,
+        "REWARD_MOVE_TOWARDS_GOAL": 0.1,
+        "REWARD_ROTATE": -0.01,
+        "max_dist": 10,
+        "distance_threshold": 0.5,
+        "sensors": ["rgb", "depth", "pointgoal_with_gps_compass"]
+    },
+    "training": {
+        "seed": 0,
+        "gamma": 0.99,
+        "epochs": 100,
+        "steps_per_epoch": 2048,
+        "minibatch_size": 128,
+        "clip_ratio": 0.2,
+        "lr": 1e-4,
+        "train_iters": 8,
+        "lambda": 0.95,
+        "max_episode_len": 2048,
+        "value_loss_coef": 0.5,
+        "entropy_coef": 0.01,
+        "target_kl": 0.03,
+        "save_freq": 20,
+        "env_str": "Maze",
+        "airsim_settings_path": "",
+        "eval_freq": 20,
+        "n_eval": 512,
+        "resume_training": false,
+        "epoch_to_resume": 0,
+        "weights": ""
+    },
+    "airsim": {
+      "SettingsVersion": 1.2,
+      "SimMode": "Multirotor",
+      "ViewMode": "",
+      "ClockSpeed": 8,
+      "CameraDefaults": {
+        "CaptureSettings": [
+          {
+            "ImageType": 0,
+            "Width": 64,
+            "Height": 64,
+            "FOV_Degrees": 90,
+            "AutoExposureSpeed": 100,
+            "AutoExposureBias": 0,
+            "AutoExposureMaxBrightness": 0.64,
+            "AutoExposureMinBrightness": 0.03,
+            "MotionBlurAmount": 0,
+            "TargetGamma": 1.0,
+            "ProjectionMode": "",
+            "OrthoWidth": 5.12
+          },
+          {
+            "ImageType": 2,
+            "Width": 64,
+            "Height": 64,
+            "FOV_Degrees": 90,
+            "AutoExposureSpeed": 100,
+            "AutoExposureBias": 0,
+            "AutoExposureMaxBrightness": 0.64,
+            "AutoExposureMinBrightness": 0.03,
+            "MotionBlurAmount": 0,
+            "TargetGamma": 1.0,
+            "ProjectionMode": "",
+            "OrthoWidth": 5.12
+          }
+        ]
+      }
+    }
+}

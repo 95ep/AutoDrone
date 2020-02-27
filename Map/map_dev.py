@@ -34,13 +34,14 @@ class GlobalMap:
         for dim in range(self.dimensions):
             if dim is not 2:
                 if not 2*buffer_distance[dim] >= local_map_size[dim]:
-                    print('WARNING: buffer distance in dimension [{}] might be too short, which can result in a local map of smaller size than intended.'.format(dim))
+                    #print('WARNING: buffer distance in dimension [{}] might be too short, which can result in a local map of smaller size than intended.'.format(dim))
+                    pass
         self.cell_scale = cell_scale
         self.position = starting_position
         self.buffer_distance = buffer_distance
         self.local_map_size = local_map_size
         self.vision_range = vision_range
-        self.thresholds = {'visible': 1, 'visited': 1, 'obstacle': detection_threshold_obstacle, 'object': detection_threshold_object}
+        self.thresholds = {'visible': 1, 'visited': 1, 'obstacle': detection_threshold_obstacle, 'object': detection_threshold_object, 'position': 1}
 
         map_borders = [(-length/2, length/2) for length in map_size]
         if self.dimensions == 3:
@@ -75,11 +76,12 @@ class GlobalMap:
         visited_map = np.zeros(num_cells, dtype=int)
         obstacle_map = np.zeros(num_cells, dtype=int)
         object_map = np.zeros(num_cells, dtype=int)
-        cell_map = {'visible': visible_map, 'visited': visited_map, 'obstacle': obstacle_map, 'object': object_map}
+        position_map = np.zeros(num_cells, dtype=int)
+        cell_map = {'visible': visible_map, 'visited': visited_map, 'obstacle': obstacle_map, 'object': object_map, 'position': position_map}
         cell_map_shape = num_cells
 
         first_and_last = [[c[0], c[-1]] for c in cell_positions]
-        print('Created new map with borders: ' + str(map_borders) + '. Resulting cell borders:' + str(first_and_last))
+        #print('Created new map with borders: ' + str(map_borders) + '. Resulting cell borders:' + str(first_and_last))
         return cell_map, cell_map_shape, cell_positions
 
     def _expand(self, size_increase):
@@ -123,8 +125,10 @@ class GlobalMap:
         positions = [self.cell_positions[i][cell_idx[i]] + self.cell_scale[i] / 2 for i in range(self.dimensions)]
         return positions
 
-    def _visit_cell(self, cell):
+    def _move_to_cell(self, cell):
         self.cell_map['visited'][cell] = 1
+        self.cell_map['position'][self._get_cell(self.position)] = 0
+        self.cell_map['position'][cell] = 1
 
     def _mark_cell(self, cell, label):
         if self.cell_map[label][cell] < 100: # Arbitrary large number
@@ -180,8 +184,8 @@ class GlobalMap:
         #print("current_position: {}".format(current_position))
         self._automatic_expansion(new_position)
         #print("_get_cell({}) = {}".format(current_position, self._get_cell(current_position)))
+        self._move_to_cell(self._get_cell(new_position))
         self.position = new_position
-        self._visit_cell(self._get_cell(new_position))
         num_detected = self._mark_visible_cells(self._get_cell(new_position))
         #print("value of cell {} : {}".format(self._get_cell(current_position), self.cell_map[self._get_cell(current_position)]))
         for obstacle_position in detected_obstacles:
@@ -221,8 +225,8 @@ class GlobalMap:
         #print(vis_map.max())
         vis_map = vis_map.transpose()
 
-        cmap = colors.ListedColormap(['midnightblue', 'lightsteelblue', 'limegreen', 'red', 'gold'])
-        bounds = [0, 1, 2, 3, 4, 5]
+        cmap = colors.ListedColormap(['midnightblue', 'lightsteelblue', 'limegreen', 'red', 'gold', 'darkgreen'])
+        bounds = [0, 1, 2, 3, 4, 5, 6]
         norm = colors.BoundaryNorm(bounds, cmap.N)
         plt.imshow(vis_map, origin='lower', cmap=cmap, norm=norm)
 
@@ -249,7 +253,9 @@ class GlobalMap:
             y_tick_val = self.cell_positions[1]
         plt.xticks(x_tick_pos[::x_tick_skip], x_tick_val[::x_tick_skip])
         plt.yticks(y_tick_pos[::y_ticks_skip], y_tick_val[::y_ticks_skip])
+
         plt.show()
+
 
     def get_info(self, position):
         return {k: bool(v[self._get_cell(position)]) for k, v in self.cell_map.items()}
@@ -264,7 +270,7 @@ if __name__ == '__main__':
                   buffer_distance=(5, 5, 0), local_map_size=(5, 5, 1), vision_range=5,
                   detection_threshold_obstacle=1, detection_threshold_object=1)
     #m.visualize()
-    loc, _ = m.get_local_map()
+    loc = m.get_local_map()
     m.visualize(cell_map=loc)
     #print("visited: " + str(np.nonzero(m.cell_map)))
     print('===== 1 =====')

@@ -71,6 +71,8 @@ def process_obs(obs_from_env, env_str, param):
         elif 'depth' in obs_from_env:
             depth = np.clip(obs_from_env['depth'], 0, param['environment']['max_dist'])/param['environment']['max_dist']
             obs_visual = torch.as_tensor(depth, dtype=torch.float32).unsqueeze(0)
+    elif env_str == 'Maze':
+            obs_visual = torch.as_tensor(obs_from_env, dtype=torch.float32).unsqueeze(0)
     else:
         raise ValueError("env_str not recognized.")
 
@@ -103,7 +105,6 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     logp_old = logp_old.to(device=device)
 
     values, logp, dist_entropy = actor_critic.evaluate_actions(comb_obs, act)
-
     ratio = torch.exp(logp - logp_old)
     surr1 = ratio * adv
     surr2 = torch.clamp(ratio, 1.0 - clip_ratio, 1.0 + clip_ratio) * adv
@@ -167,7 +168,7 @@ class PPOBuffer:
     """
     Stores trajectories collected.
     """
-    def __init__(self, steps, vector_shape, visual_shape, compass_shape, gamma, lam):
+    def __init__(self, steps, vector_shape, visual_shape, compass_shape, action_dim, gamma, lam):
         # Constructor - set xxx_shape to None if not used
         if vector_shape is not None:
             self.obs_vector = np.zeros((steps, *vector_shape), dtype=np.float32)
@@ -176,7 +177,7 @@ class PPOBuffer:
         if compass_shape is not None:
             self.obs_compass = np.zeros((steps, *compass_shape), dtype=np.float32)
 
-        self.act_buf = np.zeros((steps, 1), dtype=np.int)
+        self.act_buf = np.zeros((steps, action_dim), dtype=np.int)
         self.rew_buf = np.zeros(steps, dtype=np.float32)
         self.adv_buf = np.zeros((steps, 1), dtype=np.float32)
         self.ret_buf = np.zeros((steps, 1), dtype=np.float32)
@@ -227,7 +228,7 @@ class PPOBuffer:
         adv_std = np.std(self.adv_buf)
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
 
-        data = dict(act=self.act_buf, ret=self.ret_buf, adv=self.adv_buf, logp=self.logp_buf, val = self.val_buf)
+        data = dict(act=self.act_buf, ret=self.ret_buf, adv=self.adv_buf, logp=self.logp_buf, val=self.val_buf)
         if hasattr(self, 'obs_vector'):
             data['obs_vector'] = self.obs_vector
         if hasattr(self, 'obs_visual'):
@@ -275,6 +276,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
     vector_shape = None
     visual_shape = None
     compass_shape = None
+    continuous_actions = False
     if env_str == 'CartPole':
         vector_shape = obs_space.shape
     elif env_str == 'Atari':
@@ -298,11 +300,15 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
         if 'pointgoal_with_gps_compass' in parameters['environment']['sensors']:
             vector_shape = (3,)
     elif env_str == 'Maze':
+        continuous_actions = True
         visual_shape = obs_space.shape
     else:
         raise NameError('env_str not recognized')
-    buffer = PPOBuffer(steps_per_epoch, vector_shape, visual_shape, compass_shape, gamma, lam)
 
+    if continuous_actions:
+        buffer = PPOBuffer(steps_per_epoch, vector_shape, visual_shape, compass_shape, env.action_space.shape[0], gamma, lam)
+    else:
+        buffer = PPOBuffer(steps_per_epoch, vector_shape, visual_shape, compass_shape, 1, gamma, lam)
     optimizer = Adam(list(filter(lambda p: p.requires_grad, actor_critic.parameters())), lr=lr)
 
     # Prepare for interaction with env
@@ -318,7 +324,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(start_epoch, epochs):
         print("Epoch {} started".format(epoch))
-        if epoch % eval_freq == 0:
+        if epoch % eval_freq == 0 and epoch > 0:
             if env_str == 'AirSim':
                 total_ret_eval = 0
                 n_collisions_eval = 0
@@ -328,7 +334,10 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                 for step in range(n_eval): # Use n_eval as steps to evaluate in
                     with torch.no_grad():
                         value, action, _ = actor_critic.act(comb_obs, deterministic=True)
-                    next_obs, reward, done, info = env.step(action.item())
+                    if continuous_actions:
+                        next_obs, reward, done, info = env.step(action.squeeze().numpy())
+                    else:
+                        next_obs, reward, done, info = env.step(action.item())
                     if 'terminated_at_target' in info:
                         if info['terminated_at_target']:
                             n_terminate_correct_eval += 1
@@ -358,7 +367,11 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                     while not done:
                         with torch.no_grad():
                             value, action, _ = actor_critic.act(comb_obs, deterministic=True)
-                        next_obs, reward, done, _ = env.step(action.item())
+                        print('action: ', action)
+                        if continuous_actions:
+                            next_obs, reward, done, info = env.step(action.squeeze().numpy())
+                        else:
+                            next_obs, reward, done, info = env.step(action.item())
                         env.render()
                         total_eval_ret += reward
                         obs_vector, obs_visual, obs_compass = process_obs(next_obs, env_str, parameters)
@@ -380,12 +393,16 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
             with torch.no_grad():
                 value, action, log_prob = actor_critic.act(comb_obs)
 
-            next_obs, reward, done, info = env.step(action.item())
-            if 'terminated_at_target' in info:
-                if info['terminated_at_target']:
-                    n_terminate_correct += 1
-                else:
-                    n_terminate_incorrect += 1
+            if continuous_actions:
+                next_obs, reward, done, info = env.step(action.squeeze().numpy())
+            else:
+                next_obs, reward, done, info = env.step(action.item())
+            if env_str == 'Airsim':
+                if 'terminated_at_target' in info:
+                    if info['terminated_at_target']:
+                        n_terminate_correct += 1
+                    else:
+                        n_terminate_incorrect += 1
 
             episode_return += reward
             episode_len += 1
@@ -439,8 +456,9 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
         log_writer.add_scalar('EpisodesReturn/mean', episode_return_mean, epoch)
         log_writer.add_scalar('EpisodeLength/mean', episode_len_mean, epoch)
         log_writer.add_scalar('Episode/nCollisions', n_collisions, epoch)
-        log_writer.add_scalar('Episode/nTerminationsCorrect', n_terminate_correct, epoch)
-        log_writer.add_scalar('Episode/nTerminationsIncorrect', n_terminate_incorrect, epoch)
+        if env_str == 'AirSim':
+            log_writer.add_scalar('Episode/nTerminationsCorrect', n_terminate_correct, epoch)
+            log_writer.add_scalar('Episode/nTerminationsIncorrect', n_terminate_incorrect, epoch)
         log_writer.add_scalar('Loss/TotalLoss/Mean', mean_loss_total, epoch)
         log_writer.add_scalar('Loss/ActionLoss/Mean', mean_loss_action, epoch)
         log_writer.add_scalar('Loss/ValueLoss/Mean', mean_loss_value, epoch)
@@ -514,7 +532,11 @@ if __name__ == '__main__':
 
     vector_encoder, visual_encoder, compass_encoder = False, False, False
     vector_shape, visual_shape, compass_shape = None, None, None
-    n_actions = env.action_space.n
+    # TODO: better fix
+    if not parameters['training']['env_str'] == 'Maze':
+        n_actions = env.action_space.n
+    else:
+        n_actions = env.action_space.shape[0]
 
     # Set-up agent
     if parameters['training']['env_str'] == 'Atari':
@@ -554,7 +576,7 @@ if __name__ == '__main__':
     ac = NeutralNet(has_vector_encoder=vector_encoder, vector_input_shape=vector_shape,
                     has_visual_encoder=visual_encoder, visual_input_shape=visual_shape,
                     has_compass_encoder=compass_encoder, compass_input_shape=compass_shape,
-                    num_actions=n_actions, has_previous_action_encoder=False,
+                    action_dim=n_actions, has_previous_action_encoder=False,
                     hidden_size=32, num_hidden_layers=2, **some_neural_net_kwargs)
 
     if parameters['training']['resume_training']:

@@ -22,8 +22,8 @@ class MapEnv:
         self.reward_scaling = (self.cell_map.vision_range / self.cell_map.cell_scale[0]) * (self.cell_map.vision_range / self.cell_map.cell_scale[1]) * np.pi
         self.observation_space = spaces.Box(low=0, high=1, shape=(self.cell_map.local_map_size[0],
                                                                   self.cell_map.local_map_size[1],
-                                                                  4 * self.cell_map.local_map_size[2]), dtype=np.int)
-        self.action_space = spaces.Box(low=np.array([0.0, -1.0, -1.0]), high=np.array([np.inf, 1.0, 1.0]), dtype=np.float32)
+                                                                  len(self.cell_map.cell_map.keys()) * self.cell_map.local_map_size[2]), dtype=np.int)
+        self.action_space = spaces.Box(low=np.array([-np.inf, -np.inf]), high=np.array([np.inf, np.inf]), dtype=np.float32)
 
     def create_map(self, map_idx=0):
 
@@ -84,20 +84,21 @@ class MapEnv:
         self.position = self.cell_map.get_current_position()
         return self.cell_map.get_local_map()
 
-    def step(self, compass, waypoint=None):
+    def step(self, waypoint, compass=None):
         """
 
         :param waypoint: position of next waypoint - tuple-like: (x, y)
         :param compass: compass representation of next waypoint - tuple-like: (distance, cos(theta), sin(theta)
         :return:
         """
-        assert waypoint is None or compass is None and waypoint != compass, 'Check that either waypoint or compass is given'
+        assert waypoint is None or compass is None and waypoint is not compass, 'Check that either waypoint or compass is given'
 
-        if waypoint:
-            waypoint = np.array(waypoint, dtype=float)
+        if waypoint is not None:
+            waypoint = np.concatenate([np.array(waypoint, dtype=float), np.array([0], dtype=float)])
             distance = np.linalg.norm(waypoint - self.position)
 
-        if compass:
+        if compass is not None:
+            # TODO: remove or fix, produces someitmes nans
             distance, cos_theta, sin_theta = tuple(compass)
             if sin_theta == 0:
                 sin_theta += np.finfo(float).eps
@@ -126,6 +127,9 @@ class MapEnv:
         pos = np.array(self.cell_map.get_current_position(), dtype=np.float64)
         v = np.array(waypoint) - pos
         magnitude = np.linalg.norm(v)
+        import math
+        if math.isnan(magnitude):
+            print("mag is nan. v: ", v)
         v_norm = v / magnitude
         num_steps = int(magnitude / step_length)
 

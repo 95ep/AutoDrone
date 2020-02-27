@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Categorical
+from torch.distributions import Categorical, MultivariateNormal
 
 
-
+# TODO: continuous previous action
 
 def create_vector_encoder(input_dim, layer_config=[32, 32]):
     num_layers = len(layer_config)
@@ -69,13 +69,28 @@ class CategoricalActor(nn.Module):
         return self._distribution(x)
 
 
+class ContinuousActor(nn.Module):
+    def __init__(self, hidden_size, action_dimension):
+        super().__init__()
+        self.net_mu = nn.Linear(hidden_size, action_dimension)
+        self.net_std = nn.Linear(hidden_size, action_dimension)
+
+    def _distribution(self, x):
+        mu = self.net_mu(x)
+        std = F.softplus(self.net_std(x))  # softplus outputs in the range [0,inf] (approx. smooth relu)
+        return MultivariateNormal(mu, torch.diag_embed(std))
+
+    def forward(self, x):
+        return self._distribution(x)
+
+
 class NeutralNet(nn.Module):
     def __init__(self, has_vector_encoder=True, vector_input_shape=(4,),
                  has_visual_encoder=True, visual_input_shape=(128, 128, 2),
                  channel_config=[16, 32, 64], kernel_size_config=[3, 3, 3],
                  padding_config=[1, 1, 1], max_pool_config=[True, True, False],
                  has_compass_encoder=True, compass_input_shape=(3,),
-                 num_actions=6, has_previous_action_encoder=False,
+                 action_dim=6, continuous_actions=False, has_previous_action_encoder=False,
                  hidden_size=32, num_hidden_layers=2):
 
         super().__init__()
@@ -83,6 +98,7 @@ class NeutralNet(nn.Module):
         self.has_visual_encoder = has_visual_encoder
         self.has_compass_encoder = has_compass_encoder
         self.has_previous_action_encoder = has_previous_action_encoder
+        self.continuous_actor = continuous_actions
 
         concatenation_size = 0
         if self.has_vector_encoder:
@@ -101,7 +117,10 @@ class NeutralNet(nn.Module):
             concatenation_size += output_dim
 
         if self.has_previous_action_encoder:
-            self.previous_action_encoder, output_dim = create_previous_action_encoder(num_actions, hidden_size)
+            if self.continuous_actor:
+                self.previous_action_encoder, output_dim = create_vector_encoder(action_dim, hidden_size)
+            else:
+                self.previous_action_encoder, output_dim = create_previous_action_encoder(action_dim, hidden_size)
             concatenation_size += output_dim
 
         hidden_stack = [nn.Linear(concatenation_size, hidden_size), nn.LeakyReLU()]
@@ -111,28 +130,39 @@ class NeutralNet(nn.Module):
 
         self.hidden_layers = nn.Sequential(*hidden_stack)
 
-        #self.actor = nn.Linear(hidden_size, num_actions)
-        self.actor = CategoricalActor(hidden_size, num_actions)
+        if self.continuous_actor:
+            self.actor = ContinuousActor(hidden_size, action_dim)
+        else:
+            self.actor = CategoricalActor(hidden_size, action_dim)
         self.critic = nn.Linear(hidden_size, 1)
 
     def act(self, obs, deterministic=False):
         value, policy_distribution = self(obs)
-        if deterministic:
-            action = policy_distribution.probs.argmax(dim=-1, keepdim=True)
+        if self.continuous_actor:
+            if deterministic:
+                action = policy_distribution.loc
+            else:
+                action = policy_distribution.sample()
         else:
-            action = policy_distribution.sample()
+            if deterministic:
+                action = policy_distribution.probs.argmax(dim=-1, keepdim=True)
+            else:
+                action = policy_distribution.sample()
 
         log_prob = policy_distribution.log_prob(action)
         return value, action, log_prob
 
     def get_value(self, obs):
-        value, policy = self(obs)
+        value, policy_distribution = self(obs)
         return value
 
     def evaluate_actions(self, obs, action):
         value, policy_distribution = self(obs)
         entropy = policy_distribution.entropy().mean()
-        log_prob = policy_distribution.log_prob(action.squeeze().long()).unsqueeze(-1)
+        if self.continuous_actor:
+            log_prob = policy_distribution.log_prob(action).unsqueeze(-1) # TODO: debug shape and check it's correct
+        else:
+            log_prob = policy_distribution.log_prob(action.squeeze().long()).unsqueeze(-1)
 
         return value, log_prob, entropy
 
@@ -156,7 +186,7 @@ class NeutralNet(nn.Module):
             idx += 1
 
         if self.has_previous_action_encoder:
-            encodings.append(self.previous_action_encoder(input[idx]))
+            encodings.append(self.previous_action_encoder(input[idx]))  # TODO: [discrete] action + 1, leave 0 for 'no previous action'
             idx += 1
 
         x = torch.cat(encodings, dim=1)
