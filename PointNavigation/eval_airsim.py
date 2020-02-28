@@ -5,9 +5,9 @@ from risenet.neutral_net import NeutralNet
 from trainer_new import process_obs
 
 # Should only need to modify here
-weights_path = "D:/Exjobb2020ErikFilip/AutoDrone/runs/neutral-airsim/saved_models/model260.pth"
+weights_path = "D:/Exjobb2020ErikFilip/AutoDrone/runs/neutral-airsim/saved_models/model640.pth"
 parameters_path = "D:/Exjobb2020ErikFilip/AutoDrone/runs/neutral-airsim/parameters.json"
-n_eval_steps = 128
+n_eval_steps = 512
 
 # Read paraneters
 with open(parameters_path) as f:

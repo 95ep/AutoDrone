@@ -43,7 +43,7 @@ def get_compass_reading(client, target_position):
 
 
 # Observations
-def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10, height, width):
+def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10, height=64, width=64):
     requests = []
     sensor_idx = {}
     idx_counter = 0
@@ -54,7 +54,7 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10, h
         idx_counter += 1
     if 'depth' in sensor_types:
         requests.append(airsim.ImageRequest(
-            'front_center', airsim.ImageType.DepthPerspective, pixels_as_float=True, compress=False))
+            'front_center', airsim.ImageType.DepthPlanner, pixels_as_float=True, compress=False))
         sensor_idx.update({'depth': idx_counter})
         idx_counter += 1
 
@@ -89,7 +89,7 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10, h
             print('Value err when converting depth image: {0}'.format(err))
             print('Replacing depth map with all max dist values')
             print('========================================================')
-            depth = np.ones((height, width), dtype=np.float32)*max_dist.squeeze()
+            depth = np.ones((height, width), dtype=np.float32)*max_dist
 
         depth = np.expand_dims(depth, axis=2)
         images.update({'depth': depth})

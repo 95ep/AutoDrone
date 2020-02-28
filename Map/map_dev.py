@@ -209,7 +209,7 @@ class GlobalMap:
         #local_cell_map = {k: v[local_idx] // self.thresholds[k] for k, v in self.cell_map.items()}
         return local_cell_map  # self.cell_map[local_idx]
 
-    def visualize(self, num_ticks_approx=10, cell_map=None):
+    def visualize(self, num_ticks_approx=10, cell_map=None, ax=None):
 
         if cell_map is not None:
             vis_map = cell_map
@@ -228,7 +228,12 @@ class GlobalMap:
         cmap = colors.ListedColormap(['midnightblue', 'lightsteelblue', 'limegreen', 'red', 'gold', 'darkgreen'])
         bounds = [0, 1, 2, 3, 4, 5, 6]
         norm = colors.BoundaryNorm(bounds, cmap.N)
-        plt.imshow(vis_map, origin='lower', cmap=cmap, norm=norm)
+
+        if ax is None:
+            plt.imshow(vis_map, origin='lower', cmap=cmap, norm=norm)
+        else:
+            ax.imshow(vis_map, origin='lower', cmap=cmap, norm=norm)
+            #ax.plot(np.random.rand(), np.random.rand(), 'bo')
 
         if cell_map is not None:
             local_cell_positions = []
@@ -251,11 +256,16 @@ class GlobalMap:
             x_tick_val = self.cell_positions[0]
             y_tick_pos = (self.cell_positions[1] - self.cell_positions[1][0] - self.cell_scale[1] / 2) / self.cell_scale[1]
             y_tick_val = self.cell_positions[1]
-        plt.xticks(x_tick_pos[::x_tick_skip], x_tick_val[::x_tick_skip])
-        plt.yticks(y_tick_pos[::y_ticks_skip], y_tick_val[::y_ticks_skip])
+        #ax.xticks(x_tick_pos[::x_tick_skip], x_tick_val[::x_tick_skip])
+        #ax.yticks(y_tick_pos[::y_ticks_skip], y_tick_val[::y_ticks_skip])
+        ax.set_xticks(x_tick_pos[::x_tick_skip])
+        ax.set_xticklabels(x_tick_val[::x_tick_skip])
+        ax.set_yticks(y_tick_pos[::y_ticks_skip])
+        ax.set_yticklabels(y_tick_val[::y_ticks_skip])
 
-        plt.show()
+        print("sum pos: ", np.sum(self.cell_map['position']))
 
+        plt.pause(0.005)
 
     def get_info(self, position):
         return {k: bool(v[self._get_cell(position)]) for k, v in self.cell_map.items()}

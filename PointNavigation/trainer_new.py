@@ -324,7 +324,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(start_epoch, epochs):
         print("Epoch {} started".format(epoch))
-        if epoch % eval_freq == 0 and epoch > 0:
+        if epoch % eval_freq == 0:
             if env_str == 'AirSim':
                 total_ret_eval = 0
                 n_collisions_eval = 0
@@ -364,10 +364,10 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                 total_eval_ret = 0
                 for i in range(n_eval):
                     done = False
+                    env.render()
                     while not done:
                         with torch.no_grad():
                             value, action, _ = actor_critic.act(comb_obs, deterministic=True)
-                        print('action: ', action)
                         if continuous_actions:
                             next_obs, reward, done, info = env.step(action.squeeze().numpy())
                         else:
@@ -381,6 +381,7 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                             obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
                             comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
 
+                print("Evalutation reward: ", total_eval_ret)
                 log_writer.add_scalar('Eval/returnMean', total_eval_ret/n_eval, epoch)
 
         # list of episode returns and episode lengths to put to logg

@@ -8,6 +8,7 @@ sys.path.append('./Map')
 from gym import spaces
 from map_dev import GlobalMap
 import random
+import matplotlib.pyplot as plt
 
 
 def make():
@@ -15,7 +16,7 @@ def make():
 
 class MapEnv:
 
-    def __init__(self):
+    def __init__(self, max_steps = 64):
         self.cell_map = self.create_map()
         self.direction = 0  # 0 radians = [1,0], pi/2 radians = [0,1]
         self.position = self.cell_map.get_current_position()
@@ -24,6 +25,10 @@ class MapEnv:
                                                                   self.cell_map.local_map_size[1],
                                                                   len(self.cell_map.cell_map.keys()) * self.cell_map.local_map_size[2]), dtype=np.int)
         self.action_space = spaces.Box(low=np.array([-np.inf, -np.inf]), high=np.array([np.inf, np.inf]), dtype=np.float32)
+        self.max_steps = max_steps
+        plt.ion()
+        fig = plt.figure()
+        self.ax = fig.subplots()
 
     def create_map(self, map_idx=0):
 
@@ -82,19 +87,25 @@ class MapEnv:
         self.cell_map = self.create_map()
         self.direction = 0  # 0 radians = [1,0], pi/2 radians = [0,1]
         self.position = self.cell_map.get_current_position()
+        self.steps = 0
         return self.cell_map.get_local_map()
 
-    def step(self, waypoint, compass=None):
+    def step(self, delta_pos, waypoint=None, compass=None):
         """
 
         :param waypoint: position of next waypoint - tuple-like: (x, y)
         :param compass: compass representation of next waypoint - tuple-like: (distance, cos(theta), sin(theta)
         :return:
         """
-        assert waypoint is None or compass is None and waypoint is not compass, 'Check that either waypoint or compass is given'
+        assert delta_pos is None or waypoint is None or compass is None and waypoint is not compass and waypoint is not delta_pos, 'Check that either waypoint or compass is given'
 
         if waypoint is not None:
             waypoint = np.concatenate([np.array(waypoint, dtype=float), np.array([0], dtype=float)])
+            distance = np.linalg.norm(waypoint - self.position)
+
+        if delta_pos is not None:
+            delta_pos = np.concatenate([np.array(delta_pos, dtype=float), np.array([0], dtype=float)])
+            waypoint = self.position + delta_pos
             distance = np.linalg.norm(waypoint - self.position)
 
         if compass is not None:
@@ -114,13 +125,17 @@ class MapEnv:
             reward = -10
             done = True
         obs = self.cell_map.get_local_map()
+
+        self.steps += 1
+        if self.steps == self.max_steps:
+            done = True
         return obs, reward, done, None
 
     def render(self, local=True):
         if local:
-            self.cell_map.visualize(num_ticks_approx=20, cell_map=self.cell_map.get_local_map())
+            self.cell_map.visualize(num_ticks_approx=20, cell_map=self.cell_map.get_local_map(), ax=self.ax)
         else:
-            self.cell_map.visualize(num_ticks_approx=20)
+            self.cell_map.visualize(num_ticks_approx=20, ax=self.ax)
 
     def move_to_waypoint(self, waypoint, step_length=0.1):  # approximately reaches the target
 
