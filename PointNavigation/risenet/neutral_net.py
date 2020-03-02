@@ -149,7 +149,7 @@ class NeutralNet(nn.Module):
         value, policy_distribution = self(obs)
         entropy = policy_distribution.entropy().mean()
         if self.continuous_actor:
-            log_prob = policy_distribution.log_prob(action).unsqueeze(-1) # TODO: debug shape and check it's correct
+            log_prob = policy_distribution.log_prob(action).unsqueeze(-1)  # TODO: debug shape and check it's correct
         else:
             log_prob = policy_distribution.log_prob(action.squeeze().long()).unsqueeze(-1)
 
@@ -157,7 +157,7 @@ class NeutralNet(nn.Module):
 
     def forward(self, input):
         # inputs should be ordered: vector, visual, prev_action
-        # types: float, float, float, long
+        # types: float, float, long
         idx = 0
         encodings = []
         if self.has_vector_encoder:
