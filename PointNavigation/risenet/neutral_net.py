@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical, MultivariateNormal
 
-# smal change
 # TODO: continuous previous action
 
 def create_vector_encoder(input_dim, layer_config=[32, 32]):
@@ -47,10 +46,6 @@ def create_visual_encoder(input_shape, channel_config=[16, 32, 64], kernel_size_
     return nn.Sequential(*layer_stack), int(output_dim)
 
 
-def create_compass_encoder(input_dim, encoding_dim):
-    return nn.Sequential(nn.Linear(input_dim, encoding_dim), nn.LeakyReLU()), int(encoding_dim)
-
-
 def create_previous_action_encoder(action_dim, encoding_dim):
     # +1 for 'null' action, when there is no previous action
     return nn.Embedding(action_dim + 1, encoding_dim), int(encoding_dim)
@@ -89,14 +84,12 @@ class NeutralNet(nn.Module):
                  has_visual_encoder=True, visual_input_shape=(128, 128, 2),
                  channel_config=[16, 32, 64], kernel_size_config=[3, 3, 3],
                  padding_config=[1, 1, 1], max_pool_config=[True, True, False],
-                 has_compass_encoder=True, compass_input_shape=(3,),
                  action_dim=6, continuous_actions=False, has_previous_action_encoder=False,
                  hidden_size=32, num_hidden_layers=2):
 
         super().__init__()
         self.has_vector_encoder = has_vector_encoder
         self.has_visual_encoder = has_visual_encoder
-        self.has_compass_encoder = has_compass_encoder
         self.has_previous_action_encoder = has_previous_action_encoder
         self.continuous_actor = continuous_actions
 
@@ -110,10 +103,6 @@ class NeutralNet(nn.Module):
             self.visual_encoder, output_dim = create_visual_encoder(visual_input_shape, channel_config=channel_config,
                                                                     kernel_size_config=kernel_size_config,
                                                                     padding_config=padding_config, max_pool_config=max_pool_config)
-            concatenation_size += output_dim
-
-        if self.has_compass_encoder:
-            self.compass_encoder, output_dim = create_compass_encoder(compass_input_shape[0], hidden_size)
             concatenation_size += output_dim
 
         if self.has_previous_action_encoder:
@@ -167,7 +156,7 @@ class NeutralNet(nn.Module):
         return value, log_prob, entropy
 
     def forward(self, input):
-        # inputs should be ordered: vector, visual, compass, prev_action
+        # inputs should be ordered: vector, visual, prev_action
         # types: float, float, float, long
         idx = 0
         encodings = []
@@ -179,10 +168,6 @@ class NeutralNet(nn.Module):
             # permute tensor to dimension [BATCH x CHANNEL x HEIGHT X WIDTH]
             visual_input = input[idx].permute(0, 3, 1, 2)
             encodings.append(self.visual_encoder(visual_input))
-            idx += 1
-
-        if self.has_compass_encoder:
-            encodings.append(self.compass_encoder(input[idx]))
             idx += 1
 
         if self.has_previous_action_encoder:

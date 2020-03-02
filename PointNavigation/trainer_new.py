@@ -41,7 +41,6 @@ def print_progress_bar (iteration, total, prefix = '', suffix = '',
 def process_obs(obs_from_env, env_str, param):
     obs_vector = None
     obs_visual = None
-    obs_compass = None
     if env_str == 'CartPole':
         obs_vector = torch.as_tensor(obs_from_env, dtype=torch.float32).unsqueeze(0)
     elif env_str == 'Atari':
@@ -76,7 +75,7 @@ def process_obs(obs_from_env, env_str, param):
     else:
         raise ValueError("env_str not recognized.")
 
-    return obs_vector, obs_visual, obs_compass
+    return obs_vector, obs_visual
 
 
 def discount_cumsum(x, discount):
@@ -89,15 +88,12 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
 
     obs_vector = None
     obs_visual = None
-    obs_compass = None
     if 'obs_vector' in data:
         obs_vector = data['obs_vector'].to(device=device)
     if 'obs_visual' in data:
         obs_visual = data['obs_visual'].to(device=device)
-    if 'obs_compass' in data:
-        obs_compass = data['obs_compass'].to(device=device)
 
-    comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+    comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
     act = act.to(device=device)
     ret = ret.to(device=device)
@@ -168,14 +164,12 @@ class PPOBuffer:
     """
     Stores trajectories collected.
     """
-    def __init__(self, steps, vector_shape, visual_shape, compass_shape, action_dim, gamma, lam):
+    def __init__(self, steps, vector_shape, visual_shape, action_dim, gamma, lam):
         # Constructor - set xxx_shape to None if not used
         if vector_shape is not None:
             self.obs_vector = np.zeros((steps, *vector_shape), dtype=np.float32)
         if visual_shape is not None:
             self.obs_visual = np.zeros((steps, *visual_shape), dtype=np.float32)
-        if compass_shape is not None:
-            self.obs_compass = np.zeros((steps, *compass_shape), dtype=np.float32)
 
         self.act_buf = np.zeros((steps, action_dim), dtype=np.int)
         self.rew_buf = np.zeros(steps, dtype=np.float32)
@@ -189,7 +183,7 @@ class PPOBuffer:
         self.path_start_idx = 0
         self.max_size = steps
 
-    def store(self, obs_vector, obs_visual, obs_compass, act, rew, val, logp):
+    def store(self, obs_vector, obs_visual, act, rew, val, logp):
         """
         Add one step of interactions to the buffer, set obs_xx to None (or whatever) if not used
         """
@@ -198,8 +192,6 @@ class PPOBuffer:
             self.obs_vector[self.ptr] = obs_vector
         if hasattr(self, 'obs_visual'):
             self.obs_visual[self.ptr] = obs_visual
-        if hasattr(self, 'obs_compass'):
-            self.obs_compass[self.ptr] = obs_compass
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
@@ -233,8 +225,6 @@ class PPOBuffer:
             data['obs_vector'] = self.obs_vector
         if hasattr(self, 'obs_visual'):
             data['obs_visual'] = self.obs_visual
-        if hasattr(self, 'obs_compass'):
-            data['obs_compass'] = self.obs_compass
 
         # Convert into torch tensors
         data = {k: torch.as_tensor(v) for k, v in data.items()}
@@ -275,7 +265,6 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
     # Set up experience buffer
     vector_shape = None
     visual_shape = None
-    compass_shape = None
     continuous_actions = False
     if env_str == 'CartPole':
         vector_shape = obs_space.shape
@@ -306,16 +295,16 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
         raise NameError('env_str not recognized')
 
     if continuous_actions:
-        buffer = PPOBuffer(steps_per_epoch, vector_shape, visual_shape, compass_shape, env.action_space.shape[0], gamma, lam)
+        buffer = PPOBuffer(steps_per_epoch, vector_shape, visual_shape, env.action_space.shape[0], gamma, lam)
     else:
-        buffer = PPOBuffer(steps_per_epoch, vector_shape, visual_shape, compass_shape, 1, gamma, lam)
+        buffer = PPOBuffer(steps_per_epoch, vector_shape, visual_shape, 1, gamma, lam)
     optimizer = Adam(list(filter(lambda p: p.requires_grad, actor_critic.parameters())), lr=lr)
 
     # Prepare for interaction with env
     start_time = time.time()
     obs, episode_return, episode_len = env.reset(), 0, 0
-    obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
-    comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+    obs_vector, obs_visual = process_obs(obs, env_str, parameters)
+    comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
     if parameters['training']['resume_training']:
         start_epoch = parameters['training']['epoch_to_resume']
@@ -344,17 +333,17 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                         else:
                             n_terminate_incorrect_eval += 1
                     total_ret_eval += reward
-                    obs_vector, obs_visual, obs_compass = process_obs(next_obs, env_str, parameters)
-                    comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+                    obs_vector, obs_visual = process_obs(next_obs, env_str, parameters)
+                    comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
                     if done:
                         obs, episode_return, episode_len = env.reset(), 0, 0
-                        obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
-                        comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+                        obs_vector, obs_visual = process_obs(obs, env_str, parameters)
+                        comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
                         n_collisions_eval += 1
 
                 obs, episode_return, episode_len = env.reset(), 0, 0
-                obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
-                comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+                obs_vector, obs_visual = process_obs(obs, env_str, parameters)
+                comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
                 log_writer.add_scalar('Eval/returnTot', total_ret_eval, epoch)
                 log_writer.add_scalar('Eval/nCollisions', n_collisions_eval, epoch)
@@ -374,12 +363,12 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                             next_obs, reward, done, info = env.step(action.item())
                         env.render()
                         total_eval_ret += reward
-                        obs_vector, obs_visual, obs_compass = process_obs(next_obs, env_str, parameters)
-                        comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+                        obs_vector, obs_visual = process_obs(next_obs, env_str, parameters)
+                        comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
                         if done:
                             obs, episode_return, episode_len = env.reset(), 0, 0
-                            obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
-                            comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+                            obs_vector, obs_visual = process_obs(obs, env_str, parameters)
+                            comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
                 print("Evalutation reward: ", total_eval_ret)
                 log_writer.add_scalar('Eval/returnMean', total_eval_ret/n_eval, epoch)
@@ -408,11 +397,11 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
             episode_return += reward
             episode_len += 1
 
-            buffer.store(obs_vector, obs_visual, obs_compass, action, reward, value, log_prob)
+            buffer.store(obs_vector, obs_visual, action, reward, value, log_prob)
 
             # Update obs
-            obs_vector, obs_visual, obs_compass = process_obs(next_obs, env_str, parameters)
-            comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+            obs_vector, obs_visual = process_obs(next_obs, env_str, parameters)
+            comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
             timeout = episode_len == max_episode_len
             terminal = done or timeout
@@ -433,8 +422,8 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                 episode_len_epoch.append(episode_len)
                 # Reset if episode ended
                 obs, episode_return, episode_len = env.reset(), 0, 0
-                obs_vector, obs_visual, obs_compass = process_obs(obs, env_str, parameters)
-                comb_obs = tuple(o for o in [obs_vector, obs_visual, obs_compass] if o is not None)
+                obs_vector, obs_visual = process_obs(obs, env_str, parameters)
+                comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
         # A epoch of experience is collected
         # Save model
@@ -531,8 +520,8 @@ if __name__ == '__main__':
     else:
         raise ValueError("env_str not recognized.")
 
-    vector_encoder, visual_encoder, compass_encoder = False, False, False
-    vector_shape, visual_shape, compass_shape = None, None, None
+    vector_encoder, visual_encoder = False, False
+    vector_shape, visual_shape = None, None
     # TODO: better fix
     if not parameters['training']['env_str'] == 'Maze':
         n_actions = env.action_space.n
@@ -576,7 +565,6 @@ if __name__ == '__main__':
     some_neural_net_kwargs = parameters['neural_network'] # TODO: check if it works on desk top
     ac = NeutralNet(has_vector_encoder=vector_encoder, vector_input_shape=vector_shape,
                     has_visual_encoder=visual_encoder, visual_input_shape=visual_shape,
-                    has_compass_encoder=compass_encoder, compass_input_shape=compass_shape,
                     action_dim=n_actions, has_previous_action_encoder=False,
                     hidden_size=32, num_hidden_layers=2, **some_neural_net_kwargs)
 
