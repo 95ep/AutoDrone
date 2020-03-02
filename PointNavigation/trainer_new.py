@@ -421,16 +421,6 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
 if __name__ == '__main__':
     import argparse
     import json
-    import gym
-    from risenet.neutral_net import NeutralNet
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--parameters', type=str)
-    parser.add_argument('--logdir', type=str)
-    args = parser.parse_args()
-
-    with open(args.parameters) as f:
-        parameters = json.load(f)
 
     # Create the directories for logs and saved models
     dir = os.path.dirname(args.logdir)
@@ -447,53 +437,7 @@ if __name__ == '__main__':
     with open(args.logdir + 'parameters.json', 'w') as f:
         json.dump(parameters, f, indent='\t')
 
-    vector_encoder, visual_encoder = False, False
-    vector_shape, visual_shape = None, None
-    # TODO: better fix
-    if not parameters['training']['env_str'] == 'Maze':
-        n_actions = env.action_space.n
-    else:
-        n_actions = env.action_space.shape[0]
 
-    # Set-up agent
-    if parameters['training']['env_str'] == 'Atari':
-        visual_encoder = True
-        visual_shape = (parameters['training']['height'], parameters['training']['width'], 3*parameters['training']['frame_stack'])
-
-    elif parameters['training']['env_str'] == 'CartPole':
-        vector_encoder = True
-        vector_shape = env.observation_space.shape
-
-    elif parameters['training']['env_str'] == 'AirSim':
-        if 'rgb' in parameters['environment']['sensors']:
-            visual_encoder = True
-            h = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
-            w = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
-            visual_shape = (h, w, 3)
-
-        if 'depth' in parameters['environment']['sensors']:
-            if visual_encoder:
-                visual_shape = (visual_shape[0], visual_shape[1], visual_shape[2]+1)
-            else:
-                visual_encoder = True
-                h = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
-                w = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
-                visual_shape = (h, w, 1)
-
-        if 'pointgoal_with_gps_compass' in parameters['environment']['sensors']:
-            vector_encoder = True
-            vector_shape = (3,)
-    elif parameters['training']['env_str'] == 'Maze':
-        visual_encoder = True
-        visual_shape = env.observation_space.shape
-    else:
-        raise ValueError("env_str not recognized.")
-
-    some_neural_net_kwargs = parameters['neural_network'] # TODO: check if it works on desk top
-    ac = NeutralNet(has_vector_encoder=vector_encoder, vector_input_shape=vector_shape,
-                    has_visual_encoder=visual_encoder, visual_input_shape=visual_shape,
-                    action_dim=n_actions, has_previous_action_encoder=False,
-                    hidden_size=32, num_hidden_layers=2, **some_neural_net_kwargs)
 
     if parameters['training']['resume_training']:
         ac.load_state_dict(torch.load(parameters['training']['weights']))

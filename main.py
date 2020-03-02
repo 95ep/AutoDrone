@@ -2,6 +2,7 @@ import argparse
 import json
 
 from environments.env_utils import make
+from PointNavigation.risenet.neutral_net import NeutralNet
 
 
 # Create parser and parse arguments
@@ -16,3 +17,11 @@ with open(args.parameters) as f:
 
 # Create env and env_utils
 env_utils, env = make(**parameters)
+
+# Get network kwargs from env_utils
+network_kwargs = env_utils.get_network_kwargs()
+# Add additional kwargs from parameter file
+network_kwargs.update(parameters['neural_network'])
+
+
+ac = NeutralNet(**network_kwargs)

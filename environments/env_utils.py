@@ -1,3 +1,5 @@
+from typing import Optional, Dict
+
 import numpy as np
 import torch
 import gym
@@ -32,11 +34,15 @@ def make(**kwargs):
 
 class EnvUtilsSuper:
     def __init__(self):
-        # TODO - any fields for superclass? Logwriter for instance?
-        pass
+        self.network_kwargs = {'has_previous_action_encoder': False, 'has_vector_encoder': False,
+                               'vector_input_shape': tuple(), 'has_visual_encoder': False,
+                               'visual_input_shape': tuple(), 'action_dim': None}
 
     def make_env(self, **kwargs):
         raise NotImplementedError
+
+    def get_network_kwargs(self):
+        return self.network_kwargs
 
     def process_obs(self, obs_from_env):
         raise NotImplementedError
@@ -50,7 +56,11 @@ class EnvUtilsCartPole(EnvUtilsSuper):
         super().__init__()
 
     def make_env(self):
-        return gym.make('CartPole-v0')
+        env = gym.make('CartPole-v0')
+        self.network_kwargs['has_vector_encoder'] = True
+        self.network_kwargs['vector_input_shape'] = env.observation_space.shape
+        self.network_kwargs['action_dim'] = env.action_space.n
+        return env
 
     def process_obs(self, obs_from_env):
         obs_visual = None
@@ -73,6 +83,9 @@ class EnvUtilsAtari(EnvUtilsSuper):
     def make_env(self):
         env = gym.make('PongDeterministic-v4')
         env = FrameStack(env, self.frame_stack)
+        self.network_kwargs['has_visual_encoder'] = True
+        self.network_kwargs['visual_input_shape'] = (self.height, self.width, 3 * self.frame_stack)
+        self.network_kwargs['action_dim'] = env.action_space.n
         return env
 
     def process_obs(self, obs_from_env):
@@ -96,6 +109,8 @@ class EnvUtilsAtari(EnvUtilsSuper):
 class EnvUtilsAirSim(EnvUtilsSuper):
     def __init__(self, parameters):
         self.max_dist = parameters['environment']['max_dist']
+        self.height = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
+        self.width = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
         super().__init__()
 
     def make_env(self, **parameters):
@@ -106,6 +121,23 @@ class EnvUtilsAirSim(EnvUtilsSuper):
             'Copied AirSim settings to Documents folder. \n (Re)Start AirSim and then press enter to start training...')
 
         env = airgym.make(**parameters)
+        if 'rgb' in parameters['environment']['sensors']:
+            self.network_kwargs['has_visual_encoder'] = True
+            self.network_kwargs['visual_input_shape'] = (self.height, self.width, 3)
+
+        if 'depth' in parameters['environment']['sensors']:
+            if self.network_kwargs['has_visual_encoder']:
+                visual_shape = self.network_kwargs['visual_input_shape']
+                self.network_kwargs['visual_input_shape'] = (visual_shape[0], visual_shape[1], visual_shape[2]+1)
+            else:
+                self.network_kwargs['has_visual_encoder'] = True
+                self.network_kwargs['visual_input_shape'] = (self.height, self.width, 1)
+
+        if 'pointgoal_with_gps_compass' in parameters['environment']['sensors']:
+            self.network_kwargs['has_vector_encoder'] = True
+            self.network_kwargs['vector_input_shape'] = (3,)
+
+        self.network_kwargs['action_dim'] = env.action_space.n
 
         return env
 
@@ -143,7 +175,11 @@ class EnvUtilsExploration(EnvUtilsSuper):
         super().__init__()
 
     def make_env(self):
-        return exploration_dev.make()
+        env = exploration_dev.make()
+        self.network_kwargs['has_visual_encoder'] = True
+        self.network_kwargs['visual_input_shape'] = env.observation_space.shape
+        self.network_kwargs['action_dim'] = env.action_space.shape[0]
+        return env
 
     def process_obs(self, obs_from_env):
         obs_vector = None
