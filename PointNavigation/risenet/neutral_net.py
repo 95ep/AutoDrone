@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical, MultivariateNormal
 
-
+# smal change
 # TODO: continuous previous action
 
 def create_vector_encoder(input_dim, layer_config=[32, 32]):
