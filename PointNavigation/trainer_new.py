@@ -3,7 +3,6 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from dictloader import ExperienceDataset, ExperienceSampler
-from gym.wrappers.frame_stack import FrameStack
 import time
 import numpy as np
 import scipy.signal
@@ -36,46 +35,6 @@ def print_progress_bar (iteration, total, prefix = '', suffix = '',
     if iteration == total:
         time.sleep(0.05)
         print('\r ' + ' ' * (filled_length + 10), end=print_end)
-
-
-def process_obs(obs_from_env, env_str, param):
-    obs_vector = None
-    obs_visual = None
-    if env_str == 'CartPole':
-        obs_vector = torch.as_tensor(obs_from_env, dtype=torch.float32).unsqueeze(0)
-    elif env_str == 'Atari':
-        # To np array and put in range (0,1)
-        ary = np.array(obs_from_env.__array__(), dtype=np.float32)/255
-        ary  = np.concatenate(ary, axis=-1)
-        h = param['training']['height']
-        w = param['training']['width']
-        c = ary.shape[2]
-        new_ary = np.zeros((h, w, c), dtype=np.float32)
-        for i in range(c):
-            new_ary[:, :, i] = resize(ary[:, :, i], dsize=(h, w), interpolation=INTER_CUBIC)
-        obs_visual = torch.clamp(torch.as_tensor(new_ary).unsqueeze(0), 0, 1)
-    elif env_str == 'AirSim':
-        if 'pointgoal_with_gps_compass' in obs_from_env:
-            dist = obs_from_env['pointgoal_with_gps_compass'][0]
-            dist = np.clip(dist, None, param['environment']['max_dist']) / param['environment']['max_dist']
-            angle = obs_from_env['pointgoal_with_gps_compass'][1]
-            obs_vector = torch.as_tensor([dist, np.sin(angle), np.cos(angle)], dtype=torch.float32).unsqueeze(0)
-        if 'rgb' in obs_from_env and 'depth' in obs_from_env:
-            rgb = torch.as_tensor(obs_from_env['rgb'], dtype=torch.float32)/255.0
-            depth = np.clip(obs_from_env['depth'], 0, param['environment']['max_dist'])/param['environment']['max_dist']
-            depth = torch.as_tensor(depth, dtype=torch.float32)
-            obs_visual = torch.cat((rgb, depth), dim=2).unsqueeze(0)
-        elif 'rgb' in obs_from_env:
-            obs_visual = torch.as_tensor(obs_from_env['rgb'], dtype=torch.float32).unsqueeze(0)/255
-        elif 'depth' in obs_from_env:
-            depth = np.clip(obs_from_env['depth'], 0, param['environment']['max_dist'])/param['environment']['max_dist']
-            obs_visual = torch.as_tensor(depth, dtype=torch.float32).unsqueeze(0)
-    elif env_str == 'Maze':
-            obs_visual = torch.as_tensor(obs_from_env, dtype=torch.float32).unsqueeze(0)
-    else:
-        raise ValueError("env_str not recognized.")
-
-    return obs_vector, obs_visual
 
 
 def discount_cumsum(x, discount):
@@ -257,10 +216,6 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
 
     # Get some env variables
     obs_space = env.observation_space
-
-    # Wrap environment in FrameStack if Atari
-    if env_str == 'Atari':
-        env = FrameStack(env, parameters['training']['frame_stack'])
 
     # Set up experience buffer
     vector_shape = None
@@ -491,34 +446,6 @@ if __name__ == '__main__':
     # Copy all parameters to log dir
     with open(args.logdir + 'parameters.json', 'w') as f:
         json.dump(parameters, f, indent='\t')
-
-    # Set-up env
-    if parameters['training']['env_str'] == 'CartPole':
-        env = gym.make('CartPole-v0')
-    elif parameters['training']['env_str'] == 'Atari':
-        env = gym.make('PongDeterministic-v4')
-    elif parameters['training']['env_str'] == 'AirSim':
-        import airgym
-        # Write AirSim settings to a json file
-        with open(parameters['training']['airsim_settings_path'], 'w') as f:
-            json.dump(parameters['airsim'], f, indent='\t')
-        input('Copied AirSim settings to Documents folder. \n (Re)Start AirSim and then press enter to start training...')
-
-        env = airgym.make(sensors=parameters['environment']['sensors'], max_dist=parameters['environment']['max_dist'],
-                            REWARD_SUCCESS=parameters['environment']['REWARD_SUCCESS'],
-                            REWARD_FAILURE=parameters['environment']['REWARD_FAILURE'],
-                            REWARD_COLLISION=parameters['environment']['REWARD_COLLISION'],
-                            REWARD_MOVE_TOWARDS_GOAL=parameters['environment']['REWARD_MOVE_TOWARDS_GOAL'],
-                            REWARD_ROTATE=parameters['environment']['REWARD_ROTATE'],
-                            height=parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height'],
-                            width=parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width'])
-    elif parameters['training']['env_str'] == 'Maze':
-        sys.path.append('../Exploration')
-        sys.path.append('./Exploration')
-        import exploration_dev
-        env = exploration_dev.make()
-    else:
-        raise ValueError("env_str not recognized.")
 
     vector_encoder, visual_encoder = False, False
     vector_shape, visual_shape = None, None

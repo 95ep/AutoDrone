@@ -28,13 +28,18 @@ def make(**kwargs):
     global REWARD_COLLISION
     global REWARD_MOVE_TOWARDS_GOAL
     global REWARD_ROTATE
-    REWARD_SUCCESS = kwargs['REWARD_SUCCESS']
-    REWARD_FAILURE = kwargs['REWARD_FAILURE']
-    REWARD_COLLISION = kwargs['REWARD_COLLISION']
-    REWARD_MOVE_TOWARDS_GOAL = kwargs['REWARD_MOVE_TOWARDS_GOAL']
-    REWARD_ROTATE = kwargs['REWARD_ROTATE']
+    REWARD_SUCCESS = kwargs['environment']['REWARD_SUCCESS']
+    REWARD_FAILURE = kwargs['environment']['REWARD_FAILURE']
+    REWARD_COLLISION = kwargs['environment']['REWARD_COLLISION']
+    REWARD_MOVE_TOWARDS_GOAL = kwargs['environment']['REWARD_MOVE_TOWARDS_GOAL']
+    REWARD_ROTATE = kwargs['environment']['REWARD_ROTATE']
 
-    return AirsimEnv(kwargs['sensors'], kwargs['max_dist'], kwargs['height'], kwargs['width'])
+    sensors = kwargs['environment']['sensors']
+    max_dist = kwargs['environment']['max_dist']
+    h = kwargs['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
+    w = kwargs['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
+
+    return AirsimEnv(sensors, max_dist, h, w)
 
 
 class AirsimEnv(gym.Env):
