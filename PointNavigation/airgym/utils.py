@@ -1,7 +1,7 @@
 import airsim
 import numpy as np
 import time
-
+import random
 # client.getMultirotorState() returns essentially everything. Maybe switch to that?
 
 
@@ -127,17 +127,22 @@ def target_found(client, target_position, threshold=0.5):
     return success
 
 
-def generate_target(client, max_target_distance):
+def generate_target(client, max_target_distance, sub_t=False):
     """
     Generate new goal for the agent to reach.
     :param client:
     :param max_target_distance:
     :return:
     """
-    pos = client.simGetGroundTruthKinematics().position
-    x = (2 * np.random.rand() - 1) * max_target_distance + pos.x_val
-    y = (2 * np.random.rand() - 1) * max_target_distance + pos.y_val
-    return np.array([x, y])
+    if sub_t:
+        targets = [[-15, -17],[-15, -28],[-3,-28,],[-15,-60],[-25,-61],[-36,-61],[-48,-63],[-15,-20],[-15,-50],[-15,-42],[-15,-30],[-48,-70],[-23,-50]]
+        target = np.array(random.choice(targets), dtype=np.float)
+    else:
+        pos = client.simGetGroundTruthKinematics().position
+        x = (2 * np.random.rand() - 1) * max_target_distance + pos.x_val
+        y = (2 * np.random.rand() - 1) * max_target_distance + pos.y_val
+        target = np.array([x, y])
+    return target
 
 
 def reset(client):
