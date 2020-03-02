@@ -6,13 +6,13 @@
         "max_pool_config": [true, true, false]
     },
     "environment": {
-        "REWARD_SUCCESS": 1,
+        "REWARD_SUCCESS": 10,
         "REWARD_FAILURE": -0.5,
-        "REWARD_COLLISION": -1,
-        "REWARD_MOVE_TOWARDS_GOAL": 0.1,
+        "REWARD_COLLISION": -10,
+        "REWARD_MOVE_TOWARDS_GOAL": 0.01,
         "REWARD_ROTATE": -0.01,
         "max_dist": 10,
-        "distance_threshold": 0.5,
+        "distance_threshold": 1.0,
         "sensors": ["rgb", "depth", "pointgoal_with_gps_compass"]
     },
     "training": {
@@ -35,7 +35,7 @@
         "eval_freq": 20,
         "n_eval": 512,
         "resume_training": true,
-        "epoch_to_resume": 501,
+        "epoch_to_resume": 0,
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/neutral-airsim/saved_models/model500.pth"
     },
     "airsim": {
@@ -60,7 +60,7 @@
             "OrthoWidth": 5.12
           },
           {
-            "ImageType": 2,
+            "ImageType": 1,
             "Width": 64,
             "Height": 64,
             "FOV_Degrees": 90,
