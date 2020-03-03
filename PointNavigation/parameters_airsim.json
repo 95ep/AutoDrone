@@ -20,7 +20,7 @@
     "training": {
         "seed": 0,
         "gamma": 0.99,
-        "epochs": 10000,
+        "n_epochs": 10000,
         "steps_per_epoch": 2048,
         "minibatch_size": 128,
         "clip_ratio": 0.2,
@@ -34,11 +34,14 @@
         "save_freq": 20,
         "env_str": "AirSim",
         "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
-        "eval_freq": 20,
-        "n_eval": 512,
         "resume_training": true,
         "epoch_to_resume": 0,
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/neutral-airsim/saved_models/model500.pth"
+    },
+    "eval": {
+        "eval_freq": 20,
+        "n_evals": 1,
+        "n_eval_steps": 512
     },
     "airsim": {
       "SettingsVersion": 1.2,

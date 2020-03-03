@@ -7,6 +7,7 @@ import json
 
 import PointNavigation.airgym as airgym  # TODO - is this correct syntax for import?
 import Exploration.exploration_dev as exploration_dev
+from PPO_utils import PPOBuffer
 
 
 def make(**kwargs):
@@ -38,6 +39,18 @@ class EnvUtilsSuper:
 
     def make_env(self, **kwargs):
         raise NotImplementedError
+
+    def make_buffer(self, steps_per_epoch, gamma, lam):
+        if self.network_kwargs['has_vector_encoder']:
+            vector_shape = self.network_kwargs['vector_input_shape']
+        else:
+            vector_shape = None
+        if self.network_kwargs['has_visual_encoder']:
+            visual_shape = self.network_kwargs['visual_input_shape']
+        else:
+            visual_shape = None
+
+        PPOBuffer(steps_per_epoch, vector_shape, visual_shape, 1, gamma, lam)
 
     def get_network_kwargs(self):
         return self.network_kwargs
@@ -167,6 +180,20 @@ class EnvUtilsExploration(EnvUtilsSuper):
         self.network_kwargs['visual_input_shape'] = env.observation_space.shape
         self.network_kwargs['action_dim'] = env.action_space.shape[0]
         return env
+
+    def make_buffer(self, steps_per_epoch, gamma, lam):
+        if self.network_kwargs['has_vector_encoder']:
+            vector_shape = self.network_kwargs['vector_input_shape']
+        else:
+            vector_shape = None
+        if self.network_kwargs['has_visual_encoder']:
+            visual_shape = self.network_kwargs['visual_input_shape']
+        else:
+            visual_shape = None
+
+        action_shape = self.network_kwargs['action_dim']
+
+        PPOBuffer(steps_per_epoch, vector_shape, visual_shape, action_shape, gamma, lam)
 
     def process_obs(self, obs_from_env):
         obs_vector = None
