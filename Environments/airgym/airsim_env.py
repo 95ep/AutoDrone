@@ -28,6 +28,7 @@ class AirsimEnv(gym.Env):
                  reward_rotate=-0.01,
                  floor_z=0.5,
                  ceiling_z=-1,
+                 **kwargs
                  ):
 
         self.sensors = sensors
