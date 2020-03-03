@@ -174,7 +174,7 @@ def PPO_trainer(env, actor_critic, env_utils, parameters, log_dir):
     for epoch in range(start_epoch, n_epochs):
         print("Epoch {} started".format(epoch))
         log_dict = {}
-        if epoch % parameters['eval']['eval_freq'] == 0:
+        if (epoch % parameters['eval']['eval_freq'] == 0) or (epoch == n_epochs - 1):
             log_dict = evaluate(env, env_utils, actor_critic, **parameters['eval'])
 
         obs_vector, obs_visual = env_utils.process_obs(env.reset())
