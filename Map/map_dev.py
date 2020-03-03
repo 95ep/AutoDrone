@@ -27,7 +27,7 @@ class GlobalMap:
         :param buffer_distance: the furthest distance from border that triggers extension of the map
         :param local_map_size: number of CELLS in the local map. Manually enter map_size and cell_scale to match wanted output
         :param vision_range: vision range in meters. Should probably be smaller than buffer_distance
-        :param fov_angle: field of view angle in radians. TODO: implement
+        :param fov_angle: field of view angle in radians.
         """
         assert len(map_size) == len(cell_scale) == len(starting_position) == len(buffer_distance), \
             "different dimensions discovered in the input"
@@ -42,6 +42,7 @@ class GlobalMap:
         self.buffer_distance = buffer_distance
         self.local_map_size = local_map_size
         self.vision_range = vision_range
+        self.fov_angle = fov_angle
         self.thresholds = {'visible': 1, 'visited': 1, 'obstacle': detection_threshold_obstacle,
                            'object': detection_threshold_object, 'position': 1}
 
@@ -56,7 +57,7 @@ class GlobalMap:
 
         self.map_size = map_size
         self.cell_map, self.cell_map_shape, self.cell_positions = self._create_map(map_borders)
-        self.update(starting_position)
+        self.update(starting_position, camera_direction=np.array([0.,1.]))
 
     def _create_map(self, map_borders):
 
@@ -150,9 +151,15 @@ class GlobalMap:
             print('expanding map automatically with size: ' + str(size_increase))
             self._expand(size_increase)
 
-    def _mark_visible_cells(self, center):
+    def _mark_visible_cells(self, center, camera_direction):
+        """
+
+        :param center:
+        :param camera_direction: normed 2d np array
+        :return:
+        """
         # currently only works in 2D
-        # TODO: generalize to 3D
+        # TODO: generalize to 3D later on
         # approximate function: distance is calculated from cell perspective, not position perspective
         center_x = center[0]
         center_y = center[1]
@@ -165,28 +172,48 @@ class GlobalMap:
         radius = self.vision_range
 
         x, y = np.ogrid[-center_x:size_x-center_x, -center_y:size_y-center_y]
-        mask = (x*scale_x) ** 2 + (y*scale_y) ** 2 <= radius ** 2
+        circle_mask = (x*scale_x) ** 2 + (y*scale_y) ** 2 <= radius ** 2
+
+        # positive angle orientation
+        cos_theta, sin_theta = np.cos(self.fov_angle / 2), np.sin(self.fov_angle / 2)
+        rot_matrix = np.array([[cos_theta, -sin_theta],[sin_theta, cos_theta]])
+        left_border_direction = rot_matrix @ camera_direction
+        right_border_direction = rot_matrix.transpose() @ camera_direction
+
+        # left_mask = left_border_direction[0] * (y - center_y) - left_border_direction[1] * (x - center_x) >= 0
+        # right_mask = right_border_direction[0] * (y - center_y) - right_border_direction[1] * (x - center_x) <= 0
+        left_mask = left_border_direction[0] * y - left_border_direction[1] * x <= 0
+        right_mask = right_border_direction[0] * y - right_border_direction[1] * x >= 0
+
+        mask = circle_mask * left_mask * right_mask
+        #print("===================")
+        #print("circle_mask: ", circle_mask)
+        #print("left_mask: ", left_mask)
+       # print("right_mask: ", right_mask)
+       # print("mask: ", mask)
+
         mask_z = np.repeat(mask[:, :, np.newaxis], size_z, axis=2)
         num_detected = np.sum(mask_z) - np.sum(self.cell_map['visible'][mask_z])
         self.cell_map['visible'][mask_z] = 1
 
         return num_detected
 
-    def update(self, new_position, detected_obstacles=(), detected_objects=()):
+    def update(self, new_position, detected_obstacles=(), detected_objects=(), camera_direction=None):
         """
 
         :param new_position: tuple or list, (x, y, z)
         :param detected_obstacles: list of absolute positions
         :param detected_objects: list of absolute positions
+        :param camera_direction: 2d np array of the camera direction (used for _mark_visible()). If None, direction is estimated
         :return: updated local map
         """
-
-        # print("current_position: {}".format(current_position))
+        if camera_direction is None:
+            direction = np.array(new_position) - np.array(self.position)
+            camera_direction = direction[:2] / np.linalg.norm(direction[:2] + 1e-6)
         self._automatic_expansion(new_position)
         self._move_to_cell(self._get_cell(new_position))
         self.position = new_position
-        num_detected = self._mark_visible_cells(self._get_cell(new_position))
-        # print("value of cell {} : {}".format(self._get_cell(current_position), self.cell_map[self._get_cell(current_position)]))
+        num_detected = self._mark_visible_cells(self._get_cell(new_position), camera_direction)
         for obstacle_position in detected_obstacles:
             self._mark_cell(self._get_cell(obstacle_position), 'obstacle')
         for object_position in detected_objects:
@@ -255,12 +282,14 @@ class GlobalMap:
             x_tick_val = self.cell_positions[0]
             y_tick_pos = (self.cell_positions[1] - self.cell_positions[1][0] - self.cell_scale[1] / 2) / self.cell_scale[1]
             y_tick_val = self.cell_positions[1]
-        #ax.xticks(x_tick_pos[::x_tick_skip], x_tick_val[::x_tick_skip])
-        #ax.yticks(y_tick_pos[::y_ticks_skip], y_tick_val[::y_ticks_skip])
-        ax.set_xticks(x_tick_pos[::x_tick_skip])
-        ax.set_xticklabels(x_tick_val[::x_tick_skip])
-        ax.set_yticks(y_tick_pos[::y_ticks_skip])
-        ax.set_yticklabels(y_tick_val[::y_ticks_skip])
+        if ax is None:
+            plt.xticks(x_tick_pos[::x_tick_skip], x_tick_val[::x_tick_skip])
+            plt.yticks(y_tick_pos[::y_ticks_skip], y_tick_val[::y_ticks_skip])
+        else:
+            ax.set_xticks(x_tick_pos[::x_tick_skip])
+            ax.set_xticklabels(x_tick_val[::x_tick_skip])
+            ax.set_yticks(y_tick_pos[::y_ticks_skip])
+            ax.set_yticklabels(y_tick_val[::y_ticks_skip])
 
         plt.pause(0.005)
 
@@ -274,14 +303,14 @@ class GlobalMap:
 if __name__ == '__main__':
     print('===== 0 =====')
     m = GlobalMap(map_size=(6, 6, 1), starting_position=(0, 0, 0), cell_scale=(1, 1, 1),
-                  buffer_distance=(5, 5, 0), local_map_size=(5, 5, 1), vision_range=5,
-                  detection_threshold_obstacle=1, detection_threshold_object=1)
+                  buffer_distance=(5, 5, 0), local_map_size=(9, 9, 1), vision_range=4,
+                  detection_threshold_obstacle=1, detection_threshold_object=1, fov_angle=np.pi/4)
     #m.visualize()
     loc = m.get_local_map()
     m.visualize(cell_map=loc)
     #print("visited: " + str(np.nonzero(m.cell_map)))
     print('===== 1 =====')
-    loc, _ = m.update((-1, 0, 0), [[1,0,0],[1,1,0]])
+    loc, _ = m.update((-1, 0, 0), [[1,0,0],[1,1,0]], camera_direction=np.array([-1., 0.]))
     #m.visualize()
     m.visualize(cell_map=loc)
 

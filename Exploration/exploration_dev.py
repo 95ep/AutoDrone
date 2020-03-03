@@ -119,7 +119,6 @@ class MapEnv:
             distance = np.linalg.norm(waypoint - self.position)
 
         if compass is not None:
-            # TODO: remove or fix, sometimes produces nans
             distance, theta = tuple(compass)
             self.direction = np.unwrap([0, self.direction + theta])[1]
             waypoint = self.position + distance * np.array([np.cos(self.direction), np.sin(self.direction), 0])
