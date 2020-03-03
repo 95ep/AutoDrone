@@ -2,7 +2,7 @@ import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from dictloader import ExperienceDataset, ExperienceSampler
+from PPO_utils import ExperienceDataset, ExperienceSampler
 import time
 import numpy as np
 

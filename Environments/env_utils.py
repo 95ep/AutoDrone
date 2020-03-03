@@ -10,7 +10,7 @@ import Environments.Exploration.exploration_dev as exploration_dev
 from PPO_utils import PPOBuffer
 
 
-def make(**kwargs):
+def make_env_utils(**kwargs):
     if kwargs['training']['env_str'] == 'CartPole':
         env_utils_obj = EnvUtilsCartPole()
         env = env_utils_obj.make_env()

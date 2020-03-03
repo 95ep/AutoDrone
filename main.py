@@ -3,7 +3,7 @@ import json
 import os
 import torch
 
-from Environments.env_utils import make
+from Environments.env_utils import make_env_utils
 from Agents.neutral_net import NeutralNet
 from PPO_trainer import PPO_trainer, evaluate
 
@@ -19,7 +19,7 @@ with open(args.parameters) as f:
     parameters = json.load(f)
 
 # Create env and env_utils
-env_utils, env = make(**parameters)
+env_utils, env = make_env_utils(**parameters)
 
 # Get network kwargs from env_utils
 network_kwargs = env_utils.get_network_kwargs()
