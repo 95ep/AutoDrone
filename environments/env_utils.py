@@ -45,6 +45,9 @@ class EnvUtilsSuper:
     def process_obs(self, obs_from_env):
         raise NotImplementedError
 
+    def process_action(self, action):
+        return action.item()
+
     def add_log_entries(self):
         raise NotImplementedError
 
@@ -184,6 +187,9 @@ class EnvUtilsExploration(EnvUtilsSuper):
         obs_visual = torch.as_tensor(obs_from_env, dtype=torch.float32).unsqueeze(0)
 
         return obs_vector, obs_visual
+
+    def process_action(self, action):
+        return action.squeeze().numpy()
 
     def add_log_entries(self):
         # TODO - Implement
