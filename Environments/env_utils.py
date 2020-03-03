@@ -5,8 +5,8 @@ from gym.wrappers.frame_stack import FrameStack
 from cv2 import resize, INTER_CUBIC
 import json
 
-import PointNavigation.airgym as airgym  # TODO - is this correct syntax for import?
-import Exploration.exploration_dev as exploration_dev
+import environments.airgym as airgym  # TODO - is this correct syntax for import?
+import Environments.Exploration.exploration_dev as exploration_dev
 from PPO_utils import PPOBuffer
 
 

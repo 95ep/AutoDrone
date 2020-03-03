@@ -2,8 +2,6 @@ import airsim
 import gym
 from gym import spaces
 import numpy as np
-import subprocess
-import json
 
 from . import agent_controller as ac
 from . import utils
@@ -80,7 +78,7 @@ class AirsimEnv(gym.Env):
     def reset(self):
         utils.reset(self.client)
         self.agent_dead = False
-        self.target_position = utils.generate_target(self.client, self.max_dist/2, sub_t=True)
+        self.target_position = utils.generate_target(self.client, self.max_dist / 2, sub_t=True)
         return self._get_state()
 
     def step(self, action):
@@ -105,7 +103,7 @@ class AirsimEnv(gym.Env):
                     "FAILURE - Terminated not at target. Position: {}".format(utils.get_position(self.client)))
                 info['terminated_at_target'] = False
 
-            self.target_position = utils.generate_target(self.client, self.max_dist/2, sub_t=True)
+            self.target_position = utils.generate_target(self.client, self.max_dist / 2, sub_t=True)
         elif action == 1:
             ac.move_forward(self.client)
         elif action == 2:
