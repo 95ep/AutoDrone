@@ -28,6 +28,8 @@ class AirsimEnv(gym.Env):
                  reward_collision=-10,
                  reward_move_towards_goal=0.01,
                  reward_rotate=-0.01,
+                 floor_z=0.5,
+                 ceiling_z=-1,
                  ):
 
         self.sensors = sensors
@@ -35,6 +37,10 @@ class AirsimEnv(gym.Env):
         self.height = height
         self.width = width
         self.distance_threshold = 0.5
+
+        # TODO: add floor and ceiling to parameters
+        self.floor_z = floor_z
+        self.ceiling_z = ceiling_z
 
         self.REWARD_SUCCESS = reward_success
         self.REWARD_FAILURE = reward_failure
@@ -113,7 +119,7 @@ class AirsimEnv(gym.Env):
         elif action == 5:
             ac.move_down(self.client)
 
-        episode_over = utils.has_collided(self.client, floor_z=0.5, ceiling_z=-1.0)
+        episode_over = utils.has_collided(self.client, floor_z=self.floor_z, ceiling_z=self.ceiling_z)
         if episode_over:
             self.agent_dead = True
             reward += self.REWARD_COLLISION
