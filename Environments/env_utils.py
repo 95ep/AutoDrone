@@ -81,7 +81,7 @@ class EnvUtilsCartPole(EnvUtilsSuper):
 
 
 class EnvUtilsAtari(EnvUtilsSuper):
-    def __init__(self, parameters):
+    def __init__(self, **parameters):
         self.frame_stack = parameters['training']['frame_stack']
         self.height = parameters['training']['height']
         self.width = parameters['training']['width']
@@ -110,7 +110,7 @@ class EnvUtilsAtari(EnvUtilsSuper):
 
 
 class EnvUtilsAirSim(EnvUtilsSuper):
-    def __init__(self, parameters):
+    def __init__(self, **parameters):
         self.max_dist = parameters['environment']['max_dist']
         self.height = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
         self.width = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
