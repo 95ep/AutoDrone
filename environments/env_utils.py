@@ -61,10 +61,9 @@ class EnvUtilsCartPole(EnvUtilsSuper):
         return env
 
     def process_obs(self, obs_from_env):
-        obs_visual = None
         obs_vector = torch.as_tensor(obs_from_env, dtype=torch.float32).unsqueeze(0)
 
-        return obs_vector, obs_visual
+        return tuple(obs_vector)
 
     def add_log_entries(self):
         # TODO - Implement
@@ -87,7 +86,6 @@ class EnvUtilsAtari(EnvUtilsSuper):
         return env
 
     def process_obs(self, obs_from_env):
-        obs_vector = None
         # To np array and put in range (0,1)
         ary = np.array(obs_from_env.__array__(), dtype=np.float32) / 255
         ary = np.concatenate(ary, axis=-1)
@@ -97,7 +95,7 @@ class EnvUtilsAtari(EnvUtilsSuper):
             new_ary[:, :, i] = resize(ary[:, :, i], dsize=(self.height, self.width), interpolation=INTER_CUBIC)
         obs_visual = torch.clamp(torch.as_tensor(new_ary).unsqueeze(0), 0, 1)
 
-        return obs_vector, obs_visual
+        return tuple(obs_visual)
 
     def add_log_entries(self):
         # TODO - Implement
@@ -162,7 +160,7 @@ class EnvUtilsAirSim(EnvUtilsSuper):
             depth = np.clip(obs_from_env['depth'], 0, self.max_dist) / self.max_dist
             obs_visual = torch.as_tensor(depth, dtype=torch.float32).unsqueeze(0)
 
-        return obs_vector, obs_visual
+        return tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
     def add_log_entries(self):
         raise NotImplementedError
@@ -180,10 +178,9 @@ class EnvUtilsExploration(EnvUtilsSuper):
         return env
 
     def process_obs(self, obs_from_env):
-        obs_vector = None
         obs_visual = torch.as_tensor(obs_from_env, dtype=torch.float32).unsqueeze(0)
 
-        return obs_vector, obs_visual
+        return tuple(obs_visual)
 
     def add_log_entries(self):
         # TODO - Implement
