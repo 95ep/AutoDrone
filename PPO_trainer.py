@@ -114,7 +114,7 @@ def evaluate(env, env_utils, actor_critic, **kwargs):
 
     for _ in range(n_evals):
         # Set up interactions with env
-        obs_vector, obs_visual = env.utils.process_obs(env.reset())
+        obs_vector, obs_visual = env_utils.process_obs(env.reset())
         comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
         for step in range(kwargs['n_eval_steps']):
             log_dict['Eval/TotalSteps'] += 1
@@ -177,7 +177,7 @@ def PPO_trainer(env, actor_critic, env_utils, parameters, log_dir):
         if epoch % parameters['eval']['eval_freq'] == 0:
             log_dict = evaluate(env, env_utils, actor_critic, **parameters['eval'])
 
-        obs_vector, obs_visual = env.utils.process_obs(env.reset())
+        obs_vector, obs_visual = env_utils.process_obs(env.reset())
         comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
         episode_len = 0

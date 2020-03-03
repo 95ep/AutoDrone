@@ -5,7 +5,7 @@ from gym.wrappers.frame_stack import FrameStack
 from cv2 import resize, INTER_CUBIC
 import json
 
-import environments.airgym as airgym  # TODO - is this correct syntax for import?
+import Environments.airgym as airgym
 import Environments.Exploration.exploration_dev as exploration_dev
 from PPO_utils import PPOBuffer
 
@@ -50,7 +50,7 @@ class EnvUtilsSuper:
         else:
             visual_shape = None
 
-        PPOBuffer(steps_per_epoch, vector_shape, visual_shape, 1, gamma, lam)
+        return PPOBuffer(steps_per_epoch, vector_shape, visual_shape, 1, gamma, lam)
 
     def get_network_kwargs(self):
         return self.network_kwargs
@@ -193,7 +193,7 @@ class EnvUtilsExploration(EnvUtilsSuper):
 
         action_shape = self.network_kwargs['action_dim']
 
-        PPOBuffer(steps_per_epoch, vector_shape, visual_shape, action_shape, gamma, lam)
+        return PPOBuffer(steps_per_epoch, vector_shape, visual_shape, action_shape, gamma, lam)
 
     def process_obs(self, obs_from_env):
         obs_vector = None

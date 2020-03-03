@@ -48,7 +48,7 @@ if parameters['mode'] == 'training':
         ac.load_state_dict(torch.load(parameters['training']['weights']))
 
     # Start training
-    PPO_trainer(env, ac, env_utils, parameters, args['logdir'])
+    PPO_trainer(env, ac, env_utils, parameters, args.logdir)
 
 elif parameters['mode'] == 'evaluation':
     log_dict = evaluate(env, env_utils, ac, **parameters['eval'])
