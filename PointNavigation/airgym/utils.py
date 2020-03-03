@@ -2,6 +2,7 @@ import airsim
 import numpy as np
 import time
 import random
+
 # client.getMultirotorState() returns essentially everything. Maybe switch to that?
 
 
@@ -61,7 +62,6 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10, h
     responses = client.simGetImages(requests)
 
     images = {}
-
     if 'rgb' in sensor_types:
         idx = sensor_idx['rgb']
         # convert to uint and reshape to matrix with 3 color channels
@@ -111,15 +111,6 @@ def has_collided(client, floor_z=0.5, ceiling_z=-4.5):
     return collision_info.has_collided or z_pos > floor_z or z_pos < ceiling_z
 
 
-def print_info(client):
-    pos = get_position(client)
-    orientation = get_orientation(client)
-    yaw_deg = orientation/np.pi*180
-
-    print('Current yaw is {} deg'.format(yaw_deg))
-    print('Current position is ({}, {}, {})'.format(pos.x_val, pos.y_val, pos.z_val))
-
-
 def target_found(client, target_position, threshold=0.5):
     compass = get_compass_reading(client, target_position)
     distance_to_target = compass[0]
@@ -162,3 +153,12 @@ def custom_takeoff(client, z=-2.0):
 def hover(client):
     client.moveByVelocityAsync(0, 0, 0, duration=1e-6).join()
     client.takeoffAsync().join()
+
+
+def print_info(client):
+    pos = get_position(client)
+    orientation = get_orientation(client)
+    yaw_deg = orientation/np.pi*180
+
+    print('Current yaw is {} deg'.format(yaw_deg))
+    print('Current position is ({}, {}, {})'.format(pos.x_val, pos.y_val, pos.z_val))
