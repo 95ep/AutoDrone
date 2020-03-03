@@ -48,9 +48,6 @@ class EnvUtilsSuper:
     def process_action(self, action):
         return action.item()
 
-    def add_log_entries(self):
-        raise NotImplementedError
-
 
 class EnvUtilsCartPole(EnvUtilsSuper):
     def __init__(self):
@@ -68,10 +65,6 @@ class EnvUtilsCartPole(EnvUtilsSuper):
         obs_vector = torch.as_tensor(obs_from_env, dtype=torch.float32).unsqueeze(0)
 
         return obs_vector, obs_visual
-
-    def add_log_entries(self):
-        # TODO - Implement
-        raise NotImplementedError
 
 
 class EnvUtilsAtari(EnvUtilsSuper):
@@ -101,10 +94,6 @@ class EnvUtilsAtari(EnvUtilsSuper):
         obs_visual = torch.clamp(torch.as_tensor(new_ary).unsqueeze(0), 0, 1)
 
         return obs_vector, obs_visual
-
-    def add_log_entries(self):
-        # TODO - Implement
-        raise NotImplementedError
 
 
 class EnvUtilsAirSim(EnvUtilsSuper):
@@ -167,9 +156,6 @@ class EnvUtilsAirSim(EnvUtilsSuper):
 
         return obs_vector, obs_visual
 
-    def add_log_entries(self):
-        raise NotImplementedError
-
 
 class EnvUtilsExploration(EnvUtilsSuper):
     def __init__(self):
@@ -190,7 +176,3 @@ class EnvUtilsExploration(EnvUtilsSuper):
 
     def process_action(self, action):
         return action.squeeze().numpy()
-
-    def add_log_entries(self):
-        # TODO - Implement
-        raise NotImplementedError

@@ -75,7 +75,6 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
 
 def _update(actor_critic, buffer, train_iters, optimizer, clip_ratio, value_loss_coef,
             entropy_coef, target_kl, minibatch_size):
-    # Spinning up used target_kl for early stopping. Is it smart thing to include?
     global approx_kl_iter
     data = buffer.get()
     total_loss_in_epoch = []
@@ -189,6 +188,44 @@ class PPOBuffer:
         return data
 
 
+def eval(env, env_utils, actor_critic, n_evals, n_eval_steps):
+    log_dict = {'Eval/TotalReturn': 0, 'Eval/nDones': 0, 'Eval/TotalSteps': 0}
+
+    for _ in range(n_evals):
+        # Set up interactions with env
+        obs_vector, obs_visual = env.utils.process_obs(env.reset())
+        comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
+        for step in range(n_eval_steps):
+            log_dict['Eval/TotalSteps'] += 1
+            with torch.no_grad():
+                value, action, _ = actor_critic.act(comb_obs, deterministic=True)
+
+            next_obs, reward, done, info = env.step(env_utils.process_action(action))
+            env.render()
+
+            if 'terminated_at_target' in info:
+                if info['terminated_at_target']:
+                    if 'Eval/nTerminationsCorrect' not in log_dict:
+                        log_dict['Eval/nTerminationsCorrect'] = 0
+                    log_dict['Eval/nTerminationsCorrect'] += 1
+                else:
+                    if 'Eval/nTerminationsIncorrect' not in log_dict:
+                        log_dict['Eval/nTerminationsIncorrect'] = 0
+                    log_dict['Eval/nTerminationsIncorrect'] += 1
+
+            log_dict['Eval/TotalReturn'] += reward
+
+            obs_vector, obs_visual = env_utils.process_obs(next_obs)
+            comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
+            if done:
+                log_dict['Eval/nDones'] += 1
+                break
+
+    log_dict['Eval/AvgReturn'] = log_dict['Eval/TotalReturn'] / n_evals
+    log_dict['Eval/AvgEpisodeLen'] = log_dict['Eval/TotalSteps'] / n_evals
+    return log_dict
+
+
 def PPO_trainer(env, actor_critic, parameters, log_dir):
 
     # Extract parameters
@@ -253,11 +290,9 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
         buffer = PPOBuffer(steps_per_epoch, vector_shape, visual_shape, 1, gamma, lam)
     optimizer = Adam(list(filter(lambda p: p.requires_grad, actor_critic.parameters())), lr=lr)
 
-    # Prepare for interaction with env
+    # Start timer
     start_time = time.time()
-    obs, episode_return, episode_len = env.reset(), 0, 0
-    obs_vector, obs_visual = process_obs(obs, env_str, parameters)
-    comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
+
 
     if parameters['training']['resume_training']:
         start_epoch = parameters['training']['epoch_to_resume']
@@ -266,101 +301,49 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(start_epoch, epochs):
         print("Epoch {} started".format(epoch))
+        log_dict = {}
         if epoch % eval_freq == 0:
-            if env_str == 'AirSim':
-                total_ret_eval = 0
-                n_collisions_eval = 0
-                n_terminate_correct_eval = 0
-                n_terminate_incorrect_eval = 0
-                done = False
-                for step in range(n_eval): # Use n_eval as steps to evaluate in
-                    with torch.no_grad():
-                        value, action, _ = actor_critic.act(comb_obs, deterministic=True)
-                    if continuous_actions:
-                        next_obs, reward, done, info = env.step(action.squeeze().numpy())
-                    else:
-                        next_obs, reward, done, info = env.step(action.item())
-                    if 'terminated_at_target' in info:
-                        if info['terminated_at_target']:
-                            n_terminate_correct_eval += 1
-                        else:
-                            n_terminate_incorrect_eval += 1
-                    total_ret_eval += reward
-                    obs_vector, obs_visual = process_obs(next_obs, env_str, parameters)
-                    comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
-                    if done:
-                        obs, episode_return, episode_len = env.reset(), 0, 0
-                        obs_vector, obs_visual = process_obs(obs, env_str, parameters)
-                        comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
-                        n_collisions_eval += 1
+            log_dict = eval(env, env_utils, actor_critic, n_evals, n_eval_steps) # TODO - fix arguments
 
-                obs, episode_return, episode_len = env.reset(), 0, 0
-                obs_vector, obs_visual = process_obs(obs, env_str, parameters)
-                comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
+        obs_vector, obs_visual = env.utils.process_obs(env.reset())
+        comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
-                log_writer.add_scalar('Eval/returnTot', total_ret_eval, epoch)
-                log_writer.add_scalar('Eval/nCollisions', n_collisions_eval, epoch)
-                log_writer.add_scalar('Eval/nTerminationsCorrect', n_terminate_correct_eval, epoch)
-                log_writer.add_scalar('Eval/nTerminationsIncorrect', n_terminate_incorrect_eval, epoch)
-            else:
-                total_eval_ret = 0
-                for i in range(n_eval):
-                    done = False
-                    env.render()
-                    while not done:
-                        with torch.no_grad():
-                            value, action, _ = actor_critic.act(comb_obs, deterministic=True)
-                        if continuous_actions:
-                            next_obs, reward, done, info = env.step(action.squeeze().numpy())
-                        else:
-                            next_obs, reward, done, info = env.step(action.item())
-                        env.render()
-                        total_eval_ret += reward
-                        obs_vector, obs_visual = process_obs(next_obs, env_str, parameters)
-                        comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
-                        if done:
-                            obs, episode_return, episode_len = env.reset(), 0, 0
-                            obs_vector, obs_visual = process_obs(obs, env_str, parameters)
-                            comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
+        episode_len = 0
 
-                print("Evalutation reward: ", total_eval_ret)
-                log_writer.add_scalar('Eval/returnMean', total_eval_ret/n_eval, epoch)
-
-        # list of episode returns and episode lengths to put to logg
-        episode_returns_epoch = []
-        episode_len_epoch = []
-        n_collisions = 0
-        n_terminate_correct = 0
-        n_terminate_incorrect = 0
+        log_dict['Episode/nDones'] = 0
+        log_dict['Episode/TotalReturn'] = 0
+        log_dict['Episode/TotalSteps'] = 0
         for t in range(steps_per_epoch):
+            episode_len += 1
+            log_dict['Episode/TotalSteps'] += 1
             with torch.no_grad():
                 value, action, log_prob = actor_critic.act(comb_obs)
 
-            if continuous_actions:
-                next_obs, reward, done, info = env.step(action.squeeze().numpy())
-            else:
-                next_obs, reward, done, info = env.step(action.item())
-            if env_str == 'Airsim':
-                if 'terminated_at_target' in info:
-                    if info['terminated_at_target']:
-                        n_terminate_correct += 1
-                    else:
-                        n_terminate_incorrect += 1
+            next_obs, reward, done, info = env.step(env_utils.process_action(action))
 
-            episode_return += reward
-            episode_len += 1
+            if 'terminated_at_target' in info:
+                if info['terminated_at_target']:
+                    if 'Episode/nTerminationsCorrect' not in log_dict:
+                        log_dict['Episode/nTerminationsCorrect'] = 0
+                    log_dict['Episode/nTerminationsCorrect'] += 1
+                else:
+                    if 'Episode/nTerminationsIncorrect' not in log_dict:
+                        log_dict['Episode/nTerminationsIncorrect'] = 0
+                    log_dict['Episode/nTerminationsIncorrect'] += 1
+
+            log_dict['Episode/TotalReturn'] += reward
 
             buffer.store(obs_vector, obs_visual, action, reward, value, log_prob)
 
             # Update obs
-            obs_vector, obs_visual = process_obs(next_obs, env_str, parameters)
+            obs_vector, obs_visual = env_utils.process_obs(next_obs)
             comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
             timeout = episode_len == max_episode_len
             terminal = done or timeout
             epoch_ended = t == steps_per_epoch - 1
             if done:
-                n_collisions += 1
+                log_dict['Episode/nDones'] += 1
 
             if terminal or epoch_ended:
                 # if trajectory didn't reach terminal state, bootstrap value target
@@ -371,13 +354,14 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
                     value = 0
                 buffer.finish_path(value)
 
-                episode_returns_epoch.append(episode_return)
-                episode_len_epoch.append(episode_len)
                 # Reset if episode ended
-                obs, episode_return, episode_len = env.reset(), 0, 0
-                obs_vector, obs_visual = process_obs(obs, env_str, parameters)
+                obs, episode_len = env.reset(), 0
+                obs_vector, obs_visual = env_utils.process_obs(obs)
                 comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
+
+        log_dict['Episode/AvgReturn'] = log_dict['Episode/TotalReturn'] / (log_dict['Episode/nDones'] + 1)
+        log_dict['Episode/AvgLen'] = log_dict['Episode/TotalSteps'] / (log_dict['Episode/nDones'] + 1)
         # A epoch of experience is collected
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs - 1):
@@ -387,30 +371,22 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
         actor_critic = actor_critic.to(device=device)
         mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy, approx_kl = _update(actor_critic, buffer,
                                                                                         train_iters, optimizer, clip_ratio,
-                                                                                        value_loss_coef, entropy_coef, target_kl, minibatch_size)
+                                                                                        value_loss_coef, entropy_coef,
+                                                                                        target_kl, minibatch_size)
 
         actor_critic = actor_critic.cpu()
         # Calc metrics and log info about epoch
-        episode_return_mean = np.mean(np.array(episode_returns_epoch))
-        episode_len_mean = np.mean(np.array(episode_len_epoch))
+        log_dict['Progress/TotalEnvInteractions'] = steps_per_epoch * (epoch + 1)
+        log_dict['Loss/TotalLoss/Mean'] = mean_loss_total
+        log_dict['Loss/ActionLoss/Mean'] = mean_loss_action
+        log_dict['Loss/ValueLoss/Mean'] = mean_loss_value
+        log_dict['Progress/ElapsedTimeMinutes'] = (time.time() - start_time) / 60
+        log_dict['Entropy/mean'] = mean_entropy
+        log_dict['ApproxKL'] = approx_kl
 
-        # Total env interactions:
-        log_writer.add_scalar('Progress/TotalEnvInteractions', steps_per_epoch * (epoch + 1), epoch)
-        log_writer.add_scalar('EpisodesReturn/mean', episode_return_mean, epoch)
-        log_writer.add_scalar('EpisodeLength/mean', episode_len_mean, epoch)
-        log_writer.add_scalar('Episode/nCollisions', n_collisions, epoch)
-        if env_str == 'AirSim':
-            log_writer.add_scalar('Episode/nTerminationsCorrect', n_terminate_correct, epoch)
-            log_writer.add_scalar('Episode/nTerminationsIncorrect', n_terminate_incorrect, epoch)
-        log_writer.add_scalar('Loss/TotalLoss/Mean', mean_loss_total, epoch)
-        log_writer.add_scalar('Loss/ActionLoss/Mean', mean_loss_action, epoch)
-        log_writer.add_scalar('Loss/ValueLoss/Mean', mean_loss_value, epoch)
-        # Elapsed time
-        log_writer.add_scalar('Progress/ElapsedTimeMinutes', (time.time() - start_time) / 60, epoch)
-        # Entropy of action outputs
-        log_writer.add_scalar('Entropy/mean', mean_entropy, epoch)
-        # Approx kl
-        log_writer.add_scalar('ApproxKL', approx_kl, epoch)
+        # Add everything from log_dict to log_writer
+        for k,v in log_dict.items():
+            log_writer.add_scalar(k, v, epoch)
 
     log_writer.close()
     env.close()
