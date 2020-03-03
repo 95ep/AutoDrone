@@ -41,4 +41,3 @@ class ExperienceSampler(Sampler):
             order.append([*range(self.minibatch_size * num_batches, self.length)])
 
         return itertools.chain.from_iterable(order)
-    
