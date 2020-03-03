@@ -6,9 +6,7 @@ from dictloader import ExperienceDataset, ExperienceSampler
 import time
 import numpy as np
 import scipy.signal
-import os
-from cv2 import resize, INTER_CUBIC
-import sys
+
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -416,30 +414,3 @@ def PPO_trainer(env, actor_critic, parameters, log_dir):
 
     log_writer.close()
     env.close()
-
-
-if __name__ == '__main__':
-    import argparse
-    import json
-
-    # Create the directories for logs and saved models
-    dir = os.path.dirname(args.logdir)
-    if not os.path.exists(dir):
-        os.makedirs(dir)
-    dir = os.path.dirname(args.logdir + 'saved_models/')
-    if not os.path.exists(dir):
-        os.makedirs(dir)
-    dir = os.path.dirname(args.logdir + 'log/')
-    if not os.path.exists(dir):
-        os.makedirs(dir)
-
-    # Copy all parameters to log dir
-    with open(args.logdir + 'parameters.json', 'w') as f:
-        json.dump(parameters, f, indent='\t')
-
-
-
-    if parameters['training']['resume_training']:
-        ac.load_state_dict(torch.load(parameters['training']['weights']))
-
-    PPO_trainer(env, ac, parameters, log_dir=args.logdir)
