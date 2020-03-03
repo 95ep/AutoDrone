@@ -2,20 +2,11 @@
 __pycache__
 
 # habitat_baselines
-PointNavigation/habitat_baselines/ddppo-models/*
-AutoDrone/PointNavigation/habitat_baselines/__pycache__/
-AutoDrone/PointNavigation/habitat_baselines/common/__pycache__/
-AutoDrone/PointNavigation/habitat_baselines/rl/__pycache__/
-AutoDrone/PointNavigation/habitat_baselines/rl/ddppo/__pycache__/
-AutoDrone/PointNavigation/habitat_baselines/rl/ddppo/algo/__pycache__/
-AutoDrone/PointNavigation/habitat_baselines/rl/ddppo/policy/__pycache__/
-AutoDrone/PointNavigation/habitat_baselines/rl/models/__pycache__/
-AutoDrone/PointNavigation/habitat_baselines/rl/ppo/__pycache__/
-AutoDrone/PointNavigation/habitat_baselines/ddppo-models/gibson-2plus-resnet50.pth
-PointNavigation/risenet/.idea/*
+Legacy/PointNavigation/habitat_baselines/*
+Legacy/PointNavigation/risenet/.idea/*
 
 # parameters
-PointNavigation/parameters/*
+Legacy/PointNavigation/parameters/*
 
 # gym_airsim
 AutoDrone/gym-airsim/gym_airsim.egg-info/*

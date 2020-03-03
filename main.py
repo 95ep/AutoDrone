@@ -3,9 +3,9 @@ import json
 import os
 import torch
 
-from environments.env_utils import make
-from PointNavigation.risenet.neutral_net import NeutralNet
-from PointNavigation.trainer_new import PPO_trainer
+from Environments.env_utils import make_env_utils
+from Agents.neutral_net import NeutralNet
+from PPO_trainer import PPO_trainer, evaluate
 
 
 # Create parser and parse arguments
@@ -19,7 +19,7 @@ with open(args.parameters) as f:
     parameters = json.load(f)
 
 # Create env and env_utils
-env_utils, env = make(**parameters)
+env_utils, env = make_env_utils(**parameters)
 
 # Get network kwargs from env_utils
 network_kwargs = env_utils.get_network_kwargs()
@@ -28,18 +28,17 @@ network_kwargs.update(parameters['neural_network'])
 
 ac = NeutralNet(**network_kwargs)
 
-mode = parameters['foo'] # TODO - Proper extraction
-if mode == 'training':
+if parameters['mode'] == 'training':
     # Create the directories for logs and saved models
-    dir = os.path.dirname(args.logdir)
-    if not os.path.exists(dir):
-        os.makedirs(dir)
-    dir = os.path.dirname(args.logdir + 'saved_models/')
-    if not os.path.exists(dir):
-        os.makedirs(dir)
-    dir = os.path.dirname(args.logdir + 'log/')
-    if not os.path.exists(dir):
-        os.makedirs(dir)
+    parent_dir = os.path.dirname(args.logdir)
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir)
+    models_dir = os.path.dirname(args.logdir + 'saved_models/')
+    if not os.path.exists(models_dir):
+        os.makedirs(models_dir)
+    log_dir = os.path.dirname(args.logdir + 'log/')
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
 
     # Copy all parameters to log dir
     with open(args.logdir + 'parameters.json', 'w') as f:
@@ -49,7 +48,12 @@ if mode == 'training':
         ac.load_state_dict(torch.load(parameters['training']['weights']))
 
     # Start training
-    PPO_trainer(**foo) # TODO - proper arguments
+    PPO_trainer(env, ac, env_utils, parameters, args.logdir)
 
-elif mode == 'eval':
-    pass
+elif parameters['mode'] == 'evaluation':
+    log_dict = evaluate(env, env_utils, ac, **parameters['eval'])
+    print("Evaluation done. Dict with log values is printed below:")
+    print(log_dict)
+
+else:
+    print("{} is not a recognized mode.".format(parameters['mode']))
