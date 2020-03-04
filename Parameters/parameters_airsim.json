@@ -18,7 +18,9 @@
           "reward_rotate": -0.01,
           "max_dist": 10,
           "distance_threshold": 0.5,
-          "sensors": ["rgb", "depth", "pointgoal_with_gps_compass"]
+          "floor_z": 0.5,
+          "ceiling_z": -1,
+          "sensors": ["depth", "pointgoal_with_gps_compass"]
         },
         "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
         "airsim_settings": {
@@ -63,7 +65,7 @@
     "training": {
         "gamma": 0.99,
         "n_epochs": 2500,
-        "steps_per_epoch": 4096,
+        "steps_per_epoch": 1024,
         "minibatch_size": 128,
         "clip_ratio": 0.2,
         "lr": 1e-4,

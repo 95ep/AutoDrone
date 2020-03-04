@@ -1,15 +1,19 @@
+import argparse
+import json
 import pickle
-import airgym
 import msvcrt
-from trainer_new import PPOBuffer
+import torch
+from Environments.env_utils import make_env_utils
+
 
 class ManualCollector:
 
-    def __init__(self, steps_per_epoch, env, data_count):
+    def __init__(self, steps_per_epoch, env, env_utils, data_count):
         self.data_count = data_count
         self.steps_per_epoch = steps_per_epoch
         self.env = env
-        self.buffer = PPOBuffer(steps_per_epoch, None, None, 1, 0.99, 0.87)
+        self.env_utils = env_utils
+        self.buffer = self.env_utils.make_buffer(steps_per_epoch, 0.99, 0.97)
 
     def save_data(self, data):
         with open('data_' + str(self.data_count) + '.pkl', 'wb') as f:
@@ -50,9 +54,8 @@ class ManualCollector:
                 obs, reward, done, info = self.env.step(action)
                 value = torch.tensor([20], dtype=torch.float32)
                 log_prob = torch.tensor([0], dtype=torch.float32)
-                #obs_vector, obs_visual = process_obs(obs, env_str, parameters)
-                #buffer.store(obs_vector, obs_visual, action, reward, value, log_prob)
-                self.buffer.store(None, None, action, reward, value, log_prob)
+                obs_vector, obs_visual = self.env_utils.process_obs(obs)
+                self.buffer.store(obs_vector, obs_visual, action, reward, value, log_prob)
                 step += 1
                 if step == self.steps_per_epoch:
                     print('TRAJECTORY FINISHED')
@@ -60,8 +63,6 @@ class ManualCollector:
                     data = self.buffer.get()
                     self.save_data(data)
                     break
-
-        # save data
 
         print('COLLECT NEW TRAJECTORY? y = yes, n = no')
         key = msvcrt.getch()
@@ -73,6 +74,14 @@ class ManualCollector:
 
 
 if __name__ == '__main__':
-    env = airgym.make(floor_z=0.5, ceiling_z=-4) #height=64, width=64)
-    mc = ManualCollector(32, env, 0)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--parameters', type=str)
+    parser.add_argument('--file_number', type=int, default=0)
+    args = parser.parse_args()
+    with open(args.parameters) as f:
+        parameters = json.load(f)
+
+    env_utils, env = make_env_utils(**parameters)
+    mc = ManualCollector(parameters['training']['steps_per_epoch'], env, env_utils, args.file_number)
     mc.collect_trajectory()
