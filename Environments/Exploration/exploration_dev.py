@@ -54,7 +54,8 @@ class MapEnv:
                           local_map_size=(11, 11, 1),
                           detection_threshold_obstacle=1,
                           detection_threshold_object=1,
-                          vision_range=2,
+                          fov_angle=3.141592/2,
+                          vision_range=4,
                           )
             # make walls
             for x in range(x_size):
