@@ -205,7 +205,7 @@ def PPO_trainer(env, actor_critic, env_utils, log_dir,
             log_dict = evaluate(env, env_utils, actor_critic, **eval_kwargs)
             torch.save(actor_critic.state_dict(), log_dir + 'saved_models/model{}.pth'.format(epoch))
 
-        if manual_experience_path and np.random.rand < prob_train_on_manual_experience:
+        if manual_experience_path and np.random.rand() < prob_train_on_manual_experience:
             file_name = random.choice(os.listdir(manual_experience_path))
             with open(file_name, 'rb') as f:
                 data = pickle.load(f)
