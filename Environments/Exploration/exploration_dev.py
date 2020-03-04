@@ -171,6 +171,9 @@ class MapEnv:
 
         return success, num_detected_cells
 
+    def close(self):
+        pass
+
 
 if __name__ == '__main__':
     env = MapEnv()

@@ -177,8 +177,6 @@ class EnvUtilsAirSim(EnvUtilsSuper):
             depth = np.clip(obs_from_env['depth'], 0, self.max_dist) / self.max_dist
             obs_visual = torch.as_tensor(depth, dtype=torch.float32).unsqueeze(0)
 
-        print("Keys from env {}".format(obs_from_env.keys()))
-        print("Shape of obs_visual {}".format(obs_visual.shape))
         return obs_vector, obs_visual
 
 

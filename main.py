@@ -47,11 +47,16 @@ if parameters['mode'] == 'training':
     if parameters['training']['resume_training']:
         ac.load_state_dict(torch.load(parameters['training']['weights']))
 
+    # Purge weigths from training and eval
+    del parameters['training']['weights']
+    del parameters['eval']['weights']
+
     # Start training
-    PPO_trainer(env, ac, env_utils, parameters, args.logdir)
+    PPO_trainer(env, ac, env_utils, args.logdir, **parameters['training'], **parameters['eval'])
 
 elif parameters['mode'] == 'evaluation':
     ac.load_state_dict(torch.load(parameters['eval']['weights']))
+    del parameters['eval']['weights']
     log_dict = evaluate(env, env_utils, ac, **parameters['eval'])
     print("Evaluation done. Dict with log values is printed below:")
     print(log_dict)

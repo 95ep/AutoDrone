@@ -26,6 +26,7 @@ class AirsimEnv(gym.Env):
                  reward_collision=-10,
                  reward_move_towards_goal=0.01,
                  reward_rotate=-0.01,
+                 distance_threshold=0.5,
                  floor_z=0.5,
                  ceiling_z=-1,
                  ):
@@ -34,7 +35,7 @@ class AirsimEnv(gym.Env):
         self.max_dist = max_dist
         self.height = height
         self.width = width
-        self.distance_threshold = 0.5
+        self.distance_threshold = distance_threshold
 
         # TODO: add floor and ceiling to parameters
         self.floor_z = floor_z
@@ -187,4 +188,5 @@ class AirsimEnv(gym.Env):
         pass
 
     def close(self):
-        self.airsim_process.terminate()     # TODO: does not work
+        # self.airsim_process.terminate()     # TODO: does not work
+        pass
