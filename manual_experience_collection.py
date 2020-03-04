@@ -24,7 +24,7 @@ class ManualCollector:
 #    obj0, obj1, obj2 = pickle.load(f)
 
     def collect_trajectory(self):
-        print('STARTING A NEW {} STEP TRAJECTORY'.format(self.steps_per_epoch))
+        print('STARTING A NEW {} STEP TRAJECTORY. TERMINATE EARLY BY PRESSING t'.format(self.steps_per_epoch))
         step = 0
         self.env.reset()
         while True:
@@ -51,17 +51,21 @@ class ManualCollector:
 
             if action is not None:
                 obs, reward, done, info = self.env.step(action)
-                value = torch.tensor([20], dtype=torch.float32)
-                log_prob = torch.tensor([0], dtype=torch.float32)
-                obs_vector, obs_visual = self.env_utils.process_obs(obs)
-                self.buffer.store(obs_vector, obs_visual, action, reward, value, log_prob)
-                step += 1
-                if step == self.steps_per_epoch:
-                    print('TRAJECTORY FINISHED')
-                    self.buffer.finish_path(value)
-                    data = self.buffer.get()
-                    self.save_data(data)
-                    break
+                if done:
+                    self.env.reset()
+                else:
+                    value = torch.tensor([20], dtype=torch.float32)
+                    log_prob = torch.tensor([0], dtype=torch.float32)
+                    obs_vector, obs_visual = self.env_utils.process_obs(obs)
+                    self.buffer.store(obs_vector, obs_visual, action, reward, value, log_prob)
+                    step += 1
+                    print('\rStep: {}'.format(step), end='\r')
+                    if step == self.steps_per_epoch:
+                        print('TRAJECTORY FINISHED')
+                        self.buffer.finish_path(value)
+                        data = self.buffer.get()
+                        self.save_data(data)
+                        break
         while True:
             print('COLLECT NEW TRAJECTORY? y = yes, n = no')
             key = msvcrt.getwch()
