@@ -189,8 +189,8 @@ class GlobalMap:
         #print("===================")
         #print("circle_mask: ", circle_mask)
         #print("left_mask: ", left_mask)
-       # print("right_mask: ", right_mask)
-       # print("mask: ", mask)
+        # print("right_mask: ", right_mask)
+        # print("mask: ", mask)
 
         mask_z = np.repeat(mask[:, :, np.newaxis], size_z, axis=2)
         num_detected = np.sum(mask_z) - np.sum(self.cell_map['visible'][mask_z])
