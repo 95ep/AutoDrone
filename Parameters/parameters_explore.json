@@ -1,0 +1,35 @@
+{
+    "mode": "training",
+    "env_str": "Exploration",
+    "neural_network": {
+        "hidden_size": 32,
+        "num_hidden_layers": 2,
+        "channel_config": [16, 32, 64],
+        "kernel_size_config": [3, 3, 3],
+        "padding_config": [1, 1, 1],
+        "max_pool_config": [false, false, false]
+    },
+    "training": {
+        "gamma": 0.99,
+        "n_epochs": 2500,
+        "steps_per_epoch": 2048,
+        "minibatch_size": 128,
+        "clip_ratio": 0.2,
+        "lr": 1e-4,
+        "train_iters": 8,
+        "lam": 0.95,
+        "max_episode_len": 256s,
+        "value_loss_coef": 0.5,
+        "entropy_coef": 0.01,
+        "target_kl": 0.03,
+        "save_freq": 2,
+        "resume_training": false,
+        "epoch_to_resume": 0,
+        "weights": ""
+    },
+    "eval": {
+        "n_evals": 5,
+        "n_eval_steps": 500,
+        "weights": ""
+    }
+}

@@ -1,0 +1,88 @@
+{
+    "mode": "training",
+    "env_str": "AirSim",
+    "neural_network": {
+        "hidden_size": 32,
+        "num_hidden_layers": 2,
+        "channel_config": [16, 32, 64],
+        "kernel_size_config": [3, 3, 3],
+        "padding_config": [1, 1, 1],
+        "max_pool_config": [true, true, false]
+    },
+    "AirSim": {
+        "airgym_kwargs": {
+          "reward_success": 10,
+          "reward_failure": -0.5,
+          "reward_collision": -10,
+          "reward_move_towards_goal": 0.01,
+          "reward_rotate": -0.01,
+          "max_dist": 10,
+          "distance_threshold": 0.5,
+          "floor_z": 0.5,
+          "ceiling_z": -1,
+          "sensors": ["depth", "pointgoal_with_gps_compass"]
+        },
+        "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
+        "airsim_settings": {
+          "SettingsVersion": 1.2,
+          "SimMode": "Multirotor",
+          "ViewMode": "",
+          "ClockSpeed": 8,
+          "CameraDefaults": {
+            "CaptureSettings": [
+              {
+                "ImageType": 0,
+                "Width": 64,
+                "Height": 64,
+                "FOV_Degrees": 90,
+                "AutoExposureSpeed": 100,
+                "AutoExposureBias": 0,
+                "AutoExposureMaxBrightness": 0.64,
+                "AutoExposureMinBrightness": 0.03,
+                "MotionBlurAmount": 0,
+                "TargetGamma": 1.0,
+                "ProjectionMode": "",
+                "OrthoWidth": 5.12
+              },
+              {
+                "ImageType": 1,
+                "Width": 64,
+                "Height": 64,
+                "FOV_Degrees": 90,
+                "AutoExposureSpeed": 100,
+                "AutoExposureBias": 0,
+                "AutoExposureMaxBrightness": 0.64,
+                "AutoExposureMinBrightness": 0.03,
+                "MotionBlurAmount": 0,
+                "TargetGamma": 1.0,
+                "ProjectionMode": "",
+                "OrthoWidth": 5.12
+              }
+            ]
+          }
+        }
+    },
+    "training": {
+        "gamma": 0.99,
+        "n_epochs": 2500,
+        "steps_per_epoch": 8,
+        "minibatch_size": 128,
+        "clip_ratio": 0.2,
+        "lr": 1e-4,
+        "train_iters": 8,
+        "lam": 0.95,
+        "max_episode_len": 1024,
+        "value_loss_coef": 0.5,
+        "entropy_coef": 0.01,
+        "target_kl": 0.03,
+        "save_freq": 20,
+        "resume_training": false,
+        "epoch_to_resume": 0,
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/neutral-airsim/saved_models/model500.pth"
+    },
+    "eval": {
+        "n_evals": 1,
+        "n_eval_steps": 1024,
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/refac/test-airsim-2/saved_models/model1.pth"
+    }
+}
