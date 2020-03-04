@@ -1,5 +1,6 @@
 {
     "mode": "training",
+    "env_str": "CartPole",
     "neural_network": {
         "hidden_size": 16,
         "num_hidden_layers": 1,
@@ -20,66 +21,25 @@
     },
     "training": {
         "gamma": 0.99,
-        "n_epochs": 500,
+        "n_epochs": 1000,
         "steps_per_epoch": 4096,
         "minibatch_size": 128,
         "clip_ratio": 0.2,
         "lr": 1e-4,
         "train_iters": 8,
-        "lambda": 0.95,
+        "lam": 0.95,
         "max_episode_len": 200,
         "value_loss_coef": 0.5,
         "entropy_coef": 0.01,
         "target_kl": 0.03,
-        "save_freq": 20,
-        "env_str": "CartPole",
-        "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
+        "save_freq": 10,
         "resume_training": false,
         "epoch_to_resume": 0,
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/neutral-airsim/saved_models/model500.pth"
     },
     "eval": {
-        "eval_freq": 20,
         "n_evals": 5,
         "n_eval_steps": 200,
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/refac/test-cartpole/saved_models/model60.pth"
-    },
-    "airsim": {
-      "SettingsVersion": 1.2,
-      "SimMode": "Multirotor",
-      "ViewMode": "",
-      "ClockSpeed": 8,
-      "CameraDefaults": {
-        "CaptureSettings": [
-          {
-            "ImageType": 0,
-            "Width": 64,
-            "Height": 64,
-            "FOV_Degrees": 90,
-            "AutoExposureSpeed": 100,
-            "AutoExposureBias": 0,
-            "AutoExposureMaxBrightness": 0.64,
-            "AutoExposureMinBrightness": 0.03,
-            "MotionBlurAmount": 0,
-            "TargetGamma": 1.0,
-            "ProjectionMode": "",
-            "OrthoWidth": 5.12
-          },
-          {
-            "ImageType": 1,
-            "Width": 64,
-            "Height": 64,
-            "FOV_Degrees": 90,
-            "AutoExposureSpeed": 100,
-            "AutoExposureBias": 0,
-            "AutoExposureMaxBrightness": 0.64,
-            "AutoExposureMinBrightness": 0.03,
-            "MotionBlurAmount": 0,
-            "TargetGamma": 1.0,
-            "ProjectionMode": "",
-            "OrthoWidth": 5.12
-          }
-        ]
-      }
     }
 }

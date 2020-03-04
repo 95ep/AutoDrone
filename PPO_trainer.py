@@ -34,7 +34,7 @@ def print_progress_bar(iteration, total, prefix='', suffix='',
         print('\r ' + ' ' * (filled_length + 10), end=print_end)
 
 
-def _total_loss(data, actor_critic, **params):
+def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     act, ret, adv, logp_old = data['act'], data['ret'], data['adv'], data['logp']
 
     obs_vector = None
@@ -54,12 +54,12 @@ def _total_loss(data, actor_critic, **params):
     values, logp, dist_entropy = actor_critic.evaluate_actions(comb_obs, act)
     ratio = torch.exp(logp - logp_old)
     surr1 = ratio * adv
-    surr2 = torch.clamp(ratio, 1.0 - params['clip_ratio'], 1.0 + params['clip_ratio']) * adv
+    surr2 = torch.clamp(ratio, 1.0 - clip_ratio, 1.0 + clip_ratio) * adv
     action_loss = -torch.min(surr1, surr2).mean()
 
     value_loss = (ret - values).pow(2).mean()
 
-    total_loss = value_loss * params['value_loss_coef'] + action_loss - dist_entropy * params['entropy_coef']
+    total_loss = value_loss * value_loss_coef + action_loss - dist_entropy * entropy_coef
 
     # Compute approx kl for logging purposes
     approx_kl = (logp_old-logp).mean().item()
@@ -67,7 +67,8 @@ def _total_loss(data, actor_critic, **params):
     return total_loss, action_loss, value_loss, dist_entropy, approx_kl
 
 
-def _update(actor_critic, buffer, optimizer, **params):
+def _update(actor_critic, buffer, optimizer, minibatch_size, train_iters,
+            target_kl, clip_ratio, value_loss_coef, entropy_coef):
     global approx_kl_iter
     data = buffer.get()
     total_loss_in_epoch = []
@@ -76,15 +77,27 @@ def _update(actor_critic, buffer, optimizer, **params):
     entropy_in_epoch = []
 
     dataset = ExperienceDataset(data)
-    sampler = ExperienceSampler(dataset, params['minibatch_size'], drop_last=True)
-    data_loader = DataLoader(dataset, batch_size=params['minibatch_size'], sampler=sampler)
+    sampler = ExperienceSampler(dataset, minibatch_size, drop_last=True)
+    data_loader = DataLoader(dataset, batch_size=minibatch_size, sampler=sampler)
 
-    for i in range(params['train_iters']):
-        print_progress_bar(i+1, params['train_iters'])
+    for i in range(train_iters):
+        print_progress_bar(i+1, train_iters)
         optimizer.zero_grad()
         approx_kl_iter = []
         for i_batch, minibatch in enumerate(data_loader):
-            total_loss, action_loss, value_loss, entropy, approx_kl = _total_loss(minibatch, actor_critic, **params)
+            (
+                total_loss,
+                action_loss,
+                value_loss,
+                entropy,
+                approx_kl
+            ) = _total_loss(
+                minibatch,
+                actor_critic,
+                clip_ratio,
+                value_loss_coef,
+                entropy_coef
+            )
 
             total_loss_in_epoch.append(total_loss.item())
             action_loss_in_epoch.append(action_loss.item())
@@ -95,7 +108,7 @@ def _update(actor_critic, buffer, optimizer, **params):
             total_loss.backward()
             optimizer.step()
 
-        if np.array(approx_kl_iter).mean() > params['target_kl']:
+        if np.array(approx_kl_iter).mean() > target_kl:
             print_progress_bar(1, 1)
             print("Early stopping at step {} due to reaching max kl.".format(i))
             break
@@ -108,15 +121,14 @@ def _update(actor_critic, buffer, optimizer, **params):
     return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, np.array(approx_kl_iter).mean()
 
 
-def evaluate(env, env_utils, actor_critic, **kwargs):
-    n_evals = kwargs['n_evals']
+def evaluate(env, env_utils, actor_critic, n_evals=1, n_eval_steps=200):
     log_dict = {'Eval/TotalReturn': 0, 'Eval/nDones': 0, 'Eval/TotalSteps': 0}
 
     for _ in range(n_evals):
         # Set up interactions with env
         obs_vector, obs_visual = env_utils.process_obs(env.reset())
         comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
-        for step in range(kwargs['n_eval_steps']):
+        for step in range(n_eval_steps):
             log_dict['Eval/TotalSteps'] += 1
             with torch.no_grad():
                 value, action, _ = actor_critic.act(comb_obs, deterministic=True)
@@ -125,13 +137,12 @@ def evaluate(env, env_utils, actor_critic, **kwargs):
             env.render()
 
             if 'terminated_at_target' in info:
+                if 'Eval/nTerminationsCorrect' not in log_dict:
+                    log_dict['Eval/nTerminationsCorrect'] = 0
+                    log_dict['Eval/nTerminationsIncorrect'] = 0
                 if info['terminated_at_target']:
-                    if 'Eval/nTerminationsCorrect' not in log_dict:
-                        log_dict['Eval/nTerminationsCorrect'] = 0
                     log_dict['Eval/nTerminationsCorrect'] += 1
                 else:
-                    if 'Eval/nTerminationsIncorrect' not in log_dict:
-                        log_dict['Eval/nTerminationsIncorrect'] = 0
                     log_dict['Eval/nTerminationsIncorrect'] += 1
 
             log_dict['Eval/TotalReturn'] += reward
@@ -147,35 +158,49 @@ def evaluate(env, env_utils, actor_critic, **kwargs):
     return log_dict
 
 
-def PPO_trainer(env, actor_critic, env_utils, parameters, log_dir):
-
-    # Extract parameters used more than once
-    steps_per_epoch = parameters['training']['steps_per_epoch']
-    n_epochs = parameters['training']['n_epochs']
+def PPO_trainer(env, actor_critic, env_utils, log_dir,
+                gamma = 0.99,
+                n_epochs = 500,
+                steps_per_epoch = 1024,
+                minibatch_size = 64,
+                clip_ratio = 0.2,
+                lr = 1e-4,
+                train_iters = 8,
+                lam = 0.95,
+                max_episode_len = 200,
+                value_loss_coef = 0.5,
+                entropy_coef = 0.01,
+                target_kl = 0.03,
+                save_freq = 20,
+                resume_training = False,
+                epoch_to_resume = 0,
+                **eval_kwargs
+                ):
 
     # Set up logger
     log_writer = SummaryWriter(log_dir=log_dir + 'log/')
 
     # Set up buffer
-    buffer = env_utils.make_buffer(steps_per_epoch, parameters['training']['gamma'], parameters['training']['lambda'])
+    buffer = env_utils.make_buffer(steps_per_epoch, gamma, lam)
 
     # Set up optimizer
     optimizer = Adam(list(filter(lambda p: p.requires_grad, actor_critic.parameters())),
-                     lr=parameters['training']['lr'])
+                     lr=lr)
 
     # Start timer
     start_time = time.time()
 
-    if parameters['training']['resume_training']:
-        start_epoch = parameters['training']['epoch_to_resume']
+    if resume_training:
+        start_epoch = epoch_to_resume
     else:
         start_epoch = 0
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(start_epoch, n_epochs):
         print("Epoch {} started".format(epoch))
         log_dict = {}
-        if (epoch % parameters['eval']['eval_freq'] == 0) or (epoch == n_epochs - 1):
-            log_dict = evaluate(env, env_utils, actor_critic, **parameters['eval'])
+        if (epoch % save_freq == 0) or (epoch == n_epochs - 1):
+            log_dict = evaluate(env, env_utils, actor_critic, **eval_kwargs)
+            torch.save(actor_critic.state_dict(), log_dir + 'saved_models/model{}.pth'.format(epoch))
 
         obs_vector, obs_visual = env_utils.process_obs(env.reset())
         comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
@@ -211,7 +236,7 @@ def PPO_trainer(env, actor_critic, env_utils, parameters, log_dir):
             obs_vector, obs_visual = env_utils.process_obs(next_obs)
             comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
-            timeout = episode_len == parameters['training']['max_episode_len']
+            timeout = episode_len == max_episode_len
             terminal = done or timeout
             epoch_ended = t == steps_per_epoch - 1
             if done:
@@ -234,15 +259,26 @@ def PPO_trainer(env, actor_critic, env_utils, parameters, log_dir):
         log_dict['Episode/AvgReturn'] = log_dict['Episode/TotalReturn'] / (log_dict['Episode/nDones'] + 1)
         log_dict['Episode/AvgLen'] = log_dict['Episode/TotalSteps'] / (log_dict['Episode/nDones'] + 1)
         # A epoch of experience is collected
-        # Save model
-        if (epoch % parameters['training']['save_freq'] == 0) or (epoch == n_epochs - 1):
-            torch.save(actor_critic.state_dict(), log_dir + 'saved_models/model{}.pth'.format(epoch))
 
         # Perform PPO update
         actor_critic = actor_critic.to(device=device)
-        mean_loss_total, mean_loss_action, mean_loss_value, mean_entropy, approx_kl = _update(actor_critic, buffer,
-                                                                                              optimizer,
-                                                                                              **parameters['training'])
+        (
+            mean_loss_total,
+            mean_loss_action,
+            mean_loss_value,
+            mean_entropy,
+            approx_kl
+        ) = _update(
+            actor_critic,
+            buffer,
+            optimizer,
+            minibatch_size,
+            train_iters,
+            target_kl,
+            clip_ratio,
+            value_loss_coef,
+            entropy_coef
+        )
 
         actor_critic = actor_critic.cpu()
         # Calc metrics and log info about epoch
