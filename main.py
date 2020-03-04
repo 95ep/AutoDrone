@@ -51,9 +51,11 @@ if parameters['mode'] == 'training':
     PPO_trainer(env, ac, env_utils, parameters, args.logdir)
 
 elif parameters['mode'] == 'evaluation':
+    ac.load_state_dict(torch.load(parameters['eval']['weights']))
     log_dict = evaluate(env, env_utils, ac, **parameters['eval'])
     print("Evaluation done. Dict with log values is printed below:")
     print(log_dict)
+    env.close()
 
 else:
     print("{} is not a recognized mode.".format(parameters['mode']))

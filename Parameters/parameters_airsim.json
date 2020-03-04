@@ -41,7 +41,8 @@
     "eval": {
         "eval_freq": 20,
         "n_evals": 1,
-        "n_eval_steps": 512
+        "n_eval_steps": 512,
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/refac/test-cartpole/saved_models/model60.pth"
     },
     "airsim": {
       "SettingsVersion": 1.2,

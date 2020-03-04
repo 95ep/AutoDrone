@@ -19,7 +19,7 @@ def make_env_utils(**kwargs):
         env = env_utils_obj.make_env()
     elif kwargs['training']['env_str'] == 'AirSim':
         env_utils_obj = EnvUtilsAirSim(**kwargs)
-        env = env_utils_obj.make_env()
+        env = env_utils_obj.make_env(**kwargs)
     elif kwargs['training']['env_str'] == 'Exploration':
         env_utils_obj = EnvUtilsExploration()
         env = env_utils_obj.make_env()
