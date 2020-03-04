@@ -18,7 +18,6 @@ class ManualCollector:
     def save_data(self, data):
         with open('data_' + str(self.data_count) + '.pkl', 'wb') as f:
             pickle.dump(data, f)
-        self.data_count += 1
 
 # Load
 #with open('objs.pkl', 'rb') as f:
@@ -63,14 +62,16 @@ class ManualCollector:
                     data = self.buffer.get()
                     self.save_data(data)
                     break
-
-        print('COLLECT NEW TRAJECTORY? y = yes, n = no')
-        key = msvcrt.getch()
-        if key == 'y':
-            self.data_count += 1
-            self.collect_trajectory()
-        else:
-            return
+        while True:
+            print('COLLECT NEW TRAJECTORY? y = yes, n = no')
+            key = msvcrt.getwch()
+            if key == 'y':
+                self.data_count += 1
+                self.collect_trajectory()
+            if key == 'n':
+                return
+            else:
+                print("Enter valid answer!")
 
 
 if __name__ == '__main__':
