@@ -1,5 +1,6 @@
 {
     "mode": "training",
+    "env_str": "AirSim",
     "neural_network": {
         "hidden_size": 32,
         "num_hidden_layers": 2,
@@ -8,15 +9,56 @@
         "padding_config": [1, 1, 1],
         "max_pool_config": [true, true, false]
     },
-    "environment": {
-        "REWARD_SUCCESS": 10,
-        "REWARD_FAILURE": -0.5,
-        "REWARD_COLLISION": -10,
-        "REWARD_MOVE_TOWARDS_GOAL": 0.01,
-        "REWARD_ROTATE": -0.01,
-        "max_dist": 10,
-        "distance_threshold": 1.0,
-        "sensors": ["rgb", "depth", "pointgoal_with_gps_compass"]
+    "AirSim": {
+        "airgym_kwargs": {
+          "reward_success": 10,
+          "reward_failure": -0.5,
+          "reward_collision": -10,
+          "reward_move_towards_goal": 0.01,
+          "reward_rotate": -0.01,
+          "max_dist": 10,
+          "distance_threshold": 1.0,
+          "sensors": ["rgb", "depth", "pointgoal_with_gps_compass"]
+        },
+        "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
+        "airsim_settings": {
+          "SettingsVersion": 1.2,
+          "SimMode": "Multirotor",
+          "ViewMode": "",
+          "ClockSpeed": 8,
+          "CameraDefaults": {
+            "CaptureSettings": [
+              {
+                "ImageType": 0,
+                "Width": 64,
+                "Height": 64,
+                "FOV_Degrees": 90,
+                "AutoExposureSpeed": 100,
+                "AutoExposureBias": 0,
+                "AutoExposureMaxBrightness": 0.64,
+                "AutoExposureMinBrightness": 0.03,
+                "MotionBlurAmount": 0,
+                "TargetGamma": 1.0,
+                "ProjectionMode": "",
+                "OrthoWidth": 5.12
+              },
+              {
+                "ImageType": 1,
+                "Width": 64,
+                "Height": 64,
+                "FOV_Degrees": 90,
+                "AutoExposureSpeed": 100,
+                "AutoExposureBias": 0,
+                "AutoExposureMaxBrightness": 0.64,
+                "AutoExposureMinBrightness": 0.03,
+                "MotionBlurAmount": 0,
+                "TargetGamma": 1.0,
+                "ProjectionMode": "",
+                "OrthoWidth": 5.12
+              }
+            ]
+          }
+        }
     },
     "training": {
         "gamma": 0.99,
@@ -33,7 +75,6 @@
         "target_kl": 0.03,
         "save_freq": 20,
         "env_str": "AirSim",
-        "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
         "resume_training": false,
         "epoch_to_resume": 0,
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/neutral-airsim/saved_models/model500.pth"
@@ -44,42 +85,4 @@
         "n_eval_steps": 512,
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/refac/test-cartpole/saved_models/model60.pth"
     },
-    "airsim": {
-      "SettingsVersion": 1.2,
-      "SimMode": "Multirotor",
-      "ViewMode": "",
-      "ClockSpeed": 8,
-      "CameraDefaults": {
-        "CaptureSettings": [
-          {
-            "ImageType": 0,
-            "Width": 64,
-            "Height": 64,
-            "FOV_Degrees": 90,
-            "AutoExposureSpeed": 100,
-            "AutoExposureBias": 0,
-            "AutoExposureMaxBrightness": 0.64,
-            "AutoExposureMinBrightness": 0.03,
-            "MotionBlurAmount": 0,
-            "TargetGamma": 1.0,
-            "ProjectionMode": "",
-            "OrthoWidth": 5.12
-          },
-          {
-            "ImageType": 1,
-            "Width": 64,
-            "Height": 64,
-            "FOV_Degrees": 90,
-            "AutoExposureSpeed": 100,
-            "AutoExposureBias": 0,
-            "AutoExposureMaxBrightness": 0.64,
-            "AutoExposureMinBrightness": 0.03,
-            "MotionBlurAmount": 0,
-            "TargetGamma": 1.0,
-            "ProjectionMode": "",
-            "OrthoWidth": 5.12
-          }
-        ]
-      }
-    }
 }

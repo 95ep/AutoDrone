@@ -4,23 +4,25 @@ import gym
 from gym.wrappers.frame_stack import FrameStack
 from cv2 import resize, INTER_CUBIC
 import json
+import copy
 
 import Environments.airgym as airgym
 import Environments.Exploration.exploration_dev as exploration_dev
 from PPO_utils import PPOBuffer
 
 
-def make_env_utils(**kwargs):
-    if kwargs['training']['env_str'] == 'CartPole':
+def make_env_utils(**param_kwargs):
+    env_str = param_kwargs['env_str']
+    if env_str == 'CartPole':
         env_utils_obj = EnvUtilsCartPole()
         env = env_utils_obj.make_env()
-    elif kwargs['training']['env_str'] == 'Atari':
-        env_utils_obj = EnvUtilsAtari(**kwargs)
+    elif env_str == 'Pong':
+        env_utils_obj = EnvUtilsPong(**param_kwargs[env_str])
         env = env_utils_obj.make_env()
-    elif kwargs['training']['env_str'] == 'AirSim':
-        env_utils_obj = EnvUtilsAirSim(**kwargs)
-        env = env_utils_obj.make_env(**kwargs)
-    elif kwargs['training']['env_str'] == 'Exploration':
+    elif env_str == 'AirSim':
+        env_utils_obj = EnvUtilsAirSim(**param_kwargs[env_str])
+        env = env_utils_obj.make_env()
+    elif env_str == 'Exploration':
         env_utils_obj = EnvUtilsExploration()
         env = env_utils_obj.make_env()
     else:
@@ -37,7 +39,7 @@ class EnvUtilsSuper:
                                'vector_input_shape': tuple(), 'has_visual_encoder': False,
                                'visual_input_shape': tuple(), 'action_dim': None}
 
-    def make_env(self, **kwargs):
+    def make_env(self):
         raise NotImplementedError
 
     def make_buffer(self, steps_per_epoch, gamma, lam):
@@ -80,11 +82,11 @@ class EnvUtilsCartPole(EnvUtilsSuper):
         return obs_vector, obs_visual
 
 
-class EnvUtilsAtari(EnvUtilsSuper):
-    def __init__(self, **parameters):
-        self.frame_stack = parameters['training']['frame_stack']
-        self.height = parameters['training']['height']
-        self.width = parameters['training']['width']
+class EnvUtilsPong(EnvUtilsSuper):
+    def __init__(self, **pong_kwargs):
+        self.frame_stack = pong_kwargs['frame_stack']
+        self.height = pong_kwargs['height']
+        self.width = pong_kwargs['width']
         super().__init__()
 
     def make_env(self):
@@ -110,25 +112,33 @@ class EnvUtilsAtari(EnvUtilsSuper):
 
 
 class EnvUtilsAirSim(EnvUtilsSuper):
-    def __init__(self, **parameters):
-        self.max_dist = parameters['environment']['max_dist']
-        self.height = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Height']
-        self.width = parameters['airsim']['CameraDefaults']['CaptureSettings'][0]['Width']
+    def __init__(self, **airsim_kwargs):
+        self.airgym_kwargs = copy.copy(airsim_kwargs['airgym_kwargs'])
+        self.height = airsim_kwargs['airsim_settings']['CameraDefaults']['CaptureSettings'][0]['Height']
+        self.width = airsim_kwargs['airsim_settings']['CameraDefaults']['CaptureSettings'][0]['Width']
+        self.airgym_kwargs['height'] = self.height
+        self.airgym_kwargs['width'] = self.width
+        self.max_dist = self.airgym_kwargs['max_dist']
+
+        self.settings_path = airsim_kwargs['airsim_settings_path']
+        self.airsim_settings = airsim_kwargs['airsim_settings']
+
         super().__init__()
 
-    def make_env(self, **parameters):
+    def make_env(self):
         # Write AirSim settings to a json file
-        with open(parameters['training']['airsim_settings_path'], 'w') as f:
-            json.dump(parameters['airsim'], f, indent='\t')
+        with open(self.settings_path, 'w') as f:
+            json.dump(self.airsim_settings, f, indent='\t')
         input(
             'Copied AirSim settings to Documents folder. \n (Re)Start AirSim and then press enter to start training...')
 
-        env = airgym.make(**parameters)
-        if 'rgb' in parameters['environment']['sensors']:
+
+        env = airgym.make(**self.airgym_kwargs)
+        if 'rgb' in self.airgym_kwargs['sensors']:
             self.network_kwargs['has_visual_encoder'] = True
             self.network_kwargs['visual_input_shape'] = (self.height, self.width, 3)
 
-        if 'depth' in parameters['environment']['sensors']:
+        if 'depth' in self.airgym_kwargs['sensors']:
             if self.network_kwargs['has_visual_encoder']:
                 visual_shape = self.network_kwargs['visual_input_shape']
                 self.network_kwargs['visual_input_shape'] = (visual_shape[0], visual_shape[1], visual_shape[2]+1)
@@ -136,7 +146,7 @@ class EnvUtilsAirSim(EnvUtilsSuper):
                 self.network_kwargs['has_visual_encoder'] = True
                 self.network_kwargs['visual_input_shape'] = (self.height, self.width, 1)
 
-        if 'pointgoal_with_gps_compass' in parameters['environment']['sensors']:
+        if 'pointgoal_with_gps_compass' in self.airgym_kwargs['sensors']:
             self.network_kwargs['has_vector_encoder'] = True
             self.network_kwargs['vector_input_shape'] = (3,)
 
@@ -167,6 +177,8 @@ class EnvUtilsAirSim(EnvUtilsSuper):
             depth = np.clip(obs_from_env['depth'], 0, self.max_dist) / self.max_dist
             obs_visual = torch.as_tensor(depth, dtype=torch.float32).unsqueeze(0)
 
+        print("Keys from env {}".format(obs_from_env.keys()))
+        print("Shape of obs_visual {}".format(obs_visual.shape))
         return obs_vector, obs_visual
 
 

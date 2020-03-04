@@ -1,5 +1,6 @@
 {
     "mode": "training",
+    "env_str": "Exploration",
     "neural_network": {
         "hidden_size": 32,
         "num_hidden_layers": 2,
@@ -32,10 +33,6 @@
         "entropy_coef": 0.01,
         "target_kl": 0.03,
         "save_freq": 20,
-        "env_str": "Exploration",
-        "frame_stack": 4,
-        "height": 128,
-        "width": 128,
         "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
         "resume_training": false,
         "epoch_to_resume": 0,

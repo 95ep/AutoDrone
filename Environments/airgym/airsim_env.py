@@ -8,8 +8,8 @@ from . import utils
 
 
 # function to align with gym framework
-def make(**kwargs):
-    return AirsimEnv(**kwargs)
+def make(**env_kwargs):
+    return AirsimEnv(**env_kwargs)
 
 
 class AirsimEnv(gym.Env):
@@ -28,7 +28,6 @@ class AirsimEnv(gym.Env):
                  reward_rotate=-0.01,
                  floor_z=0.5,
                  ceiling_z=-1,
-                 **kwargs
                  ):
 
         self.sensors = sensors
