@@ -65,7 +65,7 @@
     "training": {
         "gamma": 0.99,
         "n_epochs": 2500,
-        "steps_per_epoch": 8,
+        "steps_per_epoch": 2048,
         "minibatch_size": 128,
         "clip_ratio": 0.2,
         "lr": 1e-4,
