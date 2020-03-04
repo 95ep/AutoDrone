@@ -5,6 +5,9 @@ from torch.utils.tensorboard import SummaryWriter
 from PPO_utils import ExperienceDataset, ExperienceSampler
 import time
 import numpy as np
+import pickle
+import random
+import os
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -67,10 +70,9 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
     return total_loss, action_loss, value_loss, dist_entropy, approx_kl
 
 
-def _update(actor_critic, buffer, optimizer, minibatch_size, train_iters,
+def _update(actor_critic, data, optimizer, minibatch_size, train_iters,
             target_kl, clip_ratio, value_loss_coef, entropy_coef):
     global approx_kl_iter
-    data = buffer.get()
     total_loss_in_epoch = []
     action_loss_in_epoch = []
     value_loss_in_epoch = []
@@ -174,6 +176,8 @@ def PPO_trainer(env, actor_critic, env_utils, log_dir,
                 save_freq = 20,
                 resume_training = False,
                 epoch_to_resume = 0,
+                prob_train_on_manual_experience = 0,
+                manual_experience_path = '',
                 **eval_kwargs
                 ):
 
@@ -184,8 +188,7 @@ def PPO_trainer(env, actor_critic, env_utils, log_dir,
     buffer = env_utils.make_buffer(steps_per_epoch, gamma, lam)
 
     # Set up optimizer
-    optimizer = Adam(list(filter(lambda p: p.requires_grad, actor_critic.parameters())),
-                     lr=lr)
+    optimizer = Adam(list(filter(lambda p: p.requires_grad, actor_critic.parameters())), lr=lr)
 
     # Start timer
     start_time = time.time()
@@ -202,63 +205,70 @@ def PPO_trainer(env, actor_critic, env_utils, log_dir,
             log_dict = evaluate(env, env_utils, actor_critic, **eval_kwargs)
             torch.save(actor_critic.state_dict(), log_dir + 'saved_models/model{}.pth'.format(epoch))
 
-        obs_vector, obs_visual = env_utils.process_obs(env.reset())
-        comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
+        if manual_experience_path and np.random.rand < prob_train_on_manual_experience:
+            file_name = random.choice(os.listdir(manual_experience_path))
+            with open(file_name, 'rb') as f:
+                data = pickle.load(f)
 
-        episode_len = 0
-
-        log_dict['Episode/nDones'] = 0
-        log_dict['Episode/TotalReturn'] = 0
-        log_dict['Episode/TotalSteps'] = 0
-        for t in range(steps_per_epoch):
-            episode_len += 1
-            log_dict['Episode/TotalSteps'] += 1
-            with torch.no_grad():
-                value, action, log_prob = actor_critic.act(comb_obs)
-
-            next_obs, reward, done, info = env.step(env_utils.process_action(action))
-
-            if 'terminated_at_target' in info:
-                if info['terminated_at_target']:
-                    if 'Episode/nTerminationsCorrect' not in log_dict:
-                        log_dict['Episode/nTerminationsCorrect'] = 0
-                    log_dict['Episode/nTerminationsCorrect'] += 1
-                else:
-                    if 'Episode/nTerminationsIncorrect' not in log_dict:
-                        log_dict['Episode/nTerminationsIncorrect'] = 0
-                    log_dict['Episode/nTerminationsIncorrect'] += 1
-
-            log_dict['Episode/TotalReturn'] += reward
-
-            buffer.store(obs_vector, obs_visual, action, reward, value, log_prob)
-
-            # Update obs
-            obs_vector, obs_visual = env_utils.process_obs(next_obs)
+        else:
+            obs_vector, obs_visual = env_utils.process_obs(env.reset())
             comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
-            timeout = episode_len == max_episode_len
-            terminal = done or timeout
-            epoch_ended = t == steps_per_epoch - 1
-            if done:
-                log_dict['Episode/nDones'] += 1
+            episode_len = 0
 
-            if terminal or epoch_ended:
-                # if trajectory didn't reach terminal state, bootstrap value target
-                if timeout or epoch_ended:
-                    with torch.no_grad():
-                        value = actor_critic.get_value(comb_obs)
-                else:
-                    value = 0
-                buffer.finish_path(value)
+            log_dict['Episode/nDones'] = 0
+            log_dict['Episode/TotalReturn'] = 0
+            log_dict['Episode/TotalSteps'] = 0
+            for t in range(steps_per_epoch):
+                episode_len += 1
+                log_dict['Episode/TotalSteps'] += 1
+                with torch.no_grad():
+                    value, action, log_prob = actor_critic.act(comb_obs)
 
-                # Reset if episode ended
-                obs, episode_len = env.reset(), 0
-                obs_vector, obs_visual = env_utils.process_obs(obs)
+                next_obs, reward, done, info = env.step(env_utils.process_action(action))
+
+                if 'terminated_at_target' in info:
+                    if info['terminated_at_target']:
+                        if 'Episode/nTerminationsCorrect' not in log_dict:
+                            log_dict['Episode/nTerminationsCorrect'] = 0
+                        log_dict['Episode/nTerminationsCorrect'] += 1
+                    else:
+                        if 'Episode/nTerminationsIncorrect' not in log_dict:
+                            log_dict['Episode/nTerminationsIncorrect'] = 0
+                        log_dict['Episode/nTerminationsIncorrect'] += 1
+
+                log_dict['Episode/TotalReturn'] += reward
+
+                buffer.store(obs_vector, obs_visual, action, reward, value, log_prob)
+
+                # Update obs
+                obs_vector, obs_visual = env_utils.process_obs(next_obs)
                 comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
-        log_dict['Episode/AvgReturn'] = log_dict['Episode/TotalReturn'] / (log_dict['Episode/nDones'] + 1)
-        log_dict['Episode/AvgLen'] = log_dict['Episode/TotalSteps'] / (log_dict['Episode/nDones'] + 1)
-        # A epoch of experience is collected
+                timeout = episode_len == max_episode_len
+                terminal = done or timeout
+                epoch_ended = t == steps_per_epoch - 1
+                if done:
+                    log_dict['Episode/nDones'] += 1
+
+                if terminal or epoch_ended:
+                    # if trajectory didn't reach terminal state, bootstrap value target
+                    if timeout or epoch_ended:
+                        with torch.no_grad():
+                            value = actor_critic.get_value(comb_obs)
+                    else:
+                        value = 0
+                    buffer.finish_path(value)
+
+                    # Reset if episode ended
+                    obs, episode_len = env.reset(), 0
+                    obs_vector, obs_visual = env_utils.process_obs(obs)
+                    comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
+
+            log_dict['Episode/AvgReturn'] = log_dict['Episode/TotalReturn'] / (log_dict['Episode/nDones'] + 1)
+            log_dict['Episode/AvgLen'] = log_dict['Episode/TotalSteps'] / (log_dict['Episode/nDones'] + 1)
+            # A epoch of experience is collected
+            data = buffer.get()
 
         # Perform PPO update
         actor_critic = actor_critic.to(device=device)
@@ -270,7 +280,7 @@ def PPO_trainer(env, actor_critic, env_utils, log_dir,
             approx_kl
         ) = _update(
             actor_critic,
-            buffer,
+            data,
             optimizer,
             minibatch_size,
             train_iters,

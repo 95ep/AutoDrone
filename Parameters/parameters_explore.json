@@ -25,6 +25,8 @@
         "save_freq": 2,
         "resume_training": false,
         "epoch_to_resume": 0,
+        "prob_train_on_manual_experience": 0,
+        "manual_experience_path": "",
         "weights": ""
     },
     "eval": {
