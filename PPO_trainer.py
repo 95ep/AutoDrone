@@ -207,8 +207,15 @@ def PPO_trainer(env, actor_critic, env_utils, log_dir,
 
         if manual_experience_path and np.random.rand() < prob_train_on_manual_experience:
             file_name = random.choice(os.listdir(manual_experience_path))
-            with open(file_name, 'rb') as f:
+            with open(manual_experience_path + file_name, 'rb') as f:
                 data = pickle.load(f)
+                act = data['act']
+                obs_vector = data['obs_vector']
+                obs_visual = data['obs_visual']
+                comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
+                with torch.no_grad():
+                    _, logp, _ = actor_critic.evaluate_actions(comb_obs, act)
+                data['logp'] = logp
 
         else:
             obs_vector, obs_visual = env_utils.process_obs(env.reset())
