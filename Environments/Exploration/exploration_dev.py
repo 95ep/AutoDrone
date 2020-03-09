@@ -4,6 +4,7 @@ import numpy as np
 import random
 import sys
 import time
+sys.path.append('../../Map')
 sys.path.append('../Map')
 sys.path.append('./Map')
 
@@ -184,24 +185,29 @@ if __name__ == '__main__':
     obs, reward, done, _ = env.step(compass=[5, -np.pi/2])
     print("reward 1: " + str(reward) + "    Done: " + str(done))
     env.render()
+    time.sleep(1)
 
     obs, reward, done, _ = env.step(compass=[10, 0])
     print("reward 2: " + str(reward) + "    Done: " + str(done))
     env.render()
+    time.sleep(1)
 
     obs, reward, done, _ = env.step(compass=[10, -3*np.pi/4])
     print("reward 3: " + str(reward) + "    Done: " + str(done))
     env.render()
+    time.sleep(1)
 
     obs, reward, done, _ = env.step(compass=[8, -np.pi/2])
     print("reward 4: " + str(reward) + "    Done: " + str(done))
     env.render()
+    time.sleep(1)
 
     obs, reward, done, _ = env.step(compass=[4, np.pi/2])
     print("reward 5: " + str(reward) + "    Done: " + str(done))
     env.render()
 
     env.render(local=False)
+    time.sleep(10)
 
     """
     env.move_to_waypoint([18,10,0])
