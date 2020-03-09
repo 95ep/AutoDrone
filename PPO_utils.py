@@ -67,9 +67,9 @@ class PPOBuffer:
         assert self.ptr == self.max_size  # buffer must be full
         self.ptr, self.path_start_idx = 0, 0
         # Advantage normalization
-        adv_mean = np.mean(self.adv_buf)
-        adv_std = np.std(self.adv_buf)
-        self.adv_buf = (self.adv_buf - adv_mean) / adv_std
+        # adv_mean = np.mean(self.adv_buf)
+        # adv_std = np.std(self.adv_buf)
+        # self.adv_buf = (self.adv_buf - adv_mean) / adv_std
 
         data = dict(act=self.act_buf, ret=self.ret_buf, adv=self.adv_buf, logp=self.logp_buf, val=self.val_buf)
         if hasattr(self, 'obs_vector'):
