@@ -11,11 +11,11 @@
     },
     "AirSim": {
         "airgym_kwargs": {
-          "reward_success": 10,
-          "reward_failure": -0.5,
-          "reward_collision": -10,
-          "reward_move_towards_goal": 0.01,
-          "reward_rotate": -0.01,
+          "reward_success": 20,
+          "reward_failure": -2,
+          "reward_collision": -1,
+          "reward_move_towards_goal": 0.1,
+          "reward_rotate": -0.05,
           "max_dist": 10,
           "distance_threshold": 0.5,
           "floor_z": 0.5,
@@ -75,12 +75,12 @@
         "value_loss_coef": 0.5,
         "entropy_coef": 0.01,
         "target_kl": 0.03,
-        "save_freq": 20,
-        "resume_training": true,
-        "epoch_to_resume": 40,
-        "prob_train_on_manual_experience": 0.1,
+        "save_freq": 10,
+        "prob_train_on_manual_experience": 0.0,
         "manual_experience_path": "Trajectories/",
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/airgym-manual-exp/saved_models/model40.pth"
+        "resume_training": true,
+        "epoch_to_resume": 41,
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/subT-fixed-trgts-close-weekend/saved_models/model40.pth"
     },
     "eval": {
         "n_evals": 1,
