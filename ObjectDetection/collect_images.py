@@ -4,6 +4,7 @@ import airsim
 import json
 import msvcrt
 import numpy as np
+from PIL import Image
 from Environments.env_utils import make_env_utils
 
 
@@ -19,11 +20,11 @@ class ImageCollector:
             'front_center', airsim.ImageType.Scene, pixels_as_float=False, compress=False)]
         responses = self.env.client.simGetImages(requests)
         response = responses[0]
-        img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8)
-        img_rgba = img1d.reshape((response.height, response.width, 4))
-        img_rgba = np.flipud(img_rgba)
-
-        airsim.write_png(os.path.normpath("test{}.png".format(self.img_idx)), img_rgba)
+        bgr = np.reshape(airsim.string_to_uint8_array(
+            response.image_data_uint8), (response.height, response.width, 3))
+        rgb = np.array(bgr[:, :, [2, 1, 0]])
+        img = Image.fromarray(rgb)
+        img.save("ObjectDetection/airsim_imgs/image{}.jpg".format(self.img_idx))
         self.img_idx += 1
 
     def collect_images(self):
