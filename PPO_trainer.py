@@ -138,14 +138,15 @@ def evaluate(env, env_utils, actor_critic, n_evals=1, n_eval_steps=200):
             next_obs, reward, done, info = env.step(env_utils.process_action(action))
             env.render()
 
-            if 'terminated_at_target' in info:
+            if 'env' in info and info['env'] == "AirSim":
                 if 'Eval/nTerminationsCorrect' not in log_dict:
                     log_dict['Eval/nTerminationsCorrect'] = 0
                     log_dict['Eval/nTerminationsIncorrect'] = 0
-                if info['terminated_at_target']:
-                    log_dict['Eval/nTerminationsCorrect'] += 1
-                else:
-                    log_dict['Eval/nTerminationsIncorrect'] += 1
+                if 'terminated_at_target' in info:
+                    if info['terminated_at_target']:
+                        log_dict['Eval/nTerminationsCorrect'] += 1
+                    else:
+                        log_dict['Eval/nTerminationsIncorrect'] += 1
 
             log_dict['Eval/TotalReturn'] += reward
 
@@ -234,15 +235,15 @@ def PPO_trainer(env, actor_critic, env_utils, log_dir,
 
                 next_obs, reward, done, info = env.step(env_utils.process_action(action))
 
-                if 'terminated_at_target' in info:
-                    if info['terminated_at_target']:
-                        if 'Episode/nTerminationsCorrect' not in log_dict:
-                            log_dict['Episode/nTerminationsCorrect'] = 0
-                        log_dict['Episode/nTerminationsCorrect'] += 1
-                    else:
-                        if 'Episode/nTerminationsIncorrect' not in log_dict:
-                            log_dict['Episode/nTerminationsIncorrect'] = 0
-                        log_dict['Episode/nTerminationsIncorrect'] += 1
+                if 'env' in info and info['env'] == "AirSim":
+                    if 'Episode/nTerminationsCorrect' not in log_dict:
+                        log_dict['Episode/nTerminationsCorrect'] = 0
+                        log_dict['Episode/nTerminationsIncorrect'] = 0
+                    if 'terminated_at_target' in info:
+                        if info['terminated_at_target']:
+                            log_dict['Episode/nTerminationsCorrect'] += 1
+                        else:
+                            log_dict['Episode/nTerminationsIncorrect'] += 1
 
                 log_dict['Episode/TotalReturn'] += reward
 
