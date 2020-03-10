@@ -157,7 +157,7 @@ class GlobalMap:
     def _mark_visible_cells(self, center, camera_direction):
         """
 
-        :param center:
+        :param center: absolute position
         :param camera_direction: normed 2d np array
         :return:
         """
@@ -166,7 +166,6 @@ class GlobalMap:
         # approximate function: distance is calculated from cell perspective, not position perspective
         center_x = center[0]
         center_y = center[1]
-
         size_x = self.map_size[0]
         size_y = self.map_size[1]
         size_z = self.map_size[2]
@@ -174,27 +173,78 @@ class GlobalMap:
         scale_x, scale_y, _ = self.cell_scale
         radius = self.vision_range
 
-        x, y = np.ogrid[-center_x:size_x-center_x, -center_y:size_y-center_y]
-        circle_mask = (x*scale_x) ** 2 + (y*scale_y) ** 2 <= radius ** 2
+        # x, y = np.ogrid[-center_x:size_x-center_x, -center_y:size_y-center_y]
+
+        x = np.expand_dims(self.cell_positions[0][:-1] + self.cell_scale[0] / 2, axis=1)
+        y = np.expand_dims(self.cell_positions[1][:-1] + self.cell_scale[1] / 2, axis=0)
+
+        # circle_mask = (x*scale_x) ** 2 + (y*scale_y) ** 2 <= radius ** 2
+        circle_mask = (x-center_x) ** 2 + (y-center_y) ** 2 <= radius ** 2
 
         # positive angle orientation
         cos_theta, sin_theta = np.cos(self.fov_angle / 2), np.sin(self.fov_angle / 2)
-        rot_matrix = np.array([[cos_theta, -sin_theta],[sin_theta, cos_theta]])
+        rot_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
         left_border_direction = rot_matrix @ camera_direction
         right_border_direction = rot_matrix.transpose() @ camera_direction
 
+        # === old ===
         # left_mask = left_border_direction[0] * (y - center_y) - left_border_direction[1] * (x - center_x) >= 0
         # right_mask = right_border_direction[0] * (y - center_y) - right_border_direction[1] * (x - center_x) <= 0
-        left_mask = left_border_direction[0] * y - left_border_direction[1] * x <= 0
-        right_mask = right_border_direction[0] * y - right_border_direction[1] * x >= 0
+        # === cell-based ===
+        # left_mask = left_border_direction[0] * y - left_border_direction[1] * x <= 0
+        # right_mask = right_border_direction[0] * y - right_border_direction[1] * x >= 0
+        left_mask = left_border_direction[0] * (y-center_y) - left_border_direction[1] * (x-center_x) <= 0
+        right_mask = right_border_direction[0] * (y-center_y) - right_border_direction[1] * (x-center_x) >= 0
 
-        mask = circle_mask * left_mask * right_mask
+        mask = circle_mask * ((left_mask & right_mask) if self.fov_angle < np.pi else (left_mask | right_mask))
         #print("===================")
         #print("circle_mask: ", circle_mask)
         #print("left_mask: ", left_mask)
         # print("right_mask: ", right_mask)
         # print("mask: ", mask)
 
+        mask_z = np.repeat(mask[:, :, np.newaxis], size_z, axis=2)
+
+        # mask behind obstacles
+        visible_obstacles = self.cell_map['obstacle'] * mask_z
+        cell_diag = np.linalg.norm([self.cell_scale[0], self.cell_scale[1]])
+        for position_idx in np.argwhere(visible_obstacles):
+            xx = self.cell_positions[0][position_idx[0]] + self.cell_scale[0] / 2
+            yy = self.cell_positions[1][position_idx[1]] + self.cell_scale[1] / 2
+
+            v = np.array([xx - center_x, yy - center_y])
+            # approximation
+            angle = cell_diag / (2 * np.pi * np.linalg.norm(v)) * 5  # TODO: find good factor
+            #print("norm, angle, v: ", cell_diag, angle, v)
+            cos_theta, sin_theta = np.cos(angle / 2), np.sin(angle / 2)
+            rot_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
+
+            left_border_direction = rot_matrix @ v
+            right_border_direction = rot_matrix.transpose() @ v
+
+            left_mask = left_border_direction[0] * (y - center_y) - left_border_direction[1] * (x - center_x) <= 0
+            right_mask = right_border_direction[0] * (y - center_y) - right_border_direction[1] * (x - center_x) >= 0
+            distance_mask = -v[1] * (y - yy) - v[0] * (x - xx) <= 0
+            #plt.imshow(left_mask)
+            #plt.title('left')
+            #plt.pause(0.05)
+            #plt.imshow(right_mask)
+            #plt.title('right')
+            #plt.pause(0.05)
+            #plt.imshow(distance_mask)
+            #plt.title('distance')
+            #plt.pause(0.05)
+
+            temp_mask = left_mask * right_mask * distance_mask
+            #plt.imshow(temp_mask)
+            #plt.title('temp')
+            #plt.pause(0.05)
+            #plt.imshow(mask)
+            #plt.pause(0.05)
+            mask = mask * ~temp_mask
+
+        #plt.imshow(mask)
+        #plt.pause(0.05)
         mask_z = np.repeat(mask[:, :, np.newaxis], size_z, axis=2)
         num_detected = np.sum(mask_z) - np.sum(self.cell_map['visible'][mask_z])
         self.cell_map['visible'][mask_z] = 1
@@ -216,11 +266,12 @@ class GlobalMap:
         self._automatic_expansion(new_position)
         self._move_to_cell(self._get_cell(new_position))
         self.position = new_position
-        num_detected = self._mark_visible_cells(self._get_cell(new_position), camera_direction)
+        # num_detected = self._mark_visible_cells(self._get_cell(new_position), camera_direction)
         for obstacle_position in detected_obstacles:
             self._mark_cell(self._get_cell(obstacle_position), 'obstacle')
         for object_position in detected_objects:
             self._mark_cell(self._get_cell(object_position), 'object')
+        num_detected = self._mark_visible_cells(new_position, camera_direction)
 
         return self.get_local_map(), num_detected
 
@@ -328,29 +379,41 @@ class GlobalMap:
 
 if __name__ == '__main__':
     print('===== 0 =====')
-    m = GlobalMap(map_size=(6, 6, 5), starting_position=(0, 0, 2), cell_scale=(1, 1, 1),
-                  buffer_distance=(5, 5, 0), local_map_size=(9, 9, 1), vision_range=4,
-                  detection_threshold_obstacle=1, detection_threshold_object=1, fov_angle=np.pi/4)
-    #m.visualize()
+    m = GlobalMap(map_size=(6, 6, 1), starting_position=(-2, 0, 0), cell_scale=(1, 1, 1),
+                  buffer_distance=(10, 10, 0), local_map_size=(15, 15, 1), vision_range=6,
+                  detection_threshold_obstacle=1, detection_threshold_object=1, fov_angle=np.pi/2)
+
     loc = m.get_local_map()
     m.visualize(cell_map=loc)
-    #print("visited: " + str(np.nonzero(m.cell_map)))
     print('===== 1 =====')
-    loc, _ = m.update((-1, 0, 2), [[1,0,0],[1,1,0]], camera_direction=np.array([-1., 0.]))
+    loc, _ = m.update((-1, 0, 0), [[-3,5,0],[-2,5,0],[2,0,0],[2,1,0],[3,-4,0],[3,-2,0]])#, camera_direction=np.array([-1., 0.]))
     #m.visualize()
     m.visualize(cell_map=loc)
-    m.visualize3d()
-
+    # m.visualize3d()
 
     print('===== 2 =====')
-    loc, _ = m.update((-2, 0, 1))
-    #m.visualize()
+    loc, _ = m.update((0, 0, 0))
+    m.visualize()
+    loc, _ = m.update((0, -1, 0))
+    m.visualize()
+    loc, _ = m.update((1, -1, 0))
+    m.visualize(cell_map=loc)
+    m.visualize()
+    loc, _ = m.update((0, -2, 0), [[-4,1,0],[-4,0,0],[-4,-1,0],[-7,2,0],[-7,3,0],[-7,4,0]])
+    m.visualize(cell_map=loc)
+
+    loc, _ = m.update((-1, -1, 0))
+    m.visualize(cell_map=loc)
+
+    loc, _ = m.update((0, -1, 0))
+    loc, _ = m.update((-1, 0, 0))
+    loc, _ = m.update((-2, 0, 0))
     m.visualize(cell_map=loc)
 
     print('===== 3 =====')
-    loc, _ = m.update((-3, 0, 1), [[-4,1,1],[-4,0,1],[-4,-1,1],[-4,1,2],[-4,0,2],[-4,-1,2],[-4,1,3]])
-    loc, _ = m.update((-3, 0, 0), [[-4,1,0],[-4,0,0],[-4,-1,0]])
-   # m.visualize()
+    #loc, _ = m.update((-3, 0, 1), [[-4,1,1],[-4,0,1],[-4,-1,1],[-4,1,2],[-4,0,2],[-4,-1,2],[-4,1,3]])
+    loc, _ = m.update((-3, 0, 0))
+    # m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 4 =====')
@@ -364,7 +427,7 @@ if __name__ == '__main__':
     m.visualize(cell_map=loc)
 
     print('===== 6 =====')
-    loc, _ = m.update((-3, 3, 0), [[-3,5,0],[-2,5,0]])
+    loc, _ = m.update((-3, 3, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
     m.visualize3d()
@@ -381,39 +444,40 @@ if __name__ == '__main__':
     m.visualize(cell_map=loc)
 
     print('===== 9 =====')
-    loc, _ = m.update((-6, 3, 0), [[-7,2,2],[-7,3,2],[-7,4,2]], detected_objects=[[-5,5,3]])
+    loc, _ = m.update((-6, 3, 0), detected_objects=[[-5,5,0]])
+    #loc, _ = m.update((-6, 3, 0), [[-7,2,2],[-7,3,2],[-7,4,2]], detected_objects=[[-5,5,3]])
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 10 =====')
-    loc, _ = m.update((-5, 3, 1))
+    loc, _ = m.update((-5, 3, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 11 =====')
-    loc, _ = m.update((-4, 3, 2))
+    loc, _ = m.update((-4, 3, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
     m.visualize3d()
 
 
     print('===== 12 =====')
-    loc, _ = m.update((-4, 4, 3))
+    loc, _ = m.update((-4, 4, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 13 =====')
-    loc, _ = m.update((-3, 4, 4))
+    loc, _ = m.update((-3, 4, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 14 =====')
-    loc, _ = m.update((-2, 4, 4))
+    loc, _ = m.update((-2, 4, 0))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 15 =====')
-    loc, _ = m.update((-1, 4, 3), detected_objects=[[-1,4,4]])
+    loc, _ = m.update((-1, 4, 0), detected_objects=[[-1,4,0]])
     #m.visualize()
     m.visualize(cell_map=loc)
 

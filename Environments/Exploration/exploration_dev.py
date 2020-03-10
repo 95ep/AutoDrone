@@ -91,6 +91,56 @@ class MapEnv:
                 for y in range(-16, -6):
                     m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
 
+        if map_idx == 1:
+            x_size = 256
+            y_size = 256
+            border_thickness = 33
+            z = 0
+            starting_positions = [(18, 18, z), (0, 0, z), (-18, -18, z), (-18, 18, z), (18, -18, z),
+                                 (0, 15, z), (0, -15, z), (15, 0, z), (-15, 0, z)]
+            m = GlobalMap(map_size=(x_size, y_size, 1),
+                          cell_scale=(1, 1, 1),
+                          starting_position=random.choice(starting_positions),
+                          buffer_distance=(0, 0, 0),
+                          local_map_size=(32, 32, 1),
+                          detection_threshold_obstacle=1,
+                          detection_threshold_object=1,
+                          fov_angle=3.141592/2,
+                          vision_range=8,
+                          )
+            # make walls
+            for x in range(x_size):
+                for y in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x-x_size/2, y_size/2-y-1, z]), 'obstacle')
+
+            for y in range(y_size):
+                for x in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x_size/2-x-1, y-y_size/2, z]), 'obstacle')
+
+            # define some obstacles / rooms
+            for x in range(4, 7):
+                for y in range(-13, -6):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+            for x in range(4, 13):
+                for y in range(-6, -3):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(6, 8):
+                for y in range(5, 21):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+            for x in range(-4, 6):
+                for y in range(5, 7):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-21, -2):
+                for y in range(-6, -4):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+            for x in range(-11, -9):
+                for y in range(-16, -6):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
         return m
 
     def reset(self):
