@@ -89,7 +89,7 @@ class AirsimEnv(gym.Env):
 
         old_distance_to_target = self._get_state()['pointgoal_with_gps_compass'][0]
         reward = 0
-        info = {}
+        info = {'env':"AirSim"}
         # actions: [terminate, move forward, rotate left, rotate right, ascend, descend]
         if action == 0:
             success = utils.target_found(self.client, self.target_position, threshold=self.distance_threshold)

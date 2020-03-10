@@ -129,8 +129,11 @@ def generate_target(client, max_target_distance, sub_t=False):
         #targets = [[-15, -17],[-15, -28],[-3,-28],[-16,-57],[-25,-61],[-36,-61],[-48,-63],[-15,-20],[-15,-50],[-15,-42],[-15,-30],[-48,-70],[-23,-50]]
         # targets = [[0, -27], [0, -35], [-14, -36.5], [-15, -47.6], [-16, -56], [-0.6, -57], [0, -24], [0, -10], [0, -5], [0, 0], [0, -3], [-15, -24], [-15, -30]]
         # targets close to spawn
-        targets = [[0.25, 0], [0, -2], [0.5, -4], [-0.4, -6], [0.3, -8], [0.33, -10], [-0.4, -12], [-0.1, -14], [0, -16], [0.24, -18], [0, -20]]
-        target = np.array(random.choice(targets), dtype=np.float)
+        #target = [[0, -2], [0.5, -4], [-0.4, -6], [0.3, -8], [0.33, -10], [-0.4, -12], [-0.1, -14], [0, -16], [0.24, -18], [0, -20]]
+        target_x = (0.5-np.random.rand())
+        target_y = -20 * np.random.rand()
+        # target = np.array(random.choice(targets), dtype=np.float)
+        target = np.array([target_x, target_y])
     else:
         pos = client.simGetGroundTruthKinematics().position
         x = (2 * np.random.rand() - 1) * max_target_distance + pos.x_val
