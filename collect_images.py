@@ -25,6 +25,7 @@ class ImageCollector:
         rgb = np.array(bgr[:, :, [2, 1, 0]])
         img = Image.fromarray(rgb)
         img.save("ObjectDetection/airsim_imgs/image{}.jpg".format(self.img_idx))
+        print("Image {} captured!".format(self.img_idx))
         self.img_idx += 1
 
     def collect_images(self):
@@ -63,11 +64,12 @@ class ImageCollector:
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--parameters', type=str)
     parser.add_argument('--image_number', type=int, default=0)
     args = parser.parse_args()
     with open(args.parameters) as f:
         parameters = json.load(f)
 
     env_utils, env = make_env_utils(**parameters)
-    ic = ImageCollector(env, env_utils, args.file_number)
+    ic = ImageCollector(env, env_utils, args.image_number)
     ic.collect_images()
