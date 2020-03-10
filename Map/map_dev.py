@@ -2,6 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors
 
+# This import registers the 3D projection, but is otherwise unused.
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
+
 class GlobalMap:
     # Channel structure:
     # 0 visited
@@ -293,6 +296,29 @@ class GlobalMap:
 
         plt.pause(0.005)
 
+    def visualize3d(self, ax=None):  # TODO: take local map
+
+        vis_map = {k: np.array(v // self.thresholds[k], dtype=bool) for k, v in self.cell_map.items()}
+
+        visited = vis_map['visited']
+        obstacles = vis_map['obstacle']
+        objects = vis_map['object']
+
+        voxels = visited | obstacles | objects
+
+        colors = np.empty(voxels.shape, dtype=object)
+
+        colors[visited] = 'green'
+        colors[obstacles] = 'red'
+        colors[objects] = 'yellow'
+
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.gca(projection='3d')
+        ax.voxels(voxels, facecolors=colors, edgecolors='k')
+        plt.show()
+
+
     def get_info(self, position):
         return {k: bool(v[self._get_cell(position)]) for k, v in self.cell_map.items()}
 
@@ -302,7 +328,7 @@ class GlobalMap:
 
 if __name__ == '__main__':
     print('===== 0 =====')
-    m = GlobalMap(map_size=(6, 6, 1), starting_position=(0, 0, 0), cell_scale=(1, 1, 1),
+    m = GlobalMap(map_size=(6, 6, 5), starting_position=(0, 0, 2), cell_scale=(1, 1, 1),
                   buffer_distance=(5, 5, 0), local_map_size=(9, 9, 1), vision_range=4,
                   detection_threshold_obstacle=1, detection_threshold_object=1, fov_angle=np.pi/4)
     #m.visualize()
@@ -310,16 +336,19 @@ if __name__ == '__main__':
     m.visualize(cell_map=loc)
     #print("visited: " + str(np.nonzero(m.cell_map)))
     print('===== 1 =====')
-    loc, _ = m.update((-1, 0, 0), [[1,0,0],[1,1,0]], camera_direction=np.array([-1., 0.]))
+    loc, _ = m.update((-1, 0, 2), [[1,0,0],[1,1,0]], camera_direction=np.array([-1., 0.]))
     #m.visualize()
     m.visualize(cell_map=loc)
+    m.visualize3d()
+
 
     print('===== 2 =====')
-    loc, _ = m.update((-2, 0, 0))
+    loc, _ = m.update((-2, 0, 1))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 3 =====')
+    loc, _ = m.update((-3, 0, 1), [[-4,1,1],[-4,0,1],[-4,-1,1],[-4,1,2],[-4,0,2],[-4,-1,2],[-4,1,3]])
     loc, _ = m.update((-3, 0, 0), [[-4,1,0],[-4,0,0],[-4,-1,0]])
    # m.visualize()
     m.visualize(cell_map=loc)
@@ -338,6 +367,8 @@ if __name__ == '__main__':
     loc, _ = m.update((-3, 3, 0), [[-3,5,0],[-2,5,0]])
     #m.visualize()
     m.visualize(cell_map=loc)
+    m.visualize3d()
+
 
     print('===== 7 =====')
     loc, _ = m.update((-4, 3, 0))
@@ -350,43 +381,47 @@ if __name__ == '__main__':
     m.visualize(cell_map=loc)
 
     print('===== 9 =====')
-    loc, _ = m.update((-6, 3, 0), [[-7,2,0],[-7,3,0],[-7,4,0]], detected_objects=[[-5,5,0]])
+    loc, _ = m.update((-6, 3, 0), [[-7,2,2],[-7,3,2],[-7,4,2]], detected_objects=[[-5,5,3]])
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 10 =====')
-    loc, _ = m.update((-5, 3, 0))
+    loc, _ = m.update((-5, 3, 1))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 11 =====')
-    loc, _ = m.update((-4, 3, 0))
+    loc, _ = m.update((-4, 3, 2))
     #m.visualize()
     m.visualize(cell_map=loc)
+    m.visualize3d()
+
 
     print('===== 12 =====')
-    loc, _ = m.update((-4, 4, 0))
+    loc, _ = m.update((-4, 4, 3))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 13 =====')
-    loc, _ = m.update((-3, 4, 0))
+    loc, _ = m.update((-3, 4, 4))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 14 =====')
-    loc, _ = m.update((-2, 4, 0))
+    loc, _ = m.update((-2, 4, 4))
     #m.visualize()
     m.visualize(cell_map=loc)
 
     print('===== 15 =====')
-    loc, _ = m.update((-1, 4, 0))
+    loc, _ = m.update((-1, 4, 3), detected_objects=[[-1,4,4]])
     #m.visualize()
     m.visualize(cell_map=loc)
 
     #print("position [38,38,0]: " + str(m._get_position([38,38,0])))
     #m._expand(((5,0),(0,0),(0,0)))
     m.visualize()
+    m.visualize3d()
+
     #print("visited: " + str(np.nonzero(m.update((-1, 0, 0), []))))
     #print("position [24,38,0]: " + str(m._get_position([24,38,0])))
     #m._expand(((0,0),(0,9.9),(2,0)))
