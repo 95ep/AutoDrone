@@ -21,8 +21,11 @@ class PPOBuffer:
             self.obs_vector = np.zeros((steps, *vector_shape), dtype=np.float32)
         if visual_shape is not None:
             self.obs_visual = np.zeros((steps, *visual_shape), dtype=np.float32)
-
-        self.act_buf = np.zeros((steps, action_dim), dtype=np.int)
+        # TODO: fix better. Temp solution to avoid int type for continuous actions
+        if action_dim > 1:
+            self.act_buf = np.zeros((steps, action_dim), dtype=np.float32)
+        else:
+            self.act_buf = np.zeros((steps, action_dim), dtype=np.int)
         self.rew_buf = np.zeros(steps, dtype=np.float32)
         self.adv_buf = np.zeros((steps, 1), dtype=np.float32)
         self.ret_buf = np.zeros((steps, 1), dtype=np.float32)

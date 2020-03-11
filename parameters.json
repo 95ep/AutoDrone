@@ -1,0 +1,53 @@
+{
+	"mode": "training",
+	"env_str": "Exploration",
+	"neural_network": {
+		"hidden_size": 32,
+		"num_hidden_layers": 2,
+		"channel_config": [
+			16,
+			32,
+			32
+		],
+		"kernel_size_config": [
+			3,
+			3,
+			3
+		],
+		"padding_config": [
+			1,
+			1,
+			1
+		],
+		"max_pool_config": [
+			false,
+			false,
+			false
+		]
+	},
+	"training": {
+		"gamma": 0.99,
+		"n_epochs": 25000,
+		"steps_per_epoch": 2048,
+		"minibatch_size": 128,
+		"clip_ratio": 0.2,
+		"lr": 5e-05,
+		"train_iters": 16,
+		"lam": 0.95,
+		"max_episode_len": 256,
+		"value_loss_coef": 0.5,
+		"entropy_coef": 0.01,
+		"target_kl": 0.1,
+		"save_freq": 20,
+		"resume_training": true,
+		"epoch_to_resume": 2600,
+		"prob_train_on_manual_experience": 0,
+		"manual_experience_path": "",
+		"weights": "C:/Users/Filip/Projects/RISE/AutoDrone/Runs/Exploration1/saved_models/model2600.pth"
+	},
+	"eval": {
+		"n_evals": 1,
+		"n_eval_steps": 256,
+		"weights": "C:/Users/Filip/Projects/RISE/AutoDrone/Runs/Exploration1/saved_models/model2520.pth"
+	}
+}
