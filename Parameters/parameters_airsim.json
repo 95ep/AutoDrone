@@ -1,5 +1,5 @@
 {
-    "mode": "training",
+    "mode": "evaluation",
     "env_str": "AirSim",
     "neural_network": {
         "hidden_size": 32,
@@ -18,8 +18,6 @@
           "reward_rotate": -0.05,
           "max_dist": 10,
           "distance_threshold": 0.5,
-          "floor_z": 0.5,
-          "ceiling_z": -1,
           "sensors": ["depth", "pointgoal_with_gps_compass"]
         },
         "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
@@ -83,7 +81,7 @@
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/subT-fixed-trgts-close-weekend-continued/saved_models/model530.pth"
     },
     "eval": {
-        "n_evals": 1,
+        "n_evals": 5,
         "n_eval_steps": 1024,
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/subT-fixed-trgts-close-weekend-continued/saved_models/model620.pth"
     }

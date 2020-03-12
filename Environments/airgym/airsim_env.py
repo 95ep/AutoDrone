@@ -76,8 +76,8 @@ class AirsimEnv(gym.Env):
 
         return observations
 
-    def reset(self):
-        utils.reset(self.client)
+    def reset(self, sub_t=True):
+        utils.reset(self.client, sub_t)
         self.agent_dead = False
         self.target_position = utils.generate_target(self.client, self.max_dist / 2, sub_t=True)
         return self._get_state()

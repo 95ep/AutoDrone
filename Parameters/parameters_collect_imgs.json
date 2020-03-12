@@ -18,16 +18,14 @@
           "reward_rotate": -0.05,
           "max_dist": 10,
           "distance_threshold": 0.5,
-          "floor_z": 100.5,
-          "ceiling_z": -100,
           "sensors": ["depth", "pointgoal_with_gps_compass"]
         },
         "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
         "airsim_settings": {
           "SettingsVersion": 1.2,
-          "SimMode": "",
+          "SimMode": "Multirotor",
           "ViewMode": "",
-          "ClockSpeed": 4,
+          "ClockSpeed": 8,
           "CameraDefaults": {
             "CaptureSettings": [
               {
