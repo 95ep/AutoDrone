@@ -8,7 +8,7 @@ sys.path.append('../../Map')
 sys.path.append('../Map')
 sys.path.append('./Map')
 
-from map_dev import GlobalMap
+from Map.map_dev import GlobalMap
 
 
 def make():
@@ -16,8 +16,11 @@ def make():
 
 class MapEnv:
 
-    def __init__(self, max_steps=64):
-        self.cell_map = self.create_map()
+    def __init__(self, max_steps=10000, local_map_size=(16, 16, 1), map_idx=None):
+
+        self.map_idx = map_idx
+        self.local_map_size = local_map_size
+        self.cell_map = self.create_map(local_map_size=self.local_map_size, map_idx=self.map_idx)
         self.direction = 0  # 0 radians = [1,0], pi/2 radians = [0,1]
         self.position = self.cell_map.get_current_position()
         self.reward_scaling = (self.cell_map.vision_range / self.cell_map.cell_scale[0]) * \
@@ -34,13 +37,15 @@ class MapEnv:
         fig = plt.figure()
         self.ax = fig.subplots()
 
-    def create_map(self, map_idx=0):
+    def create_map(self, map_idx=None, local_map_size=(16, 16, 1)):
         """
         Creates a custom environment map representing a room / maze.
         :param map_idx: index representing the different available maps
         :return: a maze environment
         """
-        assert map_idx == 0, 'currently there only exists {} different environments'.format(1)
+        if map_idx is None:
+            map_idx = random.randint(0,7)
+        assert map_idx < 8, 'currently there only exists {} different environments'.format(8)
         if map_idx == 0:
             x_size = 61
             y_size = 61
@@ -52,10 +57,10 @@ class MapEnv:
                           cell_scale=(1, 1, 1),
                           starting_position=random.choice(starting_positions),
                           buffer_distance=(0, 0, 0),
-                          local_map_size=(11, 11, 1),
+                          local_map_size=local_map_size,
                           detection_threshold_obstacle=1,
                           detection_threshold_object=1,
-                          fov_angle=3.141592/2,
+                          fov_angle=np.pi/2,
                           vision_range=4,
                           )
             # make walls
@@ -92,20 +97,20 @@ class MapEnv:
                     m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
 
         if map_idx == 1:
-            x_size = 256
-            y_size = 256
-            border_thickness = 33
+            x_size = 61
+            y_size = 61
+            border_thickness = 10
             z = 0
-            starting_positions = [(18, 18, z), (0, 0, z), (-18, -18, z), (-18, 18, z), (18, -18, z),
-                                 (0, 15, z), (0, -15, z), (15, 0, z), (-15, 0, z)]
+            starting_positions = [(0, -10, z), (0, 0, z), (-18, -18, z), (-18, 18, z), (18, -18, z),
+                                 (0, 15, z), (0, -15, z), (17, 0, z), (-17, 0, z)]
             m = GlobalMap(map_size=(x_size, y_size, 1),
                           cell_scale=(1, 1, 1),
                           starting_position=random.choice(starting_positions),
                           buffer_distance=(0, 0, 0),
-                          local_map_size=(32, 32, 1),
+                          local_map_size=local_map_size,
                           detection_threshold_obstacle=1,
                           detection_threshold_object=1,
-                          fov_angle=3.141592/2,
+                          fov_angle=np.pi/2,
                           vision_range=8,
                           )
             # make walls
@@ -120,31 +125,312 @@ class MapEnv:
                     m._mark_cell(m._get_cell([x_size/2-x-1, y-y_size/2, z]), 'obstacle')
 
             # define some obstacles / rooms
-            for x in range(4, 7):
-                for y in range(-13, -6):
+            for x in range(-14, 14):
+                for y in range(4, 7):
                     m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+
+            for x in range(-14, -12):
+                for y in range(-10, 7):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+            for x in range(12, 14):
+                for y in range(-10, 7):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+        if map_idx == 2:
+            x_size = 61
+            y_size = 61
+            border_thickness = 10
+            z = 0
+            starting_positions = [(18, 18, z), (0, 0, z), (-18, -18, z), (-18, 18, z), (18, -18, z),
+                                 (0, 18, z), (0, -18, z), (15, -10, z), (-18, 0, z)]
+            m = GlobalMap(map_size=(x_size, y_size, 1),
+                          cell_scale=(1, 1, 1),
+                          starting_position=random.choice(starting_positions),
+                          buffer_distance=(0, 0, 0),
+                          local_map_size=local_map_size,
+                          detection_threshold_obstacle=1,
+                          detection_threshold_object=1,
+                          fov_angle=np.pi/2,
+                          vision_range=8,
+                          )
+            # make walls
+            for x in range(x_size):
+                for y in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x-x_size/2, y_size/2-y-1, z]), 'obstacle')
+
+            for y in range(y_size):
+                for x in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x_size/2-x-1, y-y_size/2, z]), 'obstacle')
+
+            # define some obstacles / rooms
+            for x in range(-21, 14):
+                for y in range(11, 13):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-14, 21):
+                for y in range(1, 3):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-14, -12):
+                for y in range(-11, 3):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-4, -2):
+                for y in range(-21, -7):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-4, 11):
+                for y in range(-9, -7):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+        if map_idx == 3:
+            x_size = 61
+            y_size = 61
+            border_thickness = 10
+            z = 0
+            starting_positions = [(18, 18, z), (-18, -18, z), (-18, 18, z), (18, -18, z),
+                                 (0, 18, z), (0, -18, z), (18, 0, z), (-18, 0, z)]
+            m = GlobalMap(map_size=(x_size, y_size, 1),
+                          cell_scale=(1, 1, 1),
+                          starting_position=random.choice(starting_positions),
+                          buffer_distance=(0, 0, 0),
+                          local_map_size=local_map_size,
+                          detection_threshold_obstacle=1,
+                          detection_threshold_object=1,
+                          fov_angle=np.pi/2,
+                          vision_range=8,
+                          )
+            # make walls
+            for x in range(x_size):
+                for y in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x-x_size/2, y_size/2-y-1, z]), 'obstacle')
+
+            for y in range(y_size):
+                for x in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x_size/2-x-1, y-y_size/2, z]), 'obstacle')
+
+            # define some obstacles / rooms
+            for x in range(-14, 14):
+                for y in range(11, 13):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-14, 14):
+                for y in range(-1, 1):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-14, 14):
+                for y in range(-13, -11):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+        if map_idx == 4:
+            x_size = 61
+            y_size = 61
+            border_thickness = 10
+            z = 0
+            starting_positions = [(18, 18, z), (-6, 0, z), (-18, -18, z), (-18, 18, z), (18, -18, z),
+                                 (0, 18, z), (0, -18, z), (-18, 0, z)]
+            m = GlobalMap(map_size=(x_size, y_size, 1),
+                          cell_scale=(1, 1, 1),
+                          starting_position=random.choice(starting_positions),
+                          buffer_distance=(0, 0, 0),
+                          local_map_size=local_map_size,
+                          detection_threshold_obstacle=1,
+                          detection_threshold_object=1,
+                          fov_angle=np.pi/2,
+                          vision_range=8,
+                          )
+            # make walls
+            for x in range(x_size):
+                for y in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x-x_size/2, y_size/2-y-1, z]), 'obstacle')
+
+            for y in range(y_size):
+                for x in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x_size/2-x-1, y-y_size/2, z]), 'obstacle')
+
+            # define some obstacles / rooms
+            for x in range(-14, 14):
+                for y in range(11, 13):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(0, 21):
+                for y in range(-1, 1):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-14, 14):
+                for y in range(-13, -11):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-14, -12):
+                for y in range(-13, 13):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+        if map_idx == 5:
+            x_size = 61
+            y_size = 61
+            border_thickness = 10
+            z = 0
+            starting_positions = [(18, 18, z), (0, 0, z), (-18, -18, z), (-18, 18, z), (18, -18, z),
+                                 (0, 18, z), (0, -18, z), (18, 0, z), (-8, -6, z)]
+            m = GlobalMap(map_size=(x_size, y_size, 1),
+                          cell_scale=(1, 1, 1),
+                          starting_position=random.choice(starting_positions),
+                          buffer_distance=(0, 0, 0),
+                          local_map_size=local_map_size,
+                          detection_threshold_obstacle=1,
+                          detection_threshold_object=1,
+                          fov_angle=np.pi/2,
+                          vision_range=8,
+                          )
+            # make walls
+            for x in range(x_size):
+                for y in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x-x_size/2, y_size/2-y-1, z]), 'obstacle')
+
+            for y in range(y_size):
+                for x in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x_size/2-x-1, y-y_size/2, z]), 'obstacle')
+
+            # define some obstacles / rooms
+            for x in range(-21, -4):
+                for y in range(-1, 1):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-13, -12):
+                for y in range(0, 12):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-5, -4):
+                for y in range(-12, 0):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-12, -4):
+                for y in range(-13, -12):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-4, 13):
+                for y in range(11, 12):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(4, 5):
+                for y in range(0, 12):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(12, 13):
+                for y in range(0, 12):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
             for x in range(4, 13):
-                for y in range(-6, -3):
+                for y in range(-13, -12):
                     m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
 
-            for x in range(6, 8):
-                for y in range(5, 21):
-                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
-            for x in range(-4, 6):
-                for y in range(5, 7):
+            for x in range(4, 5):
+                for y in range(-21, -12):
                     m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
 
-            for x in range(-21, -2):
-                for y in range(-6, -4):
+        if map_idx == 6:
+            x_size = 61
+            y_size = 61
+            border_thickness = 10
+            z = 0
+            starting_positions = [(18, 18, z), (0, 0, z), (-18, -18, z), (-18, 18, z), (18, -18, z),
+                                 (0, 18, z), (0, -18, z)]
+            m = GlobalMap(map_size=(x_size, y_size, 1),
+                          cell_scale=(1, 1, 1),
+                          starting_position=random.choice(starting_positions),
+                          buffer_distance=(0, 0, 0),
+                          local_map_size=local_map_size,
+                          detection_threshold_obstacle=1,
+                          detection_threshold_object=1,
+                          fov_angle=np.pi/2,
+                          vision_range=8,
+                          )
+            # make walls
+            for x in range(x_size):
+                for y in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x-x_size/2, y_size/2-y-1, z]), 'obstacle')
+
+            for y in range(y_size):
+                for x in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x_size/2-x-1, y-y_size/2, z]), 'obstacle')
+
+            # define some obstacles / rooms
+            for x in range(-21, -4):
+                for y in range(-1, 1):
                     m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
-            for x in range(-11, -9):
-                for y in range(-16, -6):
+
+            for x in range(4, 21):
+                for y in range(-1, 1):
                     m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-13, -12):
+                for y in range(10, 21):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(12, 13):
+                for y in range(10, 21):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(-13, -12):
+                for y in range(-21, -10):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(12, 13):
+                for y in range(-21, -10):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+
+            for x in range(-5, -4):
+                for y in range(-14, 14):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+            for x in range(4, 5):
+                for y in range(-14, 14):
+                    m._mark_cell(m._get_cell([x, y, z]), 'obstacle')
+
+        if map_idx == 7:
+            x_size = 61
+            y_size = 61
+            border_thickness = 10
+            z = 0
+            starting_positions = [(18, 18, z), (0, 0, z), (-18, -18, z), (-18, 18, z), (18, -18, z),
+                                 (0, 18, z), (0, -18, z), (18, 0, z), (-18, 0, z)]
+            m = GlobalMap(map_size=(x_size, y_size, 1),
+                          cell_scale=(1, 1, 1),
+                          starting_position=random.choice(starting_positions),
+                          buffer_distance=(0, 0, 0),
+                          local_map_size=local_map_size,
+                          detection_threshold_obstacle=1,
+                          detection_threshold_object=1,
+                          fov_angle=np.pi/2,
+                          vision_range=8,
+                          )
+            # make walls
+            for x in range(x_size):
+                for y in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x-x_size/2, y_size/2-y-1, z]), 'obstacle')
+
+            for y in range(y_size):
+                for x in range(0, border_thickness):
+                    m._mark_cell(m._get_cell([x-x_size/2, y-y_size/2, z]), 'obstacle')
+                    m._mark_cell(m._get_cell([x_size/2-x-1, y-y_size/2, z]), 'obstacle')
 
         return m
 
     def reset(self):
-        self.cell_map = self.create_map()
+        self.cell_map = self.create_map(map_idx=self.map_idx, local_map_size=self.local_map_size)
         self.direction = 0  # 0 radians = [1,0], pi/2 radians = [0,1]
         self.position = self.cell_map.get_current_position()
         self.steps = 0
@@ -177,8 +463,9 @@ class MapEnv:
 
         success, num_detected = self.move_to_waypoint(waypoint=waypoint)
 
+        distance = np.max((distance, 1))
         if success:
-            reward = num_detected / distance / self.reward_scaling
+            reward = num_detected / np.sqrt(distance) / self.reward_scaling - 0.1 # - 0.2 fpr penalizing standing still
             done = False
         else:
             reward = -10
@@ -188,13 +475,31 @@ class MapEnv:
         self.steps += 1
         if self.steps == self.max_steps:
             done = True
-        return obs, reward, done, {}
+        return obs, reward, done, {'env': 'Exploration'}
 
     def render(self, local=True):
+        # TODO: revert
+        #"""
         if local:
-            self.cell_map.visualize(num_ticks_approx=20, cell_map=self.cell_map.get_local_map(), ax=self.ax)
+            pass
+            #self.cell_map.visualize(num_ticks_approx=20, cell_map=self.cell_map.get_local_map(), ax=self.ax)
         else:
             self.cell_map.visualize(num_ticks_approx=20, ax=self.ax)
+        #"""
+        """
+        import time
+        print('Step |==       |', end='\r')
+        time.sleep(0.02)
+        print('Step |====     |', end='\r')
+        time.sleep(0.02)
+        print('Step |=====    |', end='\r')
+        time.sleep(0.02)
+        print('Step |=======  |', end='\r')
+        time.sleep(0.02)
+        print('Step |=========|')
+        print('')
+        """
+        pass
 
     def move_to_waypoint(self, waypoint, step_length=0.1):  # approximately reaches the target
 
@@ -227,11 +532,13 @@ class MapEnv:
 
 
 if __name__ == '__main__':
-    env = MapEnv()
+    env = MapEnv(map_idx=7)
     env.render(local=False)
+    time.sleep(2)
     #print(env.cell_map.get_info([-22, -22, 0]))
     #print(env.cell_map.get_info([0, 0, 0]))
     #print(env.cell_map.get_info([18, -18, 0]))
+    exit()
     obs, reward, done, _ = env.step(compass=[5, -np.pi/2])
     print("reward 1: " + str(reward) + "    Done: " + str(done))
     env.render()

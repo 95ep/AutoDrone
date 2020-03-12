@@ -64,7 +64,7 @@ class GlobalMap:
 
     def _create_map(self, map_borders):
 
-        num_cells = np.zeros(self.dimensions, dtype=int)
+        num_cells = np.zeros(self.dimensions, dtype=np.int32)
         buffer_length = np.zeros(self.dimensions)
         for i in range(self.dimensions):
             length = map_borders[i][1] - map_borders[i][0]
@@ -79,11 +79,11 @@ class GlobalMap:
             cell_positions.append(np.linspace(start, stop, num_cells[i] + 1))
 
         self.map_size = num_cells
-        visible_map = np.zeros(num_cells, dtype=int)
-        visited_map = np.zeros(num_cells, dtype=int)
-        obstacle_map = np.zeros(num_cells, dtype=int)
-        object_map = np.zeros(num_cells, dtype=int)
-        position_map = np.zeros(num_cells, dtype=int)
+        visible_map = np.zeros(num_cells, dtype=np.int32)
+        visited_map = np.zeros(num_cells, dtype=np.int32)
+        obstacle_map = np.zeros(num_cells, dtype=np.int32)
+        object_map = np.zeros(num_cells, dtype=np.int32)
+        position_map = np.zeros(num_cells, dtype=np.int32)
         cell_map = {'visible': visible_map, 'visited': visited_map, 'obstacle': obstacle_map,
                     'object': object_map, 'position': position_map}
         cell_map_shape = num_cells
@@ -287,7 +287,7 @@ class GlobalMap:
         # print("local idx: " + str(local_idx))
         local_cell_map = np.concatenate([np.clip(v[local_idx] // self.thresholds[k], 0, 1)
                                          for k, v in self.cell_map.items()], axis=2)
-        return local_cell_map
+        return np.array(local_cell_map, dtype=np.float32)
 
     def visualize(self, num_ticks_approx=10, cell_map=None, ax=None):
 
