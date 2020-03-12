@@ -155,7 +155,10 @@ def evaluate(env, env_utils, actor_critic, n_evals=1, n_eval_steps=200):
             if done:
                 log_dict['Eval/nDones'] += 1
                 break
-
+    if 'env' in info and info['env'] == "Exploration":
+        env.render(local=False)  # TODO: ONLY IF EXPLORATION
+        import time
+        time.sleep(3)
     log_dict['Eval/AvgReturn'] = log_dict['Eval/TotalReturn'] / n_evals
     log_dict['Eval/AvgEpisodeLen'] = log_dict['Eval/TotalSteps'] / n_evals
     return log_dict
