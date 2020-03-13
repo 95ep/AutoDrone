@@ -4,11 +4,15 @@ import matplotlib.pyplot as plt
 import time
 from sklearn.cluster import MeanShift, estimate_bandwidth
 
-MIN_MATCH_COUNT = 50
-REJECTION_FACTOR = 0.7
+MIN_MATCH_COUNT = 10
+REJECTION_FACTOR = 0.8
 
-queryImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/images/tippex-only.jpg',cv.IMREAD_GRAYSCALE)          # queryImage
-trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/images/tippex-3.jpg',cv.IMREAD_GRAYSCALE) # trainImage
+# queryImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/images/mug-only-3.jpg',cv.IMREAD_GRAYSCALE)          # queryImage
+# trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/images/four-mugs.jpg',cv.IMREAD_GRAYSCALE) # trainImage
+queryImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/cone-only-4.jpg',cv.IMREAD_GRAYSCALE)          # queryImage
+trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/image1.jpg',cv.IMREAD_GRAYSCALE) # trainImage
+
+tot_start = time.time()
 # Initiate SIFT detector
 sift_start = time.time()
 sift = cv.xfeatures2d.SIFT_create()
@@ -43,13 +47,17 @@ for i in range(n_clusters):
 
 cluster_time = time.time() - cluster_start
 
-cluster_fig = plt.figure()
-ax = cluster_fig.subplots(n_clusters//3+1,3).flatten()
-for i in range(n_clusters):
-    kpImg = cv.drawKeypoints(trainImage, kp_per_cluster[i], None, flags=cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-    ax[i].imshow(kpImg)
-
-plt.show()
+# cluster_fig = plt.figure()
+# ax = cluster_fig.subplots(n_clusters//3+1,3).flatten()
+# for i in range(n_clusters):
+#     kpImg = cv.drawKeypoints(trainImage, kp_per_cluster[i], None, flags=cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+#     ax[i].imshow(kpImg)
+#
+# plt.show()
+homographies = []
+dst_list = []
+h, w = queryImage.shape
+pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
 for i in range(n_clusters):
     kp_cluster = kp_per_cluster[i]
     desc_cluster = np.array(desc_per_cluster[i], dtype=np.float32)
@@ -72,35 +80,51 @@ for i in range(n_clusters):
     if len(good) > MIN_MATCH_COUNT:
         src_pts = np.float32([ kpQ[m.queryIdx].pt for m in good ]).reshape(-1,1,2)
         dst_pts = np.float32([ kp_cluster[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
-        print(dst_pts[0])
 
         M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
-        print(M)
         if M is None:
             print("No homography")
         else:
 
             matchesMask = mask.ravel().tolist()
 
-            h, w = queryImage.shape
-            pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
             dst = cv.perspectiveTransform(pts, M)
+            non_zero_masks = np.nonzero(matchesMask)
 
-            img_tmp = cv.polylines(trainImage,[np.int32(dst)],True,255,3, cv.LINE_AA)
-            draw_params = dict(singlePointColor = None,
-                           matchesMask = matchesMask, # draw only inliers
-                           flags = 2)
+            no_outliers = True
+            for idx in non_zero_masks[0]:
+                if int(cv.pointPolygonTest(np.array(dst), tuple(dst_pts[idx,0,:].astype(np.int)), False)) != 1:
+                    print("dst_pts {} not in projected polygon".format(idx))
+                    no_outliers = False
+                    break
 
-            img_homography = cv.drawMatches(queryImage, kpQ, trainImage, kp_cluster, good, None, **draw_params)
-            plt.imshow(img_homography), plt.show()
-            plt.clf()
+            if no_outliers:
+                homographies.append(M)
+                dst_list.append(dst)
+
+            # img_tmp = cv.polylines(trainImage,[np.int32(dst)],True,255,3, cv.LINE_AA)
+            # draw_params = dict(singlePointColor = None,
+            #                matchesMask = matchesMask, # draw only inliers
+            #                flags = 2)
+            #
+            # img_homography = cv.drawMatches(queryImage, kpQ, trainImage, kp_cluster, good, None, **draw_params)
+            # plt.imshow(img_homography), plt.show()
+            # plt.clf()
     else:
         print("Too few good matches")
-        kpImg = cv.drawKeypoints(trainImage, kp_cluster, None, flags=cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        plt.imshow(kpImg), plt.show()
+        # kpImg = cv.drawKeypoints(trainImage, kp_cluster, None, flags=cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        # plt.imshow(kpImg), plt.show()
 
-print("Time for SIFT {}, cluster {}".format(sift_time, cluster_time))
+tot_time = time.time() - tot_start
+print("Total time {} for SIFT {}, cluster {}".format(tot_time, sift_time, cluster_time))
+print("Number of objects found: {}".format(len(homographies)))
 
+h, w = queryImage.shape
+pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
+for dst in dst_list:
+    img_boxes = cv.polylines(trainImage,[np.int32(dst)],True,255,3, cv.LINE_AA)
+
+plt.imshow(trainImage, cmap='gray'), plt.show()
 # Plot everything
 # fig1 = plt.figure()
 # ax11 = fig1.subplots()

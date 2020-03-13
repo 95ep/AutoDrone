@@ -4,10 +4,13 @@ import matplotlib.pyplot as plt
 import time
 
 
-# queryImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/cone_only_4.jpg',cv.IMREAD_GRAYSCALE)          # queryImage
-# trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/image105.jpg',cv.IMREAD_GRAYSCALE) # trainImage
-queryImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/images/tippex-only.jpg',cv.IMREAD_GRAYSCALE)          # queryImage
-trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/images/tippex-2.jpg',cv.IMREAD_GRAYSCALE) # trainImage
+MIN_MATCH_COUNT = 10
+REJECTION_FACTOR = 0.70
+
+queryImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/cone-only-4.jpg',cv.IMREAD_GRAYSCALE)          # queryImage
+trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/image3.jpg',cv.IMREAD_GRAYSCALE) # trainImage
+# queryImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/images/tippex-only.jpg',cv.IMREAD_GRAYSCALE)          # queryImage
+# trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/images/tippex-2.jpg',cv.IMREAD_GRAYSCALE) # trainImage
 
 # Initiate SIFT detector
 sift_start = time.time()
@@ -26,7 +29,7 @@ matches = bf.knnMatch(descQ, descT,k=2)
 # Apply ratio test
 good = []
 for m,n in matches:
-    if m.distance < 0.70*n.distance:
+    if m.distance < REJECTION_FACTOR*n.distance:
         good.append(m)
 bf_time = time.time() - bf_start
 # cv.drawMatchesKnn expects list of lists as matches.
@@ -44,7 +47,7 @@ matches = flann.knnMatch(descQ, descT, k=2)
 matchesMask = [[0,0] for i in range(len(matches))]
 # ratio test as per Lowe's paper
 for i,(m,n) in enumerate(matches):
-    if m.distance < 0.70*n.distance:
+    if m.distance < REJECTION_FACTOR*n.distance:
         matchesMask[i]=[1,0]
 flann_time = time.time() - flann_start
 
@@ -54,12 +57,11 @@ img_FLANN_matches = cv.drawMatchesKnn(queryImage, kpQ, trainImage, kpT, matches,
 
 homo_start = time.time()
 # Find homography
-if len(good) > 10:
+if len(good) > MIN_MATCH_COUNT:
     src_pts = np.float32([ kpQ[m.queryIdx].pt for m in good ]).reshape(-1,1,2)
     dst_pts = np.float32([ kpT[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
 
     M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
-    print(mask)
     matchesMask = mask.ravel().tolist()
 
     h,w = queryImage.shape
