@@ -115,8 +115,10 @@ class AirsimEnv(gym.Env):
             reward += self.REWARD_ROTATE
         elif action == 4:
             ac.move_up(self.client)
+            reward += self.REWARD_ROTATE
         elif action == 5:
             ac.move_down(self.client)
+            reward += self.REWARD_ROTATE
 
         episode_over = utils.has_collided(self.client, floor_z=self.floor_z, ceiling_z=self.ceiling_z)
         if episode_over:
