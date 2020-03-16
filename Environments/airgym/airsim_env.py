@@ -2,6 +2,8 @@ import airsim
 import gym
 from gym import spaces
 import numpy as np
+import cv2 as cv
+from sklearn.cluster import MeanShift, estimate_bandwidth
 
 from . import agent_controller as ac
 from . import utils
@@ -37,7 +39,6 @@ class AirsimEnv(gym.Env):
         self.width = width
         self.distance_threshold = distance_threshold
 
-        # TODO: add floor and ceiling to parameters
         self.floor_z = floor_z
         self.ceiling_z = ceiling_z
 
@@ -63,6 +64,13 @@ class AirsimEnv(gym.Env):
         # connect to the AirSim simulator
         self.client = airsim.MultirotorClient()
         self.client.confirmConnection()
+
+        # Add fields for object detection
+        self.kpQ_list = []
+        self.descQ_list = []
+        self.corners_list = []
+        self.min_match_thres = 0
+        self.rejection_factor = 0
 
     def _get_state(self):
         sensor_types = [x for x in self.sensors if x != 'pointgoal_with_gps_compass']
@@ -185,6 +193,113 @@ class AirsimEnv(gym.Env):
         global_points = global_points.transpose()
 
         return global_points
+
+    def setup_object_detection(query_paths, rejection_factor, min_match_thres):
+        assert len(self.kpQ_list) == 0
+
+        self.rejection_factor = rejection_factor
+        self.min_match_thres = min_match_thres
+        for path in query_paths:
+            queryImage = cv.imread(path ,cv.IMREAD_GRAYSCALE)
+            h, w = queryImage.shape
+            pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
+            sift = cv.xfeatures2d.SIFT_create()
+            kpQ, descQ = sift.detectAndCompute(queryImage, None)
+            self.kpQ_list.append(kpQ)
+            self.descQ_list.append(descQ)
+            self.corners_list.append(pts)
+
+    def get_trgt_objects():
+        assert len(self.kpQ_list) > 0
+        trainImage = get_high_res_rgb()
+
+        sift = cv.xfeatures2d.SIFT_create()
+        kpT, descT = sift.detectAndCompute(trainImage, None)
+
+        x = np.array([kpT[i].pt for i in range(len(kpT))])
+        bandwidth = estimate_bandwidth(x, quantile=0.1, n_samples=500)
+        ms = MeanShift(bandwidth=bandwidth, bin_seeding=True, cluster_all=True)
+        ms.fit(x)
+        labels = ms.labels_
+        cluster_centers = ms.cluster_centers_
+        labels_unique = np.unique(labels)
+        n_clusters = len(labels_unique)
+
+        kp_per_cluster = []
+        desc_per_cluster = []
+        for i in range(n_clusters):
+            d, = np.where(labels == i)
+            print("Number of kp in cluster {} is {}".format(i, len(d)))
+            kp_per_cluster.append([kpT[xx] for xx in d])
+            desc_per_cluster.append([descT[xx] for xx in d])
+
+        homographies = []
+        dst_list = []
+
+        for i in range(n_clusters):
+            kp_cluster = kp_per_cluster[i]
+            desc_cluster = np.array(desc_per_cluster[i], dtype=np.float32)
+
+            # Brute force matching
+            # BFMatcher with default params
+            bf = cv.BFMatcher()
+            good_list = []
+            n_matches = 0
+            for descQ in self.descQ_list:
+                matches = bf.knnMatch(descQ, desc_cluster, k=2)
+                # Apply ratio test
+                good = []
+                if len(kp_cluster) > 1:
+                    for m,n in matches:
+                        if m.distance < REJECTION_FACTOR*n.distance:
+                            good.append(m)
+                print("n good matches {}".format(len(good)))
+                if len(good) > n_matches:
+                    n_matches = len(good)
+                good_list.append(good)
+
+            # Find homography
+            max_inliers = 0
+            H_tmp = None
+            dst_tmp = None
+            for j, good in enumerate(good_list):
+
+                pts = self.corners_list[j]
+                if len(good) > MIN_MATCH_COUNT:
+                    src_pts = np.float32([ self.kpQ_list[j][m.queryIdx].pt for m in good ]).reshape(-1,1,2)
+                    dst_pts = np.float32([ kp_cluster[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
+
+                    M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
+                    if M is not None:
+                        matchesMask = mask.ravel().tolist()
+                        dst = cv.perspectiveTransform(pts, M)
+                        non_zero_masks = np.nonzero(matchesMask)
+
+                        no_outliers = True
+                        for idx in non_zero_masks[0]:
+                            if int(cv.pointPolygonTest(np.array(dst), tuple(dst_pts[idx,0,:].astype(np.int)), False)) != 1:
+                                no_outliers = False
+                                break
+
+                        if no_outliers and len(non_zero_masks[0]) > max_inliers:
+                            max_inliers = len(non_zero_masks[0])
+                            H_tmp = M
+                            dst_tmp = dst
+
+            if max_inliers > 0:
+                dst_list.append(dst_tmp)
+                homographies.append(H_tmp)
+        obj_2d_coords = []
+        for dst in dst_list:
+            x = int(np.sum(dst[:,0,0]) / 4)
+            y = int(np.sum(dst[:,0,1]) / 4)
+            obj_2d_coords.append((x,y))
+
+        depth = get_depth()
+        point_cloud = reproject_2d_points(obj_2d_coords)
+        global_points = local2global(point_cloud)
+        return global_points
+
 
     def render(self, mode='human'):
         pass

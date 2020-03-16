@@ -96,6 +96,28 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10, h
 
     return images
 
+def get_high_res_rgb():
+    pass
+
+def get_depth():
+    pass
+
+def reproject_2d_points(points_2d, width, height, max_dist, field_of_view):
+    center_x = width // 2
+    center_y = height // 2
+    focal_len = width / (2 * np.tan(field_of_view / 2))
+    for u,v in points_2d:
+        x = depth[v, u]
+        if x < max_dist:
+            y = (u - center_x) * x / focal_len
+            z = (v - center_y) * x / focal_len
+            points.append([x, y, z])
+
+    return np.array(points)
+
+def local2global(point_cloud):
+    pass
+
 
 def valid_trgt(env):
     r = np.random.rand()
