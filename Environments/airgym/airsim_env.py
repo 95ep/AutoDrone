@@ -76,10 +76,10 @@ class AirsimEnv(gym.Env):
 
         return observations
 
-    def reset(self, sub_t=True):
-        utils.reset(self.client, sub_t)
+    def reset(self, env="basic23"):
+        utils.reset(self.client, env="basic23")
         self.agent_dead = False
-        self.target_position = utils.generate_target(self.client, self.max_dist / 2, sub_t=True)
+        self.target_position = utils.generate_target(self.client, self.max_dist / 2, env="basic23")
         return self._get_state()
 
     def step(self, action):
@@ -104,7 +104,7 @@ class AirsimEnv(gym.Env):
                     "FAILURE - Terminated not at target. Position: {}".format(utils.get_position(self.client)))
                 info['terminated_at_target'] = False
 
-            self.target_position = utils.generate_target(self.client, self.max_dist / 2, sub_t=True)
+            self.target_position = utils.generate_target(self.client, self.max_dist / 2, env="basic23")
         elif action == 1:
             ac.move_forward(self.client)
         elif action == 2:

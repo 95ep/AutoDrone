@@ -97,30 +97,50 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10, h
     return images
 
 
-def valid_trgt():
+def valid_trgt(env):
     r = np.random.rand()
-    if r < 0.2:
-        target_x = 1 - np.random.rand()*31
-        target_y = -119
-    elif r < 0.4:
-        target_x = 1 - np.random.rand()*31
-        target_y = -127.5
-    elif r < 0.6:
-        target_x = -30
-        target_y = -123.5 - np.random.rand()*6
-    elif r < 0.8:
-        target_x = -16
-        target_y =  -119 - np.random.rand()*18
+    if env == "subT":
+        if r < 0.2:
+            target_x = 1 - np.random.rand()*31
+            target_y = -119
+        elif r < 0.4:
+            target_x = 1 - np.random.rand()*31
+            target_y = -127.5
+        elif r < 0.6:
+            target_x = -30
+            target_y = -123.5 - np.random.rand()*6
+        elif r < 0.8:
+            target_x = -16
+            target_y =  -119 - np.random.rand()*18
+        else:
+            target_x = -1
+            target_y = -119 - np.random.rand()*12
+        target = np.array([target_x, target_y])
+
+    elif env == "basic23":
+        if r < 1/6:
+            target_x = 20.5 - 21.5 * np.random.rand()
+            target_y = 0
+        else:
+            target_y = 5 - 9 * np.random.rand()
+            if r < 2/5:
+                target_x = 3.8
+            elif r < 3/5:
+                target_x = 9.4
+            elif r < 4/5:
+                target_x = 15.5
+            else:
+                target_x = 20.5
+        target = np.array([target_x, target_y])
     else:
-        target_x = -1
-        target_y = -119 - np.random.rand()*12
-    target = np.array([target_x, target_y])
+        raise ValueError("Env not recognized")
+
     return target
 
 def has_collided(client, floor_z=0.5, ceiling_z=-4.5):
 
     collision_info = client.simGetCollisionInfo()
-    if collision_info:
+    if collision_info.has_collided:
         client.simPrintLogMessage("Collision with object")
     z_pos = get_position(client).z_val
     if z_pos > floor_z:
@@ -138,20 +158,20 @@ def target_found(client, target_position, threshold=0.5):
     return success
 
 
-def generate_target(client, max_target_distance, sub_t=False):
+def generate_target(client, max_target_distance, env=None):
     """
     Generate new goal for the agent to reach.
     :param client:
     :param max_target_distance:
     :return:
     """
-    if sub_t:
+    if env is not None:
         #targets = [[-15, -17],[-15, -28],[-3,-28],[-16,-57],[-25,-61],[-36,-61],[-48,-63],[-15,-20],[-15,-50],[-15,-42],[-15,-30],[-48,-70],[-23,-50]]
         # targets = [[0, -27], [0, -35], [-14, -36.5], [-15, -47.6], [-16, -56], [-0.6, -57], [0, -24], [0, -10], [0, -5], [0, 0], [0, -3], [-15, -24], [-15, -30]]
         # targets close to spawn
         #target = [[0, -2], [0.5, -4], [-0.4, -6], [0.3, -8], [0.33, -10], [-0.4, -12], [-0.1, -14], [0, -16], [0.24, -18], [0, -20]]
         # target = np.array(random.choice(targets), dtype=np.float)
-        target = valid_trgt()
+        target = valid_trgt(env)
 
     else:
         pos = client.simGetGroundTruthKinematics().position
@@ -161,12 +181,12 @@ def generate_target(client, max_target_distance, sub_t=False):
     return target
 
 
-def reset(client, sub_t=False):
+def reset(client, env=None):
     client.reset()
-    if sub_t:
+    if env is not None:
         time.sleep(0.2)
         pose = client.simGetVehiclePose()
-        start_pos = valid_trgt()
+        start_pos = valid_trgt(env)
         pose.position.x_val = start_pos[0]
         pose.position.y_val = start_pos[1]
         pose.position.z_val = 0
