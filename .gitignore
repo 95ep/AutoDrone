@@ -11,5 +11,9 @@ Legacy/PointNavigation/parameters/*
 # gym_airsim
 AutoDrone/gym-airsim/gym_airsim.egg-info/*
 
+# Images for obj detection
+ObjectDetection/airsim_imgs/*
+ObjectDetection/images/*
+
 # logs
 runs/*

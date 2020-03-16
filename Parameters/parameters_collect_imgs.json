@@ -25,13 +25,13 @@
           "SettingsVersion": 1.2,
           "SimMode": "Multirotor",
           "ViewMode": "",
-          "ClockSpeed": 16,
+          "ClockSpeed": 8,
           "CameraDefaults": {
             "CaptureSettings": [
               {
                 "ImageType": 0,
-                "Width": 64,
-                "Height": 64,
+                "Width": 1024,
+                "Height": 1024,
                 "FOV_Degrees": 90,
                 "AutoExposureSpeed": 100,
                 "AutoExposureBias": 0,
@@ -44,8 +44,8 @@
               },
               {
                 "ImageType": 1,
-                "Width": 64,
-                "Height": 64,
+                "Width": 1024,
+                "Height": 1024,
                 "FOV_Degrees": 90,
                 "AutoExposureSpeed": 100,
                 "AutoExposureBias": 0,
@@ -59,30 +59,5 @@
             ]
           }
         }
-    },
-    "training": {
-        "gamma": 0.99,
-        "n_epochs": 250000,
-        "steps_per_epoch": 2048,
-        "minibatch_size": 128,
-        "clip_ratio": 0.2,
-        "lr": 1e-4,
-        "train_iters": 8,
-        "lam": 0.95,
-        "max_episode_len": 1024,
-        "value_loss_coef": 0.5,
-        "entropy_coef": 0.01,
-        "target_kl": 0.03,
-        "save_freq": 10,
-        "prob_train_on_manual_experience": 0.0,
-        "manual_experience_path": "Trajectories/",
-        "resume_training": true,
-        "epoch_to_resume": 0,
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/subT-fixed-trgts-close-weekend-continued/saved_models/model620.pth"
-    },
-    "eval": {
-        "n_evals": 5,
-        "n_eval_steps": 1024,
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/subT-fixed-trgts-close-weekend-continued/saved_models/model620.pth"
     }
 }

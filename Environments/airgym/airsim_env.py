@@ -75,11 +75,11 @@ class AirsimEnv(gym.Env):
 
         return observations
 
-    def reset(self, target_position=None):
-        utils.reset(self.client)
+    def reset(self, target_position=None, env="basic23"):
+        utils.reset(self.client, env=env)
         self.agent_dead = False
         if target_position is None:
-            self.target_position = utils.generate_target(self.client, self.max_dist / 2, sub_t=True)
+            self.target_position = utils.generate_target(self.client, self.max_dist / 2, env=env)
         else:
             self.target_position = target_position
         return self._get_state()
@@ -106,7 +106,7 @@ class AirsimEnv(gym.Env):
                     "FAILURE - Terminated not at target. Position: {}".format(utils.get_position(self.client)))
                 info['terminated_at_target'] = False
 
-            self.target_position = utils.generate_target(self.client, self.max_dist / 2, sub_t=True)
+            self.target_position = utils.generate_target(self.client, self.max_dist / 2, env="basic23")
         elif action == 1:
             ac.move_forward(self.client)
         elif action == 2:
@@ -117,8 +117,10 @@ class AirsimEnv(gym.Env):
             reward += self.REWARD_ROTATE
         elif action == 4:
             ac.move_up(self.client)
+            reward += self.REWARD_ROTATE
         elif action == 5:
             ac.move_down(self.client)
+            reward += self.REWARD_ROTATE
 
         episode_over = utils.has_collided(self.client, floor_z=self.floor_z, ceiling_z=self.ceiling_z)
         if episode_over:
