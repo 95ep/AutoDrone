@@ -15,11 +15,11 @@ class AutonomousDrone:
     Reward:
     """
     def __init__(self, **parameters):
-        parameters_air = {'env_str': 'airsim'}
-        parameters_air['airsim'] = parameters['airsim']
+        parameters_air = {'env_str': 'AirSim'}
+        parameters_air['AirSim'] = parameters['AirSim']
 
-        parameters_exploration = {'env_str': 'exploration'}
-        parameters_exploration['exploration'] = parameters['exploration']
+        parameters_exploration = {'env_str': 'Exploration'}
+        parameters_exploration['Exploration'] = parameters['Exploration']
 
         self.env_utils_air, self.env_air = make_env_utils(**parameters_air)
         self.env_utils_exploration, self.env_exploration = make_env_utils(**parameters_exploration)
@@ -32,7 +32,7 @@ class AutonomousDrone:
         self.point_navigator.load_state_dict(torch.load(parameters['point_navigation']['weights']))
         self.object_detection_frequency = parameters['point_navigation']['object_detection_frequency']
         self.obstacle_detection_frequency = parameters['point_navigation']['obstacle_detection_frequency']
-        self.fov_angle = parameters['exploration']['fov_angle']
+        self.fov_angle = parameters['Exploration']['fov_angle']
         self.dead = True
         self.reward_scaling = (self.env_exploration.cell_map.vision_range / self.env_exploration.cell_map.cell_scale[0]) * \
                               (self.env_exploration.cell_map.vision_range / self.env_exploration.cell_map.cell_scale[1]) * np.pi
@@ -40,7 +40,6 @@ class AutonomousDrone:
     def reset(self):
         self.dead = False
         _ = self.env_air.reset()
-        self.env_exploration.reset(starting_position=self.env_air.get_position())
         return self.env_exploration.reset(starting_position=self.env_air.get_position())
 
     def step(self, action):
@@ -49,7 +48,7 @@ class AutonomousDrone:
         :param action: delta_position - relative position of next waypoint - tuple-like: (dx, dy)
         :return:
         """
-        if action.len == 2:
+        if len(action) == 2:
             delta_pos = np.concatenate([np.array(action, dtype=float), np.array([0], dtype=float)])  # add z-dim
         else:
             delta_pos = np.array(action, dtype=float)

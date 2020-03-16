@@ -84,7 +84,7 @@ class AirsimEnv(gym.Env):
 
         return observations
 
-    def reset(self, target_position=None, env="basic23"):
+    def reset(self, target_position=None, env="subT"):
         utils.reset(self.client, env=env)
         self.agent_dead = False
         if target_position is None:
@@ -115,7 +115,7 @@ class AirsimEnv(gym.Env):
                     "FAILURE - Terminated not at target. Position: {}".format(utils.get_position(self.client)))
                 info['terminated_at_target'] = False
 
-            self.target_position = utils.generate_target(self.client, self.max_dist / 2, env="basic23")
+            self.target_position = utils.generate_target(self.client, self.max_dist / 2, env="subT")
         elif action == 1:
             ac.move_forward(self.client)
         elif action == 2:
@@ -157,7 +157,7 @@ class AirsimEnv(gym.Env):
         return np.array([position.x_val, position.y_val, position.z_val])
 
     def get_direction(self):
-        direction = utils.get_orientation()
+        direction = utils.get_orientation(self.client)
         return direction
 
     def get_obstacles(self, field_of_view, n_gridpoints=8):
