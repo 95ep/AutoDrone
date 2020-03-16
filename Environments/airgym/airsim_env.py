@@ -37,7 +37,6 @@ class AirsimEnv(gym.Env):
         self.width = width
         self.distance_threshold = distance_threshold
 
-        # TODO: add floor and ceiling to parameters
         self.floor_z = floor_z
         self.ceiling_z = ceiling_z
 
@@ -76,10 +75,13 @@ class AirsimEnv(gym.Env):
 
         return observations
 
-    def reset(self):
+    def reset(self, target_position=None):
         utils.reset(self.client)
         self.agent_dead = False
-        self.target_position = utils.generate_target(self.client, self.max_dist / 2, sub_t=True)
+        if target_position is None:
+            self.target_position = utils.generate_target(self.client, self.max_dist / 2, sub_t=True)
+        else:
+            self.target_position = target_position
         return self._get_state()
 
     def step(self, action):
@@ -89,7 +91,7 @@ class AirsimEnv(gym.Env):
 
         old_distance_to_target = self._get_state()['pointgoal_with_gps_compass'][0]
         reward = 0
-        info = {'env':"AirSim"}
+        info = {'env': "AirSim"}
         # actions: [terminate, move forward, rotate left, rotate right, ascend, descend]
         if action == 0:
             success = utils.target_found(self.client, self.target_position, threshold=self.distance_threshold)
@@ -138,6 +140,14 @@ class AirsimEnv(gym.Env):
                                             observation['pointgoal_with_gps_compass'][1]*180/3.14]))
         self.client.simPrintLogMessage("Step reward:", str(reward))
         return observation, reward, episode_over, info
+
+    def get_position(self):
+        position = utils.get_position(self.client)
+        return np.array([position.x_val, position.y_val, position.z_val])
+
+    def get_direction(self):
+        direction = utils.get_orientation()
+        return direction
 
     def get_obstacles(self, field_of_view, n_gridpoints=8):
         assert 'depth' in self.sensors  # make sure depth camera is used

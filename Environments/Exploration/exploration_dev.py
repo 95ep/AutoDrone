@@ -16,11 +16,12 @@ def make():
 
 class MapEnv:
 
-    def __init__(self, max_steps=10000, local_map_size=(16, 16, 1), map_idx=None):
+    def __init__(self, max_steps=10000, local_map_size=(16, 16, 1), map_idx=None, **map_parameters):
 
+        self.map_kwargs = map_parameters
         self.map_idx = map_idx
         self.local_map_size = local_map_size
-        self.cell_map = self.create_map(local_map_size=self.local_map_size, map_idx=self.map_idx)
+        self.cell_map = self.create_map(local_map_size=self.local_map_size, map_idx=self.map_idx, **map_parameters)
         self.direction = 0  # 0 radians = [1,0], pi/2 radians = [0,1]
         self.position = self.cell_map.get_current_position()
         self.reward_scaling = (self.cell_map.vision_range / self.cell_map.cell_scale[0]) * \
@@ -37,15 +38,30 @@ class MapEnv:
         fig = plt.figure()
         self.ax = fig.subplots()
 
-    def create_map(self, map_idx=None, local_map_size=(16, 16, 1)):
+    def create_map(self, map_idx=None, local_map_size=(16, 16, 1), map_size=(20,20,2), cell_scale=(0.5, 0.5, 2),
+                   starting_position=(0,0,1), buffer_distance=(5,5,0), detection_threshold_obstacle=3,
+                   detection_threshold_object=2, fov_angle=np.pi/2, vision_range=10):
         """
         Creates a custom environment map representing a room / maze.
-        :param map_idx: index representing the different available maps
+        :param map_idx: index representing the different available maps. idx -1: empty map, idx >= 0 training maps
         :return: a maze environment
         """
         if map_idx is None:
             map_idx = random.randint(0,7)
         assert map_idx < 8, 'currently there only exists {} different environments'.format(8)
+
+        if map_idx == -1:
+            m = GlobalMap(map_size=map_size,
+                          cell_scale=cell_scale,
+                          starting_position=starting_position,
+                          buffer_distance=buffer_distance,
+                          local_map_size=local_map_size,
+                          detection_threshold_obstacle=detection_threshold_obstacle,
+                          detection_threshold_object=detection_threshold_object,
+                          fov_angle=fov_angle,
+                          vision_range=vision_range,
+                          )
+
         if map_idx == 0:
             x_size = 61
             y_size = 61
@@ -429,9 +445,12 @@ class MapEnv:
 
         return m
 
-    def reset(self):
-        self.cell_map = self.create_map(map_idx=self.map_idx, local_map_size=self.local_map_size)
-        self.direction = 0  # 0 radians = [1,0], pi/2 radians = [0,1]
+    def reset(self, starting_position=None, starting_direction=None):
+        map_kwargs = self.map_kwargs
+        if starting_position is not None:
+            map_kwargs['starting_position'] = starting_position
+        self.cell_map = self.create_map(map_idx=self.map_idx, local_map_size=self.local_map_size, **map_kwargs)
+        self.direction = starting_direction if starting_direction else 0  # 0 radians = [1,0], pi/2 radians = [0,1]
         self.position = self.cell_map.get_current_position()
         self.steps = 0
         return self.cell_map.get_local_map()
@@ -506,9 +525,6 @@ class MapEnv:
         pos = np.array(self.cell_map.get_current_position(), dtype=np.float32)
         v = np.array(waypoint, dtype=np.float32) - pos
         magnitude = np.linalg.norm(v)
-        import math
-        if math.isnan(magnitude):
-            print("mag is nan. v: ", v)
         v_norm = v / (magnitude + 1e-3)
         num_steps = int(magnitude / step_length)
 
