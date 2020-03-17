@@ -22,7 +22,8 @@
       "buffer_distance": [5,5,0],
       "detection_threshold_obstacle": 3,
       "detection_threshold_object": 2,
-      "vision_range": 10
+      "vision_range": 10,
+      "map_idx": -1
     },
     "AirSim": {
         "airgym_kwargs": {

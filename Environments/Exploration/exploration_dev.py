@@ -11,8 +11,8 @@ sys.path.append('./Map')
 from Map.map_dev import GlobalMap
 
 
-def make():
-    return MapEnv()
+def make(**parameters):
+    return MapEnv(**parameters)
 
 class MapEnv:
 

@@ -23,7 +23,7 @@ def make_env_utils(**param_kwargs):
         env_utils_obj = EnvUtilsAirSim(**param_kwargs[env_str])
         env = env_utils_obj.make_env()
     elif env_str == 'Exploration':
-        env_utils_obj = EnvUtilsExploration()
+        env_utils_obj = EnvUtilsExploration(**param_kwargs[env_str])
         env = env_utils_obj.make_env()
     else:
         raise ValueError("env_str not recognized.")
@@ -181,11 +181,12 @@ class EnvUtilsAirSim(EnvUtilsSuper):
 
 
 class EnvUtilsExploration(EnvUtilsSuper):
-    def __init__(self):
+    def __init__(self, **exploration_kwargs):
         super().__init__()
+        self.exploration_kwargs = exploration_kwargs
 
     def make_env(self):
-        env = exploration_dev.make()
+        env = exploration_dev.make(**self.exploration_kwargs)
         self.network_kwargs['has_visual_encoder'] = True
         self.network_kwargs['continuous_actions'] = True
         self.network_kwargs['visual_input_shape'] = env.observation_space.shape
