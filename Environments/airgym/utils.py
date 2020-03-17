@@ -107,6 +107,7 @@ def reproject_2d_points(points_2d, depth, max_dist, field_of_view):
     center_x = w // 2
     center_y = h // 2
     focal_len = w / (2 * np.tan(field_of_view / 2))
+    points = []
     for u,v in points_2d:
         x = depth[v, u]
         if x < max_dist:
@@ -120,7 +121,7 @@ def local2global(point_cloud, client):
     # Get position and orientation of client
     pos_vec = get_position(client)
     client_pos = np.array([[pos_vec.x_val, pos_vec.y_val, pos_vec.z_val]])
-    client_orientation = self.client.simGetGroundTruthKinematics().orientation
+    client_orientation = client.simGetGroundTruthKinematics().orientation
     pitch, roll, yaw = airsim.to_eularian_angles(client_orientation)
     pitch, roll, yaw = -pitch, -roll, -yaw
 

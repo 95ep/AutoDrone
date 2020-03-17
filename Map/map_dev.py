@@ -116,7 +116,7 @@ class GlobalMap:
         for i in range(3):
             #print('[dim]: {},  cel_pos[0]: {}, pos: {}, cel_pos[-1]: {}'.format(i, self.cell_positions[i][0], position[i], self.cell_positions[i][-1]))
             assert self.cell_positions[i][0] <= position[i] <= self.cell_positions[i][-1], \
-                'trying to get cell index for position {} lying outside the map'.format(position)
+                'trying to get cell index for position {} lying outside the map with borders {}'.format(position, [self.cell_positions[0][0], self.cell_positions[0][-1],self.cell_positions[1][0], self.cell_positions[1][-1],self.cell_positions[2][0], self.cell_positions[2][-1]])
             if position[i] == self.cell_positions[i][-1]:  # if at (top) border
                 idx = int(np.nonzero(position[i] > self.cell_positions[i])[0][-1])
             else:
@@ -293,10 +293,13 @@ class GlobalMap:
 
         if cell_map is not None:
             vis_map = cell_map
+            len_z = self.local_map_size[2]
         else:
             vis_map = np.concatenate([v // self.thresholds[k] for k, v in self.cell_map.items()], axis=2)
+            len_z = self.map_size[2]
 
-        len_z = self.local_map_size[2]
+
+        print("len_z: ", len_z)
         temp_map = []
         for k in range(len(self.thresholds.keys())):
             temp_map.append(np.sum(vis_map[:, :, k*len_z:(k+1)*len_z], axis=2).clip(0, 1)*(k+1))
@@ -354,19 +357,24 @@ class GlobalMap:
         visited = vis_map['visited']
         obstacles = vis_map['obstacle']
         objects = vis_map['object']
+        #visible = vis_map['visible']
 
-        voxels = visited | obstacles | objects
+        voxels = visited | obstacles | objects #| visible
 
-        colors = np.empty(voxels.shape, dtype=object)
+        #colors = np.empty(voxels.shape, dtype=object)
+        colors = np.empty(voxels.shape + (4,), dtype=float)
 
-        colors[visited] = 'green'
-        colors[obstacles] = 'red'
-        colors[objects] = 'yellow'
+        #colors[visible] = 'blue'
+        colors[obstacles] = np.array([1., 0., 0., 0.4])
+        colors[visited] =  np.array([0., 1., 0., 1.]) #'green'
+        colors[objects] =  np.array([1., 1., 0., 1.]) #'yellow'
+
+        print(colors)
 
         if ax is None:
             fig = plt.figure()
             ax = fig.gca(projection='3d')
-        ax.voxels(voxels, facecolors=colors, edgecolors='k')
+        ax.voxels(voxels, facecolors=colors, edgecolors=[0,0,0,0.3]) #'k')
         plt.show()
 
 

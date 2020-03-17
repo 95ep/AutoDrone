@@ -49,7 +49,7 @@ class MapEnv:
         if map_idx is None:
             map_idx = random.randint(0,7)
         assert map_idx < 8, 'currently there only exists {} different environments'.format(8)
-
+        print("MAP IDX: ", map_idx)
         if map_idx == -1:
             m = GlobalMap(map_size=map_size,
                           cell_scale=cell_scale,
@@ -450,7 +450,7 @@ class MapEnv:
         if starting_position is not None:
             map_kwargs['starting_position'] = starting_position
         self.cell_map = self.create_map(map_idx=self.map_idx, local_map_size=self.local_map_size, **map_kwargs)
-        self.direction = starting_direction if starting_direction else 0  # 0 radians = [1,0], pi/2 radians = [0,1]
+        self.direction = starting_direction if starting_direction is not None else 0  # 0 radians = [1,0], pi/2 radians = [0,1]
         self.position = self.cell_map.get_current_position()
         self.steps = 0
         return self.cell_map.get_local_map()

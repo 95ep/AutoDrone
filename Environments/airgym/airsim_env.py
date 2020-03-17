@@ -158,14 +158,14 @@ class AirsimEnv(gym.Env):
 
     def get_direction(self):
         direction = utils.get_orientation(self.client)
-        return direction
+        return np.array([np.cos(direction), np.sin(direction)])
 
     def get_obstacles(self, field_of_view, n_gridpoints=8):
         assert 'depth' in self.sensors  # make sure depth camera is used
         observations = utils.get_camera_observation(self.client, sensor_types=['depth'], max_dist=self.max_dist,
                                                     height=self.height, width=self.width)
         depth = observations['depth']
-
+        depth = depth.squeeze()
         h_idx = np.linspace(0, self.height, n_gridpoints, endpoint=False, dtype=np.int)
         w_idx = np.linspace(0, self.width, n_gridpoints, endpoint=False, dtype=np.int)
         U, V = np.meshgrid(w_idx, h_idx)

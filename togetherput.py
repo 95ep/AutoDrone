@@ -40,7 +40,7 @@ class AutonomousDrone:
     def reset(self):
         self.dead = False
         _ = self.env_air.reset()
-        return self.env_exploration.reset(starting_position=self.env_air.get_position())
+        return self.env_exploration.reset(starting_position=self.env_air.get_position(), starting_direction=self.env_air.get_direction())
 
     def step(self, action):
         """
@@ -52,7 +52,8 @@ class AutonomousDrone:
             delta_pos = np.concatenate([np.array(action, dtype=float), np.array([0], dtype=float)])  # add z-dim
         else:
             delta_pos = np.array(action, dtype=float)
-        waypoint = self.env_exploration.position + delta_pos
+        waypoint = self.env_exploration.cell_map.position + delta_pos
+        print("POSITION: ", self.env_exploration.cell_map.position)
         self.env_air.target_position = waypoint
 
         obs_air = self.env_air._get_state()

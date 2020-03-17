@@ -7,7 +7,9 @@ with open('Parameters/parameters_ad.json') as f:
 
 ad = AutonomousDrone(**parameters)
 
-ad.reset()
+obs = ad.reset()
 ad.render(False)
-action = np.array([-5.,0])
-ad.step(action)
+action = np.array([-1.,0])
+obs, rew, done, info = ad.step(action)
+
+ad.env_exploration.cell_map.visualize3d()
