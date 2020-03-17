@@ -115,8 +115,26 @@ def reproject_2d_points(points_2d, width, height, max_dist, field_of_view):
 
     return np.array(points)
 
-def local2global(point_cloud):
-    pass
+def local2global(point_cloud, client):
+    # Get position and orientation of client
+    pos_vec = get_position(client)
+    client_pos = np.array([[pos_vec.x_val, pos_vec.y_val, pos_vec.z_val]])
+    client_orientation = self.client.simGetGroundTruthKinematics().orientation
+    pitch, roll, yaw = airsim.to_eularian_angles(client_orientation)
+    pitch, roll, yaw = -pitch, -roll, -yaw
+
+    rot_mat = np.array([
+        [np.cos(yaw)*np.cos(pitch), np.cos(yaw)*np.sin(pitch)*np.sin(roll) - np.sin(yaw)*np.cos(roll),
+         np.cos(yaw)*np.sin(pitch)*np.cos(roll) + np.sin(yaw)*np.sin(roll)],
+        [np.sin(yaw)*np.cos(pitch), np.sin(yaw)*np.sin(pitch)*np.sin(roll) + np.cos(yaw)*np.cos(roll),
+         np.sin(yaw)*np.sin(pitch)*np.cos(roll) - np.cos(yaw)*np.sin(roll)],
+        [-np.sin(pitch), np.cos(pitch)*np.sin(roll), np.cos(pitch)*np.cos(roll)]
+                        ])
+
+    # get global_points, i.e. compensate for client orientation and position
+    global_points = rot_mat @ point_cloud.transpose() + client_pos.transpose()
+    global_points = global_points.transpose()
+    return global_points
 
 
 def valid_trgt(env):

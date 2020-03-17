@@ -84,7 +84,7 @@ class AirsimEnv(gym.Env):
 
         return observations
 
-    def reset(self, target_position=None, env="subT"):
+    def reset(self, target_position=None, env="basic23"):
         utils.reset(self.client, env=env)
         self.agent_dead = False
         if target_position is None:
@@ -115,7 +115,7 @@ class AirsimEnv(gym.Env):
                     "FAILURE - Terminated not at target. Position: {}".format(utils.get_position(self.client)))
                 info['terminated_at_target'] = False
 
-            self.target_position = utils.generate_target(self.client, self.max_dist / 2, env="subT")
+            self.target_position = utils.generate_target(self.client, self.max_dist / 2, env="basic23")
         elif action == 1:
             ac.move_forward(self.client)
         elif action == 2:
@@ -168,42 +168,13 @@ class AirsimEnv(gym.Env):
 
         h_idx = np.linspace(0, self.height, n_gridpoints, endpoint=False, dtype=np.int)
         w_idx = np.linspace(0, self.width, n_gridpoints, endpoint=False, dtype=np.int)
+        U, V = np.meshgrid(w_idx, h_idx)
+        points_2d = [(u,v) for u, v in zip(U.flatten(), V.flatten())]
 
-        center_x = self.width // 2
-        center_y = self.height // 2
-        focal_len = self.width / (2 * np.tan(field_of_view / 2))
+        point_cloud = reproject_2d_points(points_2d, self.width, self.height, self.max_dist, field_of_view)
+        obstacles_3d_coords = local2global(point_cloud, self.client)
 
-        points = []
-        for v in h_idx:
-            for u in w_idx:
-                x = depth[v, u]
-                if x < self.max_dist:
-                    y = (u - center_x) * x / focal_len
-                    z = (v - center_y) * x / focal_len
-                    points.append([x, y, z])
-        point_cloud = np.array(points)
-
-        # Get position and orientation of client
-        pos_vec = self.client.simGetGroundTruthKinematics().position
-        client_pos = np.array([[pos_vec.x_val, pos_vec.y_val, pos_vec.z_val]])
-        client_orientation = self.client.simGetGroundTruthKinematics().orientation
-
-        pitch, roll, yaw = airsim.to_eularian_angles(client_orientation)
-        pitch, roll, yaw = -pitch, -roll, -yaw
-
-        rot_mat = np.array([
-            [np.cos(yaw)*np.cos(pitch), np.cos(yaw)*np.sin(pitch)*np.sin(roll) - np.sin(yaw)*np.cos(roll),
-             np.cos(yaw)*np.sin(pitch)*np.cos(roll) + np.sin(yaw)*np.sin(roll)],
-            [np.sin(yaw)*np.cos(pitch), np.sin(yaw)*np.sin(pitch)*np.sin(roll) + np.cos(yaw)*np.cos(roll),
-             np.sin(yaw)*np.sin(pitch)*np.cos(roll) - np.cos(yaw)*np.sin(roll)],
-            [-np.sin(pitch), np.cos(pitch)*np.sin(roll), np.cos(pitch)*np.cos(roll)]
-                            ])
-
-        # get global_points, i.e. compensate for client orientation and position
-        global_points = rot_mat @ point_cloud.transpose() + client_pos.transpose()
-        global_points = global_points.transpose()
-
-        return global_points
+        return obstacles_3d_coords
 
     def setup_object_detection(query_paths, rejection_factor, min_match_thres):
         assert len(self.kpQ_list) == 0
@@ -240,7 +211,6 @@ class AirsimEnv(gym.Env):
         desc_per_cluster = []
         for i in range(n_clusters):
             d, = np.where(labels == i)
-            print("Number of kp in cluster {} is {}".format(i, len(d)))
             kp_per_cluster.append([kpT[xx] for xx in d])
             desc_per_cluster.append([descT[xx] for xx in d])
 
@@ -264,7 +234,6 @@ class AirsimEnv(gym.Env):
                     for m,n in matches:
                         if m.distance < REJECTION_FACTOR*n.distance:
                             good.append(m)
-                print("n good matches {}".format(len(good)))
                 if len(good) > n_matches:
                     n_matches = len(good)
                 good_list.append(good)
@@ -302,8 +271,11 @@ class AirsimEnv(gym.Env):
                 homographies.append(H_tmp)
         obj_2d_coords = []
         for dst in dst_list:
+            # Calculate center point
             x = int(np.sum(dst[:,0,0]) / 4)
             y = int(np.sum(dst[:,0,1]) / 4)
+            # Rescale to match depth img dimension
+
             obj_2d_coords.append((x,y))
 
         depth = get_depth()
