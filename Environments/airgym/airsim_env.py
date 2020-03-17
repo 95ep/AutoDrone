@@ -69,7 +69,7 @@ class AirsimEnv(gym.Env):
         self.kpQ_list = []
         self.descQ_list = []
         self.corners_list = []
-        self.min_match_thres = 0
+        self.min_match_count = 0
         self.rejection_factor = 0
 
     def _get_state(self):
@@ -171,16 +171,16 @@ class AirsimEnv(gym.Env):
         U, V = np.meshgrid(w_idx, h_idx)
         points_2d = [(u,v) for u, v in zip(U.flatten(), V.flatten())]
 
-        point_cloud = reproject_2d_points(points_2d, self.width, self.height, self.max_dist, field_of_view)
-        obstacles_3d_coords = local2global(point_cloud, self.client)
+        point_cloud = utils.reproject_2d_points(points_2d, depth, self.max_dist, field_of_view)
+        obstacles_3d_coords = utils.local2global(point_cloud, self.client)
 
         return obstacles_3d_coords
 
-    def setup_object_detection(query_paths, rejection_factor, min_match_thres):
+    def setup_object_detection(self, query_paths, rejection_factor, min_match_thres):
         assert len(self.kpQ_list) == 0
 
         self.rejection_factor = rejection_factor
-        self.min_match_thres = min_match_thres
+        self.min_match_count = min_match_thres
         for path in query_paths:
             queryImage = cv.imread(path ,cv.IMREAD_GRAYSCALE)
             h, w = queryImage.shape
@@ -191,9 +191,9 @@ class AirsimEnv(gym.Env):
             self.descQ_list.append(descQ)
             self.corners_list.append(pts)
 
-    def get_trgt_objects():
+    def get_trgt_objects(self):
         assert len(self.kpQ_list) > 0
-        trainImage = get_high_res_rgb()
+        trainImage = utils.get_high_res_rgb()
 
         sift = cv.xfeatures2d.SIFT_create()
         kpT, descT = sift.detectAndCompute(trainImage, None)
@@ -203,7 +203,6 @@ class AirsimEnv(gym.Env):
         ms = MeanShift(bandwidth=bandwidth, bin_seeding=True, cluster_all=True)
         ms.fit(x)
         labels = ms.labels_
-        cluster_centers = ms.cluster_centers_
         labels_unique = np.unique(labels)
         n_clusters = len(labels_unique)
 
@@ -232,7 +231,7 @@ class AirsimEnv(gym.Env):
                 good = []
                 if len(kp_cluster) > 1:
                     for m,n in matches:
-                        if m.distance < REJECTION_FACTOR*n.distance:
+                        if m.distance < self.rejection_factor * n.distance:
                             good.append(m)
                 if len(good) > n_matches:
                     n_matches = len(good)
@@ -245,7 +244,7 @@ class AirsimEnv(gym.Env):
             for j, good in enumerate(good_list):
 
                 pts = self.corners_list[j]
-                if len(good) > MIN_MATCH_COUNT:
+                if len(good) > self.min_match_count:
                     src_pts = np.float32([ self.kpQ_list[j][m.queryIdx].pt for m in good ]).reshape(-1,1,2)
                     dst_pts = np.float32([ kp_cluster[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
 
@@ -278,9 +277,9 @@ class AirsimEnv(gym.Env):
 
             obj_2d_coords.append((x,y))
 
-        depth = get_depth()
-        point_cloud = reproject_2d_points(obj_2d_coords)
-        global_points = local2global(point_cloud)
+        depth = utils.get_depth()
+        point_cloud = utils.reproject_2d_points(obj_2d_coords, depth, self.max_dist, field_of_view=1.57)
+        global_points = utils.local2global(point_cloud, self.client)
         return global_points
 
 
