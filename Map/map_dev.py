@@ -49,9 +49,9 @@ class GlobalMap:
         self.thresholds = {'visible': 1, 'visited': 1, 'obstacle': detection_threshold_obstacle,
                            'object': detection_threshold_object, 'position': 1}
 
-        map_borders = [(-length/2, length/2) for length in map_size]
-        if self.dimensions == 3:
-            map_borders[2] = (0.0, float(map_size[2]))
+        map_borders = [(-length/2 + offset, length/2 + offset) for length, offset in zip(map_size, starting_position)]
+        #if self.dimensions == 3:
+        #    map_borders[2] = (0.0, float(map_size[2]))
 
         valid_start_pos = [map_borders[i][0] <= starting_position[i] <= map_borders[i][1]
                            for i in range(self.dimensions)]
@@ -379,7 +379,7 @@ class GlobalMap:
 
 if __name__ == '__main__':
     print('===== 0 =====')
-    m = GlobalMap(map_size=(6, 6, 1), starting_position=(-2, 0, 0), cell_scale=(1, 1, 1),
+    m = GlobalMap(map_size=(6, 6, 1), starting_position=(-20, 0, 0), cell_scale=(1, 1, 1),
                   buffer_distance=(10, 10, 0), local_map_size=(15, 15, 1), vision_range=6,
                   detection_threshold_obstacle=1, detection_threshold_object=1, fov_angle=np.pi/2)
 
