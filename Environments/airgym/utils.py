@@ -102,10 +102,11 @@ def get_high_res_rgb():
 def get_depth():
     pass
 
-def reproject_2d_points(points_2d, width, height, max_dist, field_of_view):
-    center_x = width // 2
-    center_y = height // 2
-    focal_len = width / (2 * np.tan(field_of_view / 2))
+def reproject_2d_points(points_2d, depth, max_dist, field_of_view):
+    h, w = depth.shape
+    center_x = w // 2
+    center_y = h // 2
+    focal_len = w / (2 * np.tan(field_of_view / 2))
     for u,v in points_2d:
         x = depth[v, u]
         if x < max_dist:
