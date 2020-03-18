@@ -77,8 +77,8 @@
         "prob_train_on_manual_experience": 0.0,
         "manual_experience_path": "Trajectories/",
         "resume_training": true,
-        "epoch_to_resume": 61,
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/basic23-1/saved_models/model60.pth"
+        "epoch_to_resume": 471,
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/basic23-1/saved_models/model470.pth"
     },
     "eval": {
         "n_evals": 5,
