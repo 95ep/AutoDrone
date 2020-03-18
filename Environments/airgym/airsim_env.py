@@ -21,8 +21,11 @@ class AirsimEnv(gym.Env):
     def __init__(self,
                  sensors=['depth', 'pointgoal_with_gps_compass'],
                  max_dist=10,
-                 height=256,
-                 width=256,
+                 rgb_height=256,
+                 rgb_width=256,
+                 depth_height=64,
+                 depth_width=64,
+                 field_of_view=np.pi/2,
                  reward_success=10,
                  reward_failure=-0.5,
                  reward_collision=-10,
@@ -31,12 +34,16 @@ class AirsimEnv(gym.Env):
                  distance_threshold=0.5,
                  floor_z=0.5,
                  ceiling_z=-1,
+                 scene=""
                  ):
 
         self.sensors = sensors
         self.max_dist = max_dist
-        self.height = height
-        self.width = width
+        self.rgb_height = rgb_height
+        self.rgb_width = rgb_width
+        self.depth_height = depth_height
+        self.depth_width = depth_width
+        self.field_of_view = field_of_view
         self.distance_threshold = distance_threshold
 
         self.floor_z = floor_z
@@ -48,11 +55,16 @@ class AirsimEnv(gym.Env):
         self.REWARD_MOVE_TOWARDS_GOAL = reward_move_towards_goal
         self.REWARD_ROTATE = reward_rotate
 
+        if scene == "":
+            self.scene = None
+        else:
+            self.scene = scene
+
         space_dict = {}
         if 'rgb' in sensors:
-            space_dict.update({"rgb": spaces.Box(low=0, high=255, shape=(height, width, 3))})
+            space_dict.update({"rgb": spaces.Box(low=0, high=255, shape=(rgb_height, rgb_width, 3))})
         if 'depth' in sensors:
-            space_dict.update({"depth": spaces.Box(low=0, high=255, shape=(height, width, 1))})
+            space_dict.update({"depth": spaces.Box(low=0, high=255, shape=(depth_height, depth_width, 1))})
         if 'pointgoal_with_gps_compass' in sensors:
             space_dict.update({"pointgoal_with_gps_compass": spaces.Box(low=0, high=20, shape=(2,))})
 
@@ -66,8 +78,8 @@ class AirsimEnv(gym.Env):
         self.client.confirmConnection()
 
         # Add fields for object detection
-        self.kpQ_list = []
-        self.descQ_list = []
+        self.kp_q_list = []
+        self.desc_q_list = []
         self.corners_list = []
         self.min_match_count = 0
         self.rejection_factor = 0
@@ -76,7 +88,7 @@ class AirsimEnv(gym.Env):
         sensor_types = [x for x in self.sensors if x != 'pointgoal_with_gps_compass']
         # get camera images
         observations = utils.get_camera_observation(self.client, sensor_types=sensor_types, max_dist=self.max_dist,
-                                                    height=self.height, width=self.width)
+                                                    height=self.depth_height, width=self.depth_width)
 
         if 'pointgoal_with_gps_compass' in self.sensors:
             compass = utils.get_compass_reading(self.client, self.target_position)
@@ -84,11 +96,11 @@ class AirsimEnv(gym.Env):
 
         return observations
 
-    def reset(self, target_position=None, env="basic23"):
-        utils.reset(self.client, env=env)
+    def reset(self, target_position=None):
+        utils.reset(self.client, scene=self.scene)
         self.agent_dead = False
         if target_position is None:
-            self.target_position = utils.generate_target(self.client, self.max_dist / 2, env=env)
+            self.target_position = utils.generate_target(self.client, self.max_dist / 2, scene=self.scene)
         else:
             self.target_position = target_position
         return self._get_state()
@@ -115,7 +127,7 @@ class AirsimEnv(gym.Env):
                     "FAILURE - Terminated not at target. Position: {}".format(utils.get_position(self.client)))
                 info['terminated_at_target'] = False
 
-            self.target_position = utils.generate_target(self.client, self.max_dist / 2, env="basic23")
+            self.target_position = utils.generate_target(self.client, self.max_dist / 2, scene=self.scene)
         elif action == 1:
             ac.move_forward(self.client)
         elif action == 2:
@@ -163,13 +175,13 @@ class AirsimEnv(gym.Env):
     def get_obstacles(self, field_of_view, n_gridpoints=8):
         assert 'depth' in self.sensors  # make sure depth camera is used
         observations = utils.get_camera_observation(self.client, sensor_types=['depth'], max_dist=self.max_dist,
-                                                    height=self.height, width=self.width)
+                                                    height=self.depth_height, width=self.depth_width)
         depth = observations['depth']
         depth = depth.squeeze()
-        h_idx = np.linspace(0, self.height, n_gridpoints, endpoint=False, dtype=np.int)
-        w_idx = np.linspace(0, self.width, n_gridpoints, endpoint=False, dtype=np.int)
-        U, V = np.meshgrid(w_idx, h_idx)
-        points_2d = [(u,v) for u, v in zip(U.flatten(), V.flatten())]
+        h_idx = np.linspace(0, self.depth_height, n_gridpoints, endpoint=False, dtype=np.int)
+        w_idx = np.linspace(0, self.depth_width, n_gridpoints, endpoint=False, dtype=np.int)
+        u_grid, v_grid = np.meshgrid(w_idx, h_idx)
+        points_2d = [(u, v) for u, v in zip(u_grid.flatten(), v_grid.flatten())]
 
         point_cloud = utils.reproject_2d_points(points_2d, depth, self.max_dist, field_of_view)
         obstacles_3d_coords = utils.local2global(point_cloud, self.client)
@@ -177,28 +189,30 @@ class AirsimEnv(gym.Env):
         return obstacles_3d_coords
 
     def setup_object_detection(self, query_paths, rejection_factor, min_match_thres):
-        assert len(self.kpQ_list) == 0
+        assert len(self.kp_q_list) == 0
 
         self.rejection_factor = rejection_factor
         self.min_match_count = min_match_thres
         for path in query_paths:
-            queryImage = cv.imread(path ,cv.IMREAD_GRAYSCALE)
-            h, w = queryImage.shape
-            pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
+            query_image = cv.imread(path, cv.IMREAD_GRAYSCALE)
+            h, w = query_image.shape
+            pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
             sift = cv.xfeatures2d.SIFT_create()
-            kpQ, descQ = sift.detectAndCompute(queryImage, None)
-            self.kpQ_list.append(kpQ)
-            self.descQ_list.append(descQ)
+            kp_q, desc_q = sift.detectAndCompute(query_image, None)
+            self.kp_q_list.append(kp_q)
+            self.desc_q_list.append(desc_q)
             self.corners_list.append(pts)
 
     def get_trgt_objects(self):
-        assert len(self.kpQ_list) > 0
-        trainImage = utils.get_high_res_rgb()
+        assert len(self.kp_q_list) > 0
+        observations = utils.get_camera_observation(self.client, sensor_types=['rgb'], max_dist=self.max_dist,
+                                                    height=self.rgb_height, width=self.rgb_width)
+        train_image = observations['depth']
 
         sift = cv.xfeatures2d.SIFT_create()
-        kpT, descT = sift.detectAndCompute(trainImage, None)
+        kp_t, desc_t = sift.detectAndCompute(train_image, None)
 
-        x = np.array([kpT[i].pt for i in range(len(kpT))])
+        x = np.array([kp_t[i].pt for i in range(len(kp_t))])
         bandwidth = estimate_bandwidth(x, quantile=0.1, n_samples=500)
         ms = MeanShift(bandwidth=bandwidth, bin_seeding=True, cluster_all=True)
         ms.fit(x)
@@ -210,8 +224,8 @@ class AirsimEnv(gym.Env):
         desc_per_cluster = []
         for i in range(n_clusters):
             d, = np.where(labels == i)
-            kp_per_cluster.append([kpT[xx] for xx in d])
-            desc_per_cluster.append([descT[xx] for xx in d])
+            kp_per_cluster.append([kp_t[xx] for xx in d])
+            desc_per_cluster.append([desc_t[xx] for xx in d])
 
         homographies = []
         dst_list = []
@@ -225,12 +239,12 @@ class AirsimEnv(gym.Env):
             bf = cv.BFMatcher()
             good_list = []
             n_matches = 0
-            for descQ in self.descQ_list:
+            for descQ in self.desc_q_list:
                 matches = bf.knnMatch(descQ, desc_cluster, k=2)
                 # Apply ratio test
                 good = []
                 if len(kp_cluster) > 1:
-                    for m,n in matches:
+                    for m, n in matches:
                         if m.distance < self.rejection_factor * n.distance:
                             good.append(m)
                 if len(good) > n_matches:
@@ -239,49 +253,56 @@ class AirsimEnv(gym.Env):
 
             # Find homography
             max_inliers = 0
-            H_tmp = None
+            homography_tmp = None
             dst_tmp = None
             for j, good in enumerate(good_list):
 
                 pts = self.corners_list[j]
                 if len(good) > self.min_match_count:
-                    src_pts = np.float32([ self.kpQ_list[j][m.queryIdx].pt for m in good ]).reshape(-1,1,2)
-                    dst_pts = np.float32([ kp_cluster[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
+                    src_pts = np.float32([self.kp_q_list[j][m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+                    dst_pts = np.float32([kp_cluster[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
 
-                    M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
-                    if M is not None:
-                        matchesMask = mask.ravel().tolist()
-                        dst = cv.perspectiveTransform(pts, M)
-                        non_zero_masks = np.nonzero(matchesMask)
+                    homography, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
+                    if homography is not None:
+                        matches_mask = mask.ravel().tolist()
+                        dst = cv.perspectiveTransform(pts, homography)
+                        non_zero_masks = np.nonzero(matches_mask)
 
                         no_outliers = True
                         for idx in non_zero_masks[0]:
-                            if int(cv.pointPolygonTest(np.array(dst), tuple(dst_pts[idx,0,:].astype(np.int)), False)) != 1:
+                            if int(cv.pointPolygonTest(np.array(dst),
+                                                       tuple(dst_pts[idx, 0, :].astype(np.int)), False)) \
+                                    != 1:
                                 no_outliers = False
                                 break
 
                         if no_outliers and len(non_zero_masks[0]) > max_inliers:
                             max_inliers = len(non_zero_masks[0])
-                            H_tmp = M
+                            homography_tmp = homography
                             dst_tmp = dst
 
             if max_inliers > 0:
                 dst_list.append(dst_tmp)
-                homographies.append(H_tmp)
+                homographies.append(homography_tmp)
         obj_2d_coords = []
         for dst in dst_list:
             # Calculate center point
-            x = int(np.sum(dst[:,0,0]) / 4)
-            y = int(np.sum(dst[:,0,1]) / 4)
+            x = np.sum(dst[:, 0, 0]) / 4
+            y = np.sum(dst[:, 0, 1]) / 4
             # Rescale to match depth img dimension
+            w_scale = self.depth_width / self.rgb_width
+            h_scale = self.depth_height / self.rgb_height
+            x = int(x * w_scale)
+            y = int(y * h_scale)
 
-            obj_2d_coords.append((x,y))
+            obj_2d_coords.append((x, y))
 
-        depth = utils.get_depth()
-        point_cloud = utils.reproject_2d_points(obj_2d_coords, depth, self.max_dist, field_of_view=1.57)
+        observations = utils.get_camera_observation(self.client, sensor_types=['depth'], max_dist=self.max_dist,
+                                                    height=self.depth_height, width=self.depth_width)
+        depth = observations['depth']
+        point_cloud = utils.reproject_2d_points(obj_2d_coords, depth, self.max_dist, self.field_of_view)
         global_points = utils.local2global(point_cloud, self.client)
         return global_points
-
 
     def render(self, mode='human'):
         pass

@@ -114,10 +114,16 @@ class EnvUtilsPong(EnvUtilsSuper):
 class EnvUtilsAirSim(EnvUtilsSuper):
     def __init__(self, **airsim_kwargs):
         self.airgym_kwargs = copy.copy(airsim_kwargs['airgym_kwargs'])
-        self.height = airsim_kwargs['airsim_settings']['CameraDefaults']['CaptureSettings'][0]['Height']
-        self.width = airsim_kwargs['airsim_settings']['CameraDefaults']['CaptureSettings'][0]['Width']
-        self.airgym_kwargs['height'] = self.height
-        self.airgym_kwargs['width'] = self.width
+        self.rgb_height = airsim_kwargs['airsim_settings']['CameraDefaults']['CaptureSettings'][0]['Height']
+        self.rgb_width = airsim_kwargs['airsim_settings']['CameraDefaults']['CaptureSettings'][0]['Width']
+        self.depth_height = airsim_kwargs['airsim_settings']['CameraDefaults']['CaptureSettings'][1]['Height']
+        self.depth_width = airsim_kwargs['airsim_settings']['CameraDefaults']['CaptureSettings'][1]['Width']
+        self.airgym_kwargs['rgb_height'] = self.rgb_height
+        self.airgym_kwargs['rgb_width'] = self.rgb_width
+        self.airgym_kwargs['depth_height'] = self.depth_height
+        self.airgym_kwargs['depth_width'] = self.depth_width
+        self.airgym_kwargs['field_of_view'] = \
+            airsim_kwargs['airsim_settings']['CameraDefaults']['CaptureSettings'][0]['FOV_Degrees'] / 180 * np.pi
         self.max_dist = self.airgym_kwargs['max_dist']
 
         self.settings_path = airsim_kwargs['airsim_settings_path']
@@ -132,19 +138,22 @@ class EnvUtilsAirSim(EnvUtilsSuper):
         input(
             'Copied AirSim settings to Documents folder. \n (Re)Start AirSim and then press enter to start training...')
 
-
         env = airgym.make(**self.airgym_kwargs)
         if 'rgb' in self.airgym_kwargs['sensors']:
             self.network_kwargs['has_visual_encoder'] = True
-            self.network_kwargs['visual_input_shape'] = (self.height, self.width, 3)
+            self.network_kwargs['visual_input_shape'] = (self.rgb_height, self.rgb_width, 3)
 
         if 'depth' in self.airgym_kwargs['sensors']:
             if self.network_kwargs['has_visual_encoder']:
+                assert self.rgb_height == self.depth_height, \
+                    "rgb_height is {} and depth_height".format(self.rgb_height, self.depth_height)
+                assert self.rgb_width == self.depth_width, \
+                    "rgb_width is {} and depth_width".format(self.rgb_width, self.depth_width)
                 visual_shape = self.network_kwargs['visual_input_shape']
-                self.network_kwargs['visual_input_shape'] = (visual_shape[0], visual_shape[1], visual_shape[2]+1)
+                self.network_kwargs['visual_input_shape'] = (visual_shape[0], visual_shape[1], visual_shape[2] + 1)
             else:
                 self.network_kwargs['has_visual_encoder'] = True
-                self.network_kwargs['visual_input_shape'] = (self.height, self.width, 1)
+                self.network_kwargs['visual_input_shape'] = (self.depth_height, self.depth_width, 1)
 
         if 'pointgoal_with_gps_compass' in self.airgym_kwargs['sensors']:
             self.network_kwargs['has_vector_encoder'] = True
