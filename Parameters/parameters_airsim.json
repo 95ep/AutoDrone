@@ -18,7 +18,8 @@
           "reward_rotate": -0.05,
           "max_dist": 10,
           "distance_threshold": 0.5,
-          "sensors": ["depth", "pointgoal_with_gps_compass"]
+          "sensors": ["depth", "pointgoal_with_gps_compass"],
+          "scene_string": "basic23"
         },
         "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
         "airsim_settings": {
