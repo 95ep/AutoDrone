@@ -34,7 +34,7 @@ class AirsimEnv(gym.Env):
                  distance_threshold=0.5,
                  floor_z=0.5,
                  ceiling_z=-1,
-                 scene=""
+                 scene_string=""
                  ):
 
         self.sensors = sensors
@@ -55,10 +55,10 @@ class AirsimEnv(gym.Env):
         self.REWARD_MOVE_TOWARDS_GOAL = reward_move_towards_goal
         self.REWARD_ROTATE = reward_rotate
 
-        if scene == "":
+        if scene_string == "":
             self.scene = None
         else:
-            self.scene = scene
+            self.scene = scene_string
 
         space_dict = {}
         if 'rgb' in sensors:
@@ -207,13 +207,14 @@ class AirsimEnv(gym.Env):
         assert len(self.kp_q_list) > 0
         observations = utils.get_camera_observation(self.client, sensor_types=['rgb'], max_dist=self.max_dist,
                                                     height=self.rgb_height, width=self.rgb_width)
-        train_image = observations['depth']
+        train_image = observations['rgb'].astype(np.uint8)
+        train_image = cv.cvtColor(train_image, cv.COLOR_BGR2GRAY)
 
         sift = cv.xfeatures2d.SIFT_create()
         kp_t, desc_t = sift.detectAndCompute(train_image, None)
 
         x = np.array([kp_t[i].pt for i in range(len(kp_t))])
-        bandwidth = estimate_bandwidth(x, quantile=0.1, n_samples=500)
+        bandwidth = estimate_bandwidth(x, quantile=0.2, n_samples=500)
         ms = MeanShift(bandwidth=bandwidth, bin_seeding=True, cluster_all=True)
         ms.fit(x)
         labels = ms.labels_
@@ -297,11 +298,14 @@ class AirsimEnv(gym.Env):
 
             obj_2d_coords.append((x, y))
 
-        observations = utils.get_camera_observation(self.client, sensor_types=['depth'], max_dist=self.max_dist,
-                                                    height=self.depth_height, width=self.depth_width)
-        depth = observations['depth']
-        point_cloud = utils.reproject_2d_points(obj_2d_coords, depth, self.max_dist, self.field_of_view)
-        global_points = utils.local2global(point_cloud, self.client)
+        if len(obj_2d_coords) > 0:
+            observations = utils.get_camera_observation(self.client, sensor_types=['depth'], max_dist=self.max_dist,
+                                                        height=self.depth_height, width=self.depth_width)
+            depth = observations['depth'].squeeze()
+            point_cloud = utils.reproject_2d_points(obj_2d_coords, depth, self.max_dist, self.field_of_view)
+            global_points = utils.local2global(point_cloud, self.client)
+        else:
+            global_points = np.array([], dtype=float)
         return global_points
 
     def render(self, mode='human'):

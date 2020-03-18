@@ -45,8 +45,8 @@
               },
               {
                 "ImageType": 1,
-                "Width": 64,
-                "Height": 64,
+                "Width": 256,
+                "Height": 256,
                 "FOV_Degrees": 90,
                 "AutoExposureSpeed": 100,
                 "AutoExposureBias": 0,
