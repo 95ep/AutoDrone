@@ -215,6 +215,10 @@ class AirsimEnv(gym.Env):
 
         x = np.array([kp_t[i].pt for i in range(len(kp_t))])
         bandwidth = estimate_bandwidth(x, quantile=0.2, n_samples=500)
+        if bandwidth < 0.1:
+            # Not possible to form clusters
+            return np.array([], dtype=float)
+        print(bandwidth)
         ms = MeanShift(bandwidth=bandwidth, bin_seeding=True, cluster_all=True)
         ms.fit(x)
         labels = ms.labels_
@@ -239,7 +243,6 @@ class AirsimEnv(gym.Env):
             # BFMatcher with default params
             bf = cv.BFMatcher()
             good_list = []
-            n_matches = 0
             for descQ in self.desc_q_list:
                 matches = bf.knnMatch(descQ, desc_cluster, k=2)
                 # Apply ratio test
@@ -248,8 +251,6 @@ class AirsimEnv(gym.Env):
                     for m, n in matches:
                         if m.distance < self.rejection_factor * n.distance:
                             good.append(m)
-                if len(good) > n_matches:
-                    n_matches = len(good)
                 good_list.append(good)
 
             # Find homography
@@ -296,14 +297,18 @@ class AirsimEnv(gym.Env):
             x = int(x * w_scale)
             y = int(y * h_scale)
 
-            obj_2d_coords.append((x, y))
+            if x > 0 and x < self.depth_width and y > 0 and y < self.depth_height:
+                obj_2d_coords.append((x, y))
 
         if len(obj_2d_coords) > 0:
             observations = utils.get_camera_observation(self.client, sensor_types=['depth'], max_dist=self.max_dist,
                                                         height=self.depth_height, width=self.depth_width)
             depth = observations['depth'].squeeze()
             point_cloud = utils.reproject_2d_points(obj_2d_coords, depth, self.max_dist, self.field_of_view)
-            global_points = utils.local2global(point_cloud, self.client)
+            if point_cloud.shape[0] > 0:
+                global_points = utils.local2global(point_cloud, self.client)
+            else:
+                global_points = np.array([], dtype=float)
         else:
             global_points = np.array([], dtype=float)
         return global_points
