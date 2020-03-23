@@ -18,7 +18,8 @@
           "reward_rotate": -0.05,
           "max_dist": 10,
           "distance_threshold": 0.5,
-          "sensors": ["depth", "pointgoal_with_gps_compass"]
+          "sensors": ["depth", "pointgoal_with_gps_compass"],
+          "scene_string": "basic23"
         },
         "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
         "airsim_settings": {
@@ -44,8 +45,8 @@
               },
               {
                 "ImageType": 1,
-                "Width": 64,
-                "Height": 64,
+                "Width": 256,
+                "Height": 256,
                 "FOV_Degrees": 90,
                 "AutoExposureSpeed": 100,
                 "AutoExposureBias": 0,
@@ -77,12 +78,12 @@
         "prob_train_on_manual_experience": 0.0,
         "manual_experience_path": "Trajectories/",
         "resume_training": true,
-        "epoch_to_resume": 0,
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/subT-fixed-trgts-close-weekend-continued/saved_models/model620.pth"
+        "epoch_to_resume": 471,
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/basic23-1/saved_models/model470.pth"
     },
     "eval": {
         "n_evals": 5,
         "n_eval_steps": 1024,
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/subT-fixed-trgts-close-weekend-continued/saved_models/model620.pth"
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/subT-new-trgts-resumed/saved_models/model660.pth"
     }
 }

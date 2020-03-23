@@ -72,10 +72,10 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10, h
             rgb = np.array(bgr[:, :, [2, 1, 0]], dtype=np.float32)
         except ValueError as err:
             print('========================================================')
-            print('Value err when moving color channels: {0}'.format(err))
+            print('Value err when reshaping RGB image: {0}'.format(err))
             print('Replacing rgb with all zeros')
             print('========================================================')
-            rgb = np.zeros((height, width), dtype=np.float32)
+            rgb = np.zeros((height, width, 3), dtype=np.float32)
         images.update({'rgb': rgb})
 
     if 'depth' in sensor_types:
@@ -86,27 +86,24 @@ def get_camera_observation(client, sensor_types=['rgb', 'depth'], max_dist=10, h
                 responses[idx].image_data_float, width, height)
         except ValueError as err:
             print('========================================================')
-            print('Value err when converting depth image: {0}'.format(err))
+            print('Value err when reshaping depth image: {0}'.format(err))
             print('Replacing depth map with all max dist values')
             print('========================================================')
-            depth = np.ones((height, width), dtype=np.float32)*max_dist
+            depth = np.ones((height, width), dtype=np.float32) * max_dist
 
         depth = np.expand_dims(depth, axis=2)
         images.update({'depth': depth})
 
     return images
 
-def get_high_res_rgb():
-    pass
 
-def get_depth():
-    pass
-
-def reproject_2d_points(points_2d, width, height, max_dist, field_of_view):
-    center_x = width // 2
-    center_y = height // 2
-    focal_len = width / (2 * np.tan(field_of_view / 2))
-    for u,v in points_2d:
+def reproject_2d_points(points_2d, depth, max_dist, field_of_view):
+    h, w = depth.shape
+    center_x = w // 2
+    center_y = h // 2
+    focal_len = w / (2 * np.tan(field_of_view / 2))
+    points = []
+    for u, v in points_2d:
         x = depth[v, u]
         if x < max_dist:
             y = (u - center_x) * x / focal_len
@@ -115,13 +112,14 @@ def reproject_2d_points(points_2d, width, height, max_dist, field_of_view):
 
     return np.array(points)
 
+
 def local2global(point_cloud, client):
     # Get position and orientation of client
     pos_vec = get_position(client)
     client_pos = np.array([[pos_vec.x_val, pos_vec.y_val, pos_vec.z_val]])
-    client_orientation = self.client.simGetGroundTruthKinematics().orientation
+    client_orientation = client.simGetGroundTruthKinematics().orientation
     pitch, roll, yaw = airsim.to_eularian_angles(client_orientation)
-    pitch, roll, yaw = -pitch, -roll, -yaw
+    # pitch, roll, yaw = -pitch, -roll, -yaw
 
     rot_mat = np.array([
         [np.cos(yaw)*np.cos(pitch), np.cos(yaw)*np.sin(pitch)*np.sin(roll) - np.sin(yaw)*np.cos(roll),
@@ -151,7 +149,7 @@ def valid_trgt(env):
             target_y = -123.5 - np.random.rand()*6
         elif r < 0.8:
             target_x = -16
-            target_y =  -119 - np.random.rand()*18
+            target_y = -119 - np.random.rand()*18
         else:
             target_x = -1
             target_y = -119 - np.random.rand()*12
@@ -177,6 +175,7 @@ def valid_trgt(env):
 
     return target
 
+
 def has_collided(client, floor_z=0.5, ceiling_z=-4.5):
 
     collision_info = client.simGetCollisionInfo()
@@ -198,20 +197,20 @@ def target_found(client, target_position, threshold=0.5):
     return success
 
 
-def generate_target(client, max_target_distance, env=None):
+def generate_target(client, max_target_distance, scene=None):
     """
     Generate new goal for the agent to reach.
     :param client:
     :param max_target_distance:
     :return:
     """
-    if env is not None:
+    if scene is not None:
         #targets = [[-15, -17],[-15, -28],[-3,-28],[-16,-57],[-25,-61],[-36,-61],[-48,-63],[-15,-20],[-15,-50],[-15,-42],[-15,-30],[-48,-70],[-23,-50]]
         # targets = [[0, -27], [0, -35], [-14, -36.5], [-15, -47.6], [-16, -56], [-0.6, -57], [0, -24], [0, -10], [0, -5], [0, 0], [0, -3], [-15, -24], [-15, -30]]
         # targets close to spawn
         #target = [[0, -2], [0.5, -4], [-0.4, -6], [0.3, -8], [0.33, -10], [-0.4, -12], [-0.1, -14], [0, -16], [0.24, -18], [0, -20]]
         # target = np.array(random.choice(targets), dtype=np.float)
-        target = valid_trgt(env)
+        target = valid_trgt(scene)
 
     else:
         pos = client.simGetGroundTruthKinematics().position
@@ -221,12 +220,12 @@ def generate_target(client, max_target_distance, env=None):
     return target
 
 
-def reset(client, env=None):
+def reset(client, scene=None):
     client.reset()
-    if env is not None:
+    if scene is not None:
         time.sleep(0.2)
         pose = client.simGetVehiclePose()
-        start_pos = valid_trgt(env)
+        start_pos = valid_trgt(scene)
         pose.position.x_val = start_pos[0]
         pose.position.y_val = start_pos[1]
         pose.position.z_val = 0

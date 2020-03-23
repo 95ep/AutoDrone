@@ -16,13 +16,15 @@
     },
     "Exploration": {
       "fov_angle": 1.57,
-      "map_size": [20,20,2],
-      "cell_scale": [0.5, 0.5, 2],
+      "map_size": [30,30,5],
+      "cell_scale": [0.2, 0.2, 0.2],
+      "local_map_size": [16, 16, 1],
       "starting_position": [0,0,1],
-      "buffer_distance": [5,5,0],
+      "buffer_distance": [20,20,0],
       "detection_threshold_obstacle": 3,
       "detection_threshold_object": 2,
-      "vision_range": 10
+      "vision_range": 10,
+      "map_idx": -1
     },
     "AirSim": {
         "airgym_kwargs": {
