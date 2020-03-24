@@ -11,7 +11,7 @@
     },
 
     "object_detection_frequency": 5,
-    "obstacle_detection_frequency": 1,
+    "obstacle_detection_frequency": 3,
 
     "Exploration": {
       "fov_angle": 1.57,
@@ -33,7 +33,7 @@
             "padding_config": [1, 1, 1],
             "max_pool_config": [true, true, false]
         },
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/subT-new-trgts-resumed/saved_models/model660.pth",
+        "weights": "C:/Users/Filip/Projects/Rise/AutoDrone/runs/subT-new-trgts-resumed/saved_models/model660.pth",
       }
     },
     "AirSim": {
@@ -45,14 +45,16 @@
           "reward_rotate": -0.05,
           "max_dist": 10,
           "distance_threshold": 0.5,
-          "sensors": ["depth", "pointgoal_with_gps_compass"]
+          "invalid_prob": 0.1,
+          "sensors": ["depth", "pointgoal_with_gps_compass"],
+          "scene_string": "subT"
         },
-        "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
+        "airsim_settings_path": "C:/Users/Filip/Documents/AirSim/settings.json",
         "airsim_settings": {
           "SettingsVersion": 1.2,
           "SimMode": "Multirotor",
           "ViewMode": "",
-          "ClockSpeed": 12,
+          "ClockSpeed": 32,
           "CameraDefaults": {
             "CaptureSettings": [
               {
@@ -103,12 +105,11 @@
         "save_freq": 10,
         "prob_train_on_manual_experience": 0.0,
         "manual_experience_path": "Trajectories/",
-        "resume_training": true,
-        "epoch_to_resume": 31,
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/basic23-1/saved_models/model30.pth"
+        "resume_training": false,
+        "epoch_to_resume": 0,
+        "weights": ""
     },
     "eval": {
-        "n_evals": 5,
         "n_eval_steps": 1024,
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/subT-new-trgts-resumed/saved_models/model660.pth"
     }
