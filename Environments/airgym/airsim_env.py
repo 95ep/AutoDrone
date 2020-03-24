@@ -32,6 +32,7 @@ class AirsimEnv(gym.Env):
                  reward_move_towards_goal=0.01,
                  reward_rotate=-0.01,
                  distance_threshold=0.5,
+                 invalid_prob=0.0,
                  floor_z=0.5,
                  ceiling_z=-1,
                  scene_string=""
@@ -45,6 +46,7 @@ class AirsimEnv(gym.Env):
         self.depth_width = depth_width
         self.field_of_view = field_of_view
         self.distance_threshold = distance_threshold
+        self.invalid_prob = invalid_prob
 
         self.floor_z = floor_z
         self.ceiling_z = ceiling_z
@@ -73,6 +75,7 @@ class AirsimEnv(gym.Env):
 
         self.agent_dead = True
         self.target_position = None
+        self.valid_trgt = None
         # connect to the AirSim simulator
         self.client = airsim.MultirotorClient()
         self.client.confirmConnection()
@@ -100,7 +103,8 @@ class AirsimEnv(gym.Env):
         utils.reset(self.client, scene=self.scene)
         self.agent_dead = False
         if target_position is None:
-            self.target_position = utils.generate_target(self.client, self.max_dist / 2, scene=self.scene)
+            self.target_position, self.valid_trgt = utils.generate_target(self.client, self.max_dist / 2,
+                                                                          scene=self.scene, invalid_prob=self.invalid_prob)
         else:
             self.target_position = target_position
         return self._get_state()
@@ -115,7 +119,7 @@ class AirsimEnv(gym.Env):
         info = {'env': "AirSim"}
         # actions: [terminate, move forward, rotate left, rotate right, ascend, descend]
         if action == 0:
-            success = utils.target_found(self.client, self.target_position, threshold=self.distance_threshold)
+            success = utils.target_found(self.client, self.target_position, self.valid_trgt, threshold=self.distance_threshold)
             if success:
                 reward += self.REWARD_SUCCESS
                 self.client.simPrintLogMessage(
@@ -127,7 +131,8 @@ class AirsimEnv(gym.Env):
                     "FAILURE - Terminated not at target. Position: {}".format(utils.get_position(self.client)))
                 info['terminated_at_target'] = False
 
-            self.target_position = utils.generate_target(self.client, self.max_dist / 2, scene=self.scene)
+            self.target_position, self.valid_trgt = utils.generate_target(self.client, self.max_dist / 2,
+                                                                          scene=self.scene, invalid_prob=self.invalid_prob)
         elif action == 1:
             ac.move_forward(self.client)
         elif action == 2:

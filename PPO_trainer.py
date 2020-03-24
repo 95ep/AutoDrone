@@ -123,44 +123,47 @@ def _update(actor_critic, data, optimizer, minibatch_size, train_iters,
     return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, np.array(approx_kl_iter).mean()
 
 
-def evaluate(env, env_utils, actor_critic, n_evals=1, n_eval_steps=200):
+def evaluate(env, env_utils, actor_critic, n_eval_steps=1024):
     log_dict = {'Eval/TotalReturn': 0, 'Eval/nDones': 0, 'Eval/TotalSteps': 0}
 
-    for _ in range(n_evals):
-        # Set up interactions with env
-        obs_vector, obs_visual = env_utils.process_obs(env.reset())
+
+    # Set up interactions with env
+    obs_vector, obs_visual = env_utils.process_obs(env.reset())
+    comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
+    for step in range(n_eval_steps):
+        log_dict['Eval/TotalSteps'] += 1
+        with torch.no_grad():
+            value, action, _ = actor_critic.act(comb_obs, deterministic=True)
+
+        next_obs, reward, done, info = env.step(env_utils.process_action(action))
+        env.render()
+
+        if 'env' in info and info['env'] == "AirSim":
+            if 'Eval/nTerminationsCorrect' not in log_dict:
+                log_dict['Eval/nTerminationsCorrect'] = 0
+                log_dict['Eval/nTerminationsIncorrect'] = 0
+            if 'terminated_at_target' in info:
+                if info['terminated_at_target']:
+                    log_dict['Eval/nTerminationsCorrect'] += 1
+                else:
+                    log_dict['Eval/nTerminationsIncorrect'] += 1
+
+        log_dict['Eval/TotalReturn'] += reward
+
+        obs_vector, obs_visual = env_utils.process_obs(next_obs)
         comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
-        for step in range(n_eval_steps):
-            log_dict['Eval/TotalSteps'] += 1
-            with torch.no_grad():
-                value, action, _ = actor_critic.act(comb_obs, deterministic=True)
-
-            next_obs, reward, done, info = env.step(env_utils.process_action(action))
-            env.render()
-
-            if 'env' in info and info['env'] == "AirSim":
-                if 'Eval/nTerminationsCorrect' not in log_dict:
-                    log_dict['Eval/nTerminationsCorrect'] = 0
-                    log_dict['Eval/nTerminationsIncorrect'] = 0
-                if 'terminated_at_target' in info:
-                    if info['terminated_at_target']:
-                        log_dict['Eval/nTerminationsCorrect'] += 1
-                    else:
-                        log_dict['Eval/nTerminationsIncorrect'] += 1
-
-            log_dict['Eval/TotalReturn'] += reward
-
-            obs_vector, obs_visual = env_utils.process_obs(next_obs)
+        if done:
+            log_dict['Eval/nDones'] += 1
+            # Reset env
+            obs_vector, obs_visual = env_utils.process_obs(env.reset())
             comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
-            if done:
-                log_dict['Eval/nDones'] += 1
-                break
+
     if 'env' in info and info['env'] == "Exploration":
         env.render(local=False)  # TODO: ONLY IF EXPLORATION
         import time
         time.sleep(3)
-    log_dict['Eval/AvgReturn'] = log_dict['Eval/TotalReturn'] / n_evals
-    log_dict['Eval/AvgEpisodeLen'] = log_dict['Eval/TotalSteps'] / n_evals
+    log_dict['Eval/AvgReturn'] = log_dict['Eval/TotalReturn'] / (log_dict['Eval/nDones'] + 1)
+    log_dict['Eval/AvgEpisodeLen'] = log_dict['Eval/TotalSteps'] / (log_dict['Eval/nDones'] + 1)
     return log_dict
 
 
