@@ -254,6 +254,9 @@ def reset(client, scene=None):
         pose.position.x_val = start_pos[0]
         pose.position.y_val = start_pos[1]
         pose.position.z_val = 0
+        pitch, roll, yaw = airsim.to_eularian_angles(pose.orientation)
+        yaw = np.random.rand() * 2 * np.pi
+        pose.orientation = airsim.to_quaternion(pitch, roll, yaw)
         client.simSetVehiclePose(pose, True)
 
     time.sleep(0.2)
