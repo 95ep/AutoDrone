@@ -168,9 +168,9 @@ class AirsimEnv(gym.Env):
         position = utils.get_position(self.client)
         return np.array([position.x_val, position.y_val, position.z_val])
 
-    def get_direction(self):
-        direction = utils.get_orientation(self.client)
-        return np.array([np.cos(direction), np.sin(direction)])
+    def get_orientation(self):
+        orientation = utils.get_orientation(self.client)
+        return np.array([np.cos(orientation), np.sin(orientation)])
 
     def get_obstacles(self, field_of_view, n_gridpoints=8):
         assert 'depth' in self.sensors  # make sure depth camera is used
