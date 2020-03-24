@@ -1,7 +1,6 @@
 import airsim
 import numpy as np
 import time
-import random
 
 # client.getMultirotorState() returns essentially everything. Maybe switch to that?
 
@@ -176,6 +175,28 @@ def valid_trgt(env):
     return target
 
 
+def invalid_trgt(env):
+    if env == "basic23":
+        r = np.random.rand()
+        if r < 1/4:
+            target_x = -2
+            target_y = 6 - 12 * np.random.rand()
+        elif r < 2/4:
+            target_x = 22
+            target_y = 6 - 12 * np.random.rand()
+        elif r < 3/4:
+            target_x = 22 - 24 * np.random.rand()
+            target_y = -6
+        else:
+            target_x = 22 - 24 * np.random.rand()
+            target_y = 7
+        target = np.array([target_x, target_y])
+    else:
+        raise ValueError("Env not recognized")
+
+    return target
+
+
 def has_collided(client, floor_z=0.5, ceiling_z=-4.5):
 
     collision_info = client.simGetCollisionInfo()
@@ -190,34 +211,38 @@ def has_collided(client, floor_z=0.5, ceiling_z=-4.5):
     return collision_info.has_collided or z_pos > floor_z or z_pos < ceiling_z
 
 
-def target_found(client, target_position, threshold=0.5):
-    compass = get_compass_reading(client, target_position)
-    distance_to_target = compass[0]
-    success = distance_to_target < threshold
+def target_found(client, target_position, valid_trgt = True, threshold=0.5):
+    if valid_trgt:
+        compass = get_compass_reading(client, target_position)
+        distance_to_target = compass[0]
+        success = distance_to_target < threshold
+    else:
+        success = True
     return success
 
 
-def generate_target(client, max_target_distance, scene=None):
+def generate_target(client, max_target_distance, scene=None, invalid_prob=0.0):
     """
     Generate new goal for the agent to reach.
     :param client:
     :param max_target_distance:
     :return:
     """
+    is_valid = True
     if scene is not None:
-        #targets = [[-15, -17],[-15, -28],[-3,-28],[-16,-57],[-25,-61],[-36,-61],[-48,-63],[-15,-20],[-15,-50],[-15,-42],[-15,-30],[-48,-70],[-23,-50]]
-        # targets = [[0, -27], [0, -35], [-14, -36.5], [-15, -47.6], [-16, -56], [-0.6, -57], [0, -24], [0, -10], [0, -5], [0, 0], [0, -3], [-15, -24], [-15, -30]]
-        # targets close to spawn
-        #target = [[0, -2], [0.5, -4], [-0.4, -6], [0.3, -8], [0.33, -10], [-0.4, -12], [-0.1, -14], [0, -16], [0.24, -18], [0, -20]]
-        # target = np.array(random.choice(targets), dtype=np.float)
-        target = valid_trgt(scene)
+        r = np.random.rand()
+        if r < invalid_prob:
+            target = invalid_trgt(scene)
+            is_valid = False
+        else:
+            target = valid_trgt(scene)
 
     else:
         pos = client.simGetGroundTruthKinematics().position
         x = (2 * np.random.rand() - 1) * max_target_distance + pos.x_val
         y = (2 * np.random.rand() - 1) * max_target_distance + pos.y_val
         target = np.array([x, y])
-    return target
+    return target, is_valid
 
 
 def reset(client, scene=None):
