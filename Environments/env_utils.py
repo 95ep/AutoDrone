@@ -25,6 +25,8 @@ def make_env_utils(**param_kwargs):
     elif env_str == 'Exploration':
         env_utils_obj = EnvUtilsExploration(**param_kwargs[env_str])
         env = env_utils_obj.make_env()
+    elif env_str == 'AutonomousDrone':
+        pass  # TODO
     else:
         raise ValueError("env_str not recognized.")
 

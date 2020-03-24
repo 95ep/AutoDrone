@@ -23,7 +23,7 @@ class MapEnv(gym.Env):
                  map_idx=-1,
                  interactive_plot=False,
                  REWARD_FAILURE=-10,
-                 REWARD_STEP=-0.1,
+                 REWARD_STEP=-0.5,
                  ):
         """
         # TODO: improve doc-string
@@ -104,6 +104,19 @@ class MapEnv(gym.Env):
         else:
             self.ax = None
 
+    def _debug(self, msg=""):
+        if msg:
+            print("===== " + msg + " debug start =====")
+        print("Position: ", self.position)
+        print("Map shape: ", self.map_shape)
+        print("Borders:   x:["+str(self.cell_positions[0][0])+", " + str(self.cell_positions[0][-1]) +"], " +
+                         "y:["+str(self.cell_positions[1][0])+", " + str(self.cell_positions[1][-1]) +"], " +
+                         "z:["+str(self.cell_positions[2][0])+", " + str(self.cell_positions[2][-1]) +"]")
+        print("Local map dimension: ", self.local_map_dim)
+        if msg:
+            print("===== " + msg + " debug end =====")
+            print("")
+
     def _create_map(self, map_borders):
 
         num_cells = np.zeros(self.dimensions, dtype=np.int32)
@@ -155,7 +168,7 @@ class MapEnv(gym.Env):
         self.map_shape = new_map_shape
         self.cell_positions = new_cell_positions
 
-    def _automatic_expansion(self, position):
+    def _automatic_expansion_old(self, position):
         """
         expand if position (in meters) is within buffer distance of borders.
         :param position:
@@ -174,8 +187,39 @@ class MapEnv(gym.Env):
             print('expanding map automatically with size: ' + str(size_increase))
             self._expand(size_increase)
 
+    def _automatic_expansion(self, position):
+        """
+        Find the size to expand the map with. Expand only if position (in meters)
+        is outside borders or within the buffer distance of borders.
+        :param position: array-like absolute position, or list of array-like
+        :return:
+        """
+        position = np.array(position, dtype=np.float32)
+        if len(position.shape) == 1:
+            position = np.expand_dims(position, axis=0)
+        expand = False
+        size_increase = [[0, 0], [0, 0], [0, 0]]
+        for pos in position:
+            for dim in range(self.dimensions):
+                if self.cell_positions[dim][0] + self.buffer_distance[dim] > pos[dim]:
+                    temp_increase = self.cell_positions[dim][0] - pos[dim] + self.buffer_distance[dim]
+                    temp_increase = np.max((temp_increase, self.buffer_distance[dim]))
+                    size_increase[dim][0] = np.max((temp_increase, size_increase[dim][0]))
+                    expand = True
+                if self.cell_positions[dim][-1] - self.buffer_distance[dim] < pos[dim]:
+                    temp_increase = pos[dim] - self.cell_positions[dim][-1] + self.buffer_distance[dim]
+                    temp_increase = np.max((temp_increase, self.buffer_distance[dim]))
+                    size_increase[dim][1] = np.max((temp_increase, size_increase[dim][1]))
+                    expand = True
+
+        if expand:
+            print('expanding map automatically with size: ' + str(size_increase))
+            self._expand(size_increase)
+
     def _get_cell(self, position):
 
+        self._automatic_expansion(position)
+        """
         # check if map needs to be expanded
         expand = False
         size_increase = [[0, 0], [0, 0], [0, 0]]
@@ -183,12 +227,12 @@ class MapEnv(gym.Env):
             if self.cell_positions[dim][0] > position[dim]:
                 size_increase[dim][0] = self.cell_positions[dim][0] - position[dim] + self.buffer_distance[dim]
                 expand = True
-            if self.cell_positions[dim][1] < position[dim]:
-                size_increase[dim][0] = position[dim] - self.cell_positions[dim][0] + self.buffer_distance[dim]
+            if self.cell_positions[dim][-1] < position[dim]:
+                size_increase[dim][1] = position[dim] - self.cell_positions[dim][-1] + self.buffer_distance[dim]
                 expand = True
         if expand:
             self._expand(size_increase)
-
+        """
         cell = ()
         for dim in range(self.dimensions):
             if position[dim] == self.cell_positions[dim][-1]:  # if at (top) border
@@ -320,6 +364,16 @@ class MapEnv(gym.Env):
         :return:
         """
         current_cell = self._get_cell(self.position)
+        # Expand map if local map covers non-existing cells
+        if local:
+            positions = []
+            for dim in range(self.dimensions):
+                temp_pos = self.position
+                temp_distance = np.zeros((self.dimensions), dtype=np.float32)
+                temp_distance[dim] = np.ceil(self.local_map_dim[dim] / 2) * self.cell_scale[dim]
+                positions.append(temp_pos + temp_distance)
+                positions.append(temp_pos - temp_distance)
+            self._automatic_expansion(positions)
 
         cell_map = self.cell_map.copy()
         # Apply thresholds
@@ -333,17 +387,21 @@ class MapEnv(gym.Env):
         if local:
             local_idx = []
             for dim in range(self.dimensions):
-                start = np.max((current_cell[dim] - self.local_map_dim[dim] // 2, int(0)))
+                #start = np.max((current_cell[dim] - self.local_map_dim[dim] // 2, int(0))) TODO: remove if new line works
+                start = current_cell[dim] - self.local_map_dim[dim] // 2
                 end = start + self.local_map_dim[dim]
                 local_idx.append(slice(start, end))
             local_idx = tuple(local_idx)
             cell_map = {k: v[local_idx] for k, v in cell_map.items()}
+            map_shape = self.local_map_dim
+        else:
+            map_shape = self.map_shape
 
         if binary:
             cell_map = np.concatenate([value for value in cell_map.values()], axis=2)
             cell_map = np.array(cell_map, dtype=np.float32)  # float32 for neural net input
         else:
-            temp_cell_map = np.ones(self.local_map_dim, dtype=np.int32) * self.tokens['unknown']
+            temp_cell_map = np.ones(map_shape, dtype=np.int32) * self.tokens['unknown']
             for key in cell_map.keys():
                 temp_idx = np.nonzero(cell_map[key])
                 temp_cell_map[temp_idx] = self.tokens[key]
@@ -362,7 +420,7 @@ class MapEnv(gym.Env):
     def _get_current_position(self):
         return self.position
 
-    def _visualize2d(self, local=True, ax=None, num_ticks_approx=6):
+    def _visualize2d(self, local=False, ax=None, num_ticks_approx=6):
         if ax is None:
             fig = plt.figure()
             ax = fig.subplots()
@@ -377,9 +435,9 @@ class MapEnv(gym.Env):
         color_dict = {'unknown': 'midnightblue', 'visible': 'lightsteelblue', 'visited': 'limegreen',
                       'obstacle': 'red', 'object': 'gold', 'position': 'darkgreen'}
         color_map = colors.ListedColormap([color_dict[k] for k in self.map_keys])
-        bounds = [0,] + [self.tokens[key] for key in self.map_keys]
+        bounds = [self.tokens[key] for key in self.map_keys]
         norm = colors.BoundaryNorm(bounds, color_map.N)
-
+        print("bounds, ", bounds)
         ax.imshow(token_map, origin='lower', cmap=color_map, norm=norm)
 
         if local:
@@ -414,20 +472,21 @@ class MapEnv(gym.Env):
     def _visualize3d(self):  # TODO: implement
         pass
 
-    def _move_to_waypoint(self, waypoint, step_length=0.1):  # naive, straight path
+    def _move_by_delta_position(self, delta_position, step_length=0.1):  # naive, straight path
         """
         Reaches target by taking smalls steps until close to target
         TODO: implement 3d
-        :param waypoint:
+        :param delta_position: (dx, dy, 0) for the time being
         :param step_length:
         :return:
         """
         success = True
         num_detected_cells = 0
+        steps = 0
 
         pos = np.array(self._get_current_position(), dtype=np.float32)
-        v = waypoint - pos
-        if np.all(v[:2] == 0):  # already at target
+        v = delta_position
+        if np.all(v == 0):  # already at target
             return success, num_detected_cells
 
         magnitude = np.linalg.norm(v)
@@ -443,8 +502,9 @@ class MapEnv(gym.Env):
                     success = False
                     break
             num_detected_cells += self._update(pos.copy())
+            steps += 1
 
-        return success, num_detected_cells
+        return success, num_detected_cells, steps
 
     def reset(self, starting_position=None, local=True, binary=True):
         if starting_position is None:
@@ -457,9 +517,10 @@ class MapEnv(gym.Env):
                        zip(self.starting_map_size, starting_position)]
         # create a new map
         self.cell_map, self.map_shape, self.cell_positions = self._create_map(map_borders)
+        self._automatic_expansion(self.position)  # expand map if we move close to a border
         self._move_to_cell(self._get_cell(self.position))
-
-        return self._get_map(local=local, binary=binary)
+        observation = self._get_map(local=local, binary=binary)
+        return observation
 
     def step(self, action, local=True, binary=True):
         """
@@ -469,13 +530,11 @@ class MapEnv(gym.Env):
         :param binary:
         :return:
         """
-        delta_position = np.array(action, dtype=np.float32), np.array([0.], dtype=np.float32)
-        waypoint = self.position + delta_position
-
-        success, num_detected_cells = self._move_to_waypoint(waypoint)
+        delta_position = np.concatenate((np.array(action, dtype=np.float32), np.array([0.], dtype=np.float32)), axis=0)
+        success, num_detected_cells, steps = self._move_by_delta_position(delta_position)
 
         if success:
-            reward = num_detected_cells / self.reward_scaling - self.REWARD_STEP  # penalizing small steps
+            reward = num_detected_cells / self.reward_scaling + self.REWARD_STEP  # penalizing small steps
             done = False
         else:
             reward = self.REWARD_FAILURE
@@ -488,16 +547,109 @@ class MapEnv(gym.Env):
         ax = None
         if self.ax is not None:
             ax = self.ax
-        self._visualize2d(self, local=local, ax=ax, num_ticks_approx=num_ticks_approx)
+        self._visualize2d(local=local, ax=ax, num_ticks_approx=num_ticks_approx)
 
     def close(self):
         pass
 
 
-# TODO New class inheriting from MapEnv, which uses neural actor -
-class NeuralMapEnv(MapEnv):
-    def __init__(self):
-        pass
+# TODO New class inheriting from MapEnv, which uses neural actor
+class AirSimMapEnv(MapEnv):
+    def __init__(self,
+                 starting_map_size=(10., 10., 2.),
+                 cell_scale=(1., 1., 1.),
+                 starting_position=(0., 0., 0.),
+                 buffer_distance=(10., 10., 0.),
+                 local_map_dim=(16, 16, 1),
+                 vision_range=1,
+                 fov_angle=np.pi/2,
+                 map_keys=['unknown', 'visible', 'visited', 'obstacle', 'object', 'position'],
+                 thresholds={'visible': 1, 'visited': 1, 'obstacle': 1, 'object': 1},
+                 map_idx=-1,
+                 interactive_plot=False,
+                 REWARD_FAILURE=-10,
+                 REWARD_STEP=-0.5,
+                 **parameters,
+                 ):
 
-    def _move_to_waypoint(self, waypoint):
-        pass
+        import torch
+        from Environments.env_utils import make_env_utils
+        from Agents.neutral_net import NeutralNet
+
+        super().__init__(starting_map_size=starting_map_size,
+                         cell_scale=cell_scale,
+                         starting_position=starting_position,
+                         buffer_distance=buffer_distance,
+                         local_map_dim=local_map_dim,
+                         vision_range=vision_range,
+                         fov_angle=fov_angle,
+                         map_keys=map_keys,
+                         thresholds=thresholds,
+                         map_idx=map_idx,
+                         interactive_plot=interactive_plot,
+                         REWARD_FAILURE=REWARD_FAILURE,
+                         REWARD_STEP=REWARD_STEP,
+                         )
+
+        parameters_airsim = {'env_str': 'AirSim'}
+        parameters_airsim['AirSim'] = parameters['AirSim']
+        self.env_utils_air, self.env_air = make_env_utils(**parameters_airsim)
+        network_kwargs = self.env_utils_air.get_network_kwargs()
+        network_kwargs.update(parameters['Exploration']['local_navigation']['neural_network'])  # add additional kwargs from parameter file
+
+        self.local_navigator = NeutralNet(**network_kwargs)
+        self.local_navigator.load_state_dict(torch.load(parameters['Exploration']['local_navigation']['weights']))
+
+        self.object_detection_frequency = parameters['object_detection_frequency']
+        self.obstacle_detection_frequency = parameters['obstacle_detection_frequency']
+
+    def _move_by_delta_position(self, delta_position):
+        """
+        Reaches target by taking smalls steps until close to target
+        TODO: implement 3d
+        :param waypoint:
+        :param step_length:
+        :return:
+        """
+        self.env_air.target_position = self._get_position() + delta_position
+
+        obs_air = self.env_air._get_state()
+        done, reached_destination, collision = False, False, False
+        success = False
+        num_detected_cells = 0
+        steps = 0
+        # move to waypoint
+        while not done:
+            obs_vector, obs_visual = self.env_utils_air.process_obs(obs_air)
+            comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
+            with torch.no_grad():
+                value, action, log_prob = self.point_navigator.act(comb_obs)
+            action = self.env_utils_air.process_action(action)
+            obs_air, reward, collision, info = self.env_air.step(action)
+            if collision:
+                done = True
+            if action == 0:
+                done = True
+                success = info['terminated_at_target']
+
+            object_positions = []
+            obstacle_positions = []
+            if steps > 0 and steps % self.object_detection_frequency == 0:
+                pass  # TODO: implement
+            if steps > 0 and steps % self.obstacle_detection_frequency == 0:
+                obstacle_positions = self.env_air.get_obstacles(field_of_view=self.fov_angle)
+            pos = self.env_air.get_position()
+            orientation = self.env_air.get_orientation()
+            num_detected_cells += self._update(pos.copy,
+                                               orientation=orientation,
+                                               detected_objects=object_positions,
+                                               detected_obstacles=obstacle_positions)
+           steps += 1
+
+       return success, num_detected_cells, steps
+
+    def reset(self):
+        _ = self.env_air.reset()
+        starting_position = self.env_air.get_position()
+        observation = super().reset(starting_position=starting_position, local=True, binary=True)
+        return observation
