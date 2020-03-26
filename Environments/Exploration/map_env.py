@@ -4,6 +4,10 @@ from matplotlib import colors
 import gym
 from gym import spaces
 
+import torch
+from Environments.env_utils import make_env_utils
+from Agents.neutral_net import NeutralNet
+
 
 def make(**env_kwargs):
     return MapEnv(**env_kwargs)
@@ -274,7 +278,7 @@ class MapEnv(gym.Env):
 
         center_x = position[0]
         center_y = position[1]
-        size_z = self.map_shape[2] * self.cell_scale[2]
+        size_z = self.map_shape[2]
 
         scale_x, scale_y, _ = self.cell_scale
         radius = self.vision_range
@@ -300,6 +304,7 @@ class MapEnv(gym.Env):
         # mask vision behind obstacles
         visible_obstacles = self.cell_map['obstacle'] * mask_z
         cell_diag = np.linalg.norm([self.cell_scale[0], self.cell_scale[1]])  # length of cell diagonal
+        """ Fully functioning 2d solution ---- Start
         for position_idx in np.argwhere(visible_obstacles):
             xx = self.cell_positions[0][position_idx[0]] + self.cell_scale[0] / 2
             yy = self.cell_positions[1][position_idx[1]] + self.cell_scale[1] / 2
@@ -321,6 +326,29 @@ class MapEnv(gym.Env):
             mask = mask * ~temp_mask
 
         fov_mask = np.repeat(mask[:, :, np.newaxis], size_z, axis=2)
+        # Fully functioning 2d solution ---- End
+        """
+        for position_idx in np.argwhere(visible_obstacles):
+            xx = self.cell_positions[0][position_idx[0]] + self.cell_scale[0] / 2
+            yy = self.cell_positions[1][position_idx[1]] + self.cell_scale[1] / 2
+
+            v = np.array([xx - center_x, yy - center_y])
+            # approximation of occlusion lines
+            angle = cell_diag / (2 * np.pi * np.linalg.norm(v)) * 5  # TODO: find good factor
+            cos_theta, sin_theta = np.cos(angle / 2), np.sin(angle / 2)
+            rot_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
+
+            left_border_direction = rot_matrix @ v
+            right_border_direction = rot_matrix.transpose() @ v
+
+            left_mask = left_border_direction[0] * (y - center_y) - left_border_direction[1] * (x - center_x) <= 0
+            right_mask = right_border_direction[0] * (y - center_y) - right_border_direction[1] * (x - center_x) >= 0
+            distance_mask = -v[1] * (y - yy) - v[0] * (x - xx) <= 0
+            temp_mask = left_mask * right_mask * distance_mask
+
+            mask_z[:, :, position_idx[2]] = mask_z[:, :, position_idx[2]] * ~temp_mask
+
+        fov_mask = mask_z
 
         return fov_mask
 
@@ -435,9 +463,8 @@ class MapEnv(gym.Env):
         color_dict = {'unknown': 'midnightblue', 'visible': 'lightsteelblue', 'visited': 'limegreen',
                       'obstacle': 'red', 'object': 'gold', 'position': 'darkgreen'}
         color_map = colors.ListedColormap([color_dict[k] for k in self.map_keys])
-        bounds = [self.tokens[key] for key in self.map_keys]
+        bounds = [0.5] + [self.tokens[key] + 0.5 for key in self.map_keys]
         norm = colors.BoundaryNorm(bounds, color_map.N)
-        print("bounds, ", bounds)
         ax.imshow(token_map, origin='lower', cmap=color_map, norm=norm)
 
         if local:
@@ -555,6 +582,7 @@ class MapEnv(gym.Env):
 
 # TODO New class inheriting from MapEnv, which uses neural actor
 class AirSimMapEnv(MapEnv):
+
     def __init__(self,
                  starting_map_size=(10., 10., 2.),
                  cell_scale=(1., 1., 1.),
@@ -571,10 +599,6 @@ class AirSimMapEnv(MapEnv):
                  REWARD_STEP=-0.5,
                  **parameters,
                  ):
-
-        import torch
-        from Environments.env_utils import make_env_utils
-        from Agents.neutral_net import NeutralNet
 
         super().__init__(starting_map_size=starting_map_size,
                          cell_scale=cell_scale,
@@ -593,8 +617,8 @@ class AirSimMapEnv(MapEnv):
 
         parameters_airsim = {'env_str': 'AirSim'}
         parameters_airsim['AirSim'] = parameters['AirSim']
-        self.env_utils_air, self.env_air = make_env_utils(**parameters_airsim)
-        network_kwargs = self.env_utils_air.get_network_kwargs()
+        self.env_utils_airsim, self.env_airsim = make_env_utils(**parameters_airsim)
+        network_kwargs = self.env_utils_airsim.get_network_kwargs()
         network_kwargs.update(parameters['Exploration']['local_navigation']['neural_network'])  # add additional kwargs from parameter file
 
         self.local_navigator = NeutralNet(**network_kwargs)
@@ -611,21 +635,21 @@ class AirSimMapEnv(MapEnv):
         :param step_length:
         :return:
         """
-        self.env_air.target_position = self._get_position() + delta_position
+        self.env_airsim.target_position = self._get_current_position() + delta_position
 
-        obs_air = self.env_air._get_state()
+        obs_air = self.env_airsim._get_state()
         done, reached_destination, collision = False, False, False
         success = False
         num_detected_cells = 0
         steps = 0
         # move to waypoint
         while not done:
-            obs_vector, obs_visual = self.env_utils_air.process_obs(obs_air)
+            obs_vector, obs_visual = self.env_utils_airsim.process_obs(obs_air)
             comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
             with torch.no_grad():
-                value, action, log_prob = self.point_navigator.act(comb_obs)
-            action = self.env_utils_air.process_action(action)
-            obs_air, reward, collision, info = self.env_air.step(action)
+                value, action, log_prob = self.local_navigator.act(comb_obs)
+            action = self.env_utils_airsim.process_action(action)
+            obs_air, reward, collision, info = self.env_airsim.step(action)
             if collision:
                 done = True
             if action == 0:
@@ -637,19 +661,20 @@ class AirSimMapEnv(MapEnv):
             if steps > 0 and steps % self.object_detection_frequency == 0:
                 pass  # TODO: implement
             if steps > 0 and steps % self.obstacle_detection_frequency == 0:
-                obstacle_positions = self.env_air.get_obstacles(field_of_view=self.fov_angle)
-            pos = self.env_air.get_position()
-            orientation = self.env_air.get_orientation()
-            num_detected_cells += self._update(pos.copy,
+                obstacle_positions = self.env_airsim.get_obstacles(field_of_view=self.fov_angle)
+            pos = self.env_airsim.get_position()
+            orientation = self.env_airsim.get_orientation()
+            num_detected_cells += self._update(pos.copy(),
                                                orientation=orientation,
                                                detected_objects=object_positions,
                                                detected_obstacles=obstacle_positions)
-           steps += 1
 
-       return success, num_detected_cells, steps
+            steps += 1
+
+        return success, num_detected_cells, steps
 
     def reset(self):
-        _ = self.env_air.reset()
-        starting_position = self.env_air.get_position()
+        _ = self.env_airsim.reset()
+        starting_position = self.env_airsim.get_position()
         observation = super().reset(starting_position=starting_position, local=True, binary=True)
         return observation
