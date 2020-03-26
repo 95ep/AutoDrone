@@ -14,16 +14,24 @@
     "obstacle_detection_frequency": 3,
 
     "Exploration": {
-      "fov_angle": 1.57,
-      "map_size": [32,32,1],
-      "cell_scale": [0.5, 0.5, 5],
-      "local_map_size": [32, 32, 1],
+      "starting_map_size": [32,32,2],
+      "cell_scale": [0.3, 0.3, 0.3],
       "starting_position": [0,0,1],
       "buffer_distance": [10,10,0],
-      "detection_threshold_obstacle": 3,
-      "detection_threshold_object": 2,
-      "vision_range": 5,
+      "local_map_dim": [32, 32, 1],
+      "vision_range": 3,
+      "fov_angle": 1.57,
+      "map_keys": ["unknown", "visible", "visited", "obstacle", "object", "position"],
+      "thresholds": {
+        "visible": 1,
+        "visited": 1,
+        "obstacle": 2,
+        "object": 2
+      },
       "map_idx": -1,
+      "interactive_plot": false,
+      "REWARD_FAILURE": -10,
+      "REWARD_STEP": -0.5,
       "local_navigation": {
         "neural_network": {
             "hidden_size": 32,
@@ -33,7 +41,7 @@
             "padding_config": [1, 1, 1],
             "max_pool_config": [true, true, false]
         },
-        "weights": "C:/Users/Filip/Projects/Rise/AutoDrone/runs/subT-new-trgts-resumed/saved_models/model660.pth",
+        "weights": "C:/Users/Filip/Projects/Rise/AutoDrone/runs/subT-new-trgts-resumed/saved_models/model660.pth"
       }
     },
     "AirSim": {
@@ -45,7 +53,7 @@
           "reward_rotate": -0.05,
           "max_dist": 10,
           "distance_threshold": 0.5,
-          "invalid_prob": 0.1,
+          "invalid_prob": 0.0,
           "sensors": ["depth", "pointgoal_with_gps_compass"],
           "scene_string": "subT"
         },
@@ -54,7 +62,7 @@
           "SettingsVersion": 1.2,
           "SimMode": "Multirotor",
           "ViewMode": "",
-          "ClockSpeed": 32,
+          "ClockSpeed": 8,
           "CameraDefaults": {
             "CaptureSettings": [
               {
