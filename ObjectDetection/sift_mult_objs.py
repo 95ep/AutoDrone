@@ -5,11 +5,11 @@ import time
 from sklearn.cluster import MeanShift, estimate_bandwidth
 
 MIN_MATCH_COUNT = 10
-REJECTION_FACTOR = 0.8
+REJECTION_FACTOR = 0.75
 
-queryImage1 = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/images/mug-only-3.jpg',cv.IMREAD_GRAYSCALE)          # queryImage
-queryImage2 = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/images/mugOnly.jpg',cv.IMREAD_GRAYSCALE)
-trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/images/four-mugs.jpg',cv.IMREAD_GRAYSCALE) # trainImage
+queryImage1 = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_100.jpg',cv.IMREAD_GRAYSCALE)          # queryImage
+queryImage2 = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_101.jpg',cv.IMREAD_GRAYSCALE)
+trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/image102_low_low_res.jpg',cv.IMREAD_GRAYSCALE) # trainImage
 # queryImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/cone-only-4.jpg',cv.IMREAD_GRAYSCALE)          # queryImage
 # trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/image1.jpg',cv.IMREAD_GRAYSCALE) # trainImage
 
