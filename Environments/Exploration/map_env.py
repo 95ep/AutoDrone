@@ -5,6 +5,7 @@ import gym
 from gym import spaces
 
 import torch
+import vtkplotter
 from Environments.env_utils import make_env_utils
 from Agents.neutral_net import NeutralNet
 
@@ -496,8 +497,19 @@ class MapEnv(gym.Env):
 
         plt.pause(0.005)
 
-    def _visualize3d(self):  # TODO: implement
-        pass
+    def _visualize3d(self, local=False):  # TODO: implement
+        token_map = self._get_map(local=local, binary=False)
+        #X, Y, Z = np.mgrid[:token_map.shape[0], :token_map.shape[1], :token_map.shape[2]]
+        vol = vtkplotter.Volume(token_map)
+        color_list = np.array([#[0., 0., 0.3, 0.1],
+                               [0.9, 0.95, 1., 0.2],
+                               [0.2, 1., 0.2, 0.8],
+                               [1., 0.2, 0.2, 0.6],
+                               [1., 1., 0, 1.],
+                               [0., 0.7, 0., 1.]])
+        color_map = colors.ListedColormap(color_list)
+        lego = vol.legosurface(vmin=1.5, cmap=color_map)
+        vtkplotter.show(lego)
 
     def _move_by_delta_position(self, delta_position, step_length=0.1):  # naive, straight path
         """

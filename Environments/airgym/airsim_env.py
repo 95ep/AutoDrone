@@ -223,7 +223,6 @@ class AirsimEnv(gym.Env):
         if bandwidth < 0.1:
             # Not possible to form clusters
             return np.array([], dtype=float)
-        print(bandwidth)
         ms = MeanShift(bandwidth=bandwidth, bin_seeding=True, cluster_all=True)
         ms.fit(x)
         labels = ms.labels_
