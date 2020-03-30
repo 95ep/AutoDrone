@@ -73,6 +73,7 @@ class AirsimEnv(gym.Env):
         self.observation_space = spaces.Dict(space_dict)
         self.action_space = spaces.Discrete(6)
 
+        self.collision_t_stamp = None
         self.agent_dead = True
         self.target_position = None
         self.valid_trgt = None
@@ -102,6 +103,7 @@ class AirsimEnv(gym.Env):
     def reset(self, target_position=None):
         utils.reset(self.client, scene=self.scene)
         self.agent_dead = False
+        self.collision_t_stamp = None
         if target_position is None:
             self.target_position, self.valid_trgt = utils.generate_target(self.client, self.max_dist / 2,
                                                                           scene=self.scene, invalid_prob=self.invalid_prob)
@@ -148,7 +150,7 @@ class AirsimEnv(gym.Env):
             ac.move_down(self.client)
             reward += self.REWARD_ROTATE
 
-        episode_over = utils.has_collided(self.client, floor_z=self.floor_z, ceiling_z=self.ceiling_z)
+        episode_over = self.has_collided()
         if episode_over:
             self.agent_dead = True
             reward += self.REWARD_COLLISION
@@ -168,6 +170,25 @@ class AirsimEnv(gym.Env):
                                             observation['pointgoal_with_gps_compass'][1]*180/3.14]))
         self.client.simPrintLogMessage("Step reward:", str(reward))
         return observation, reward, episode_over, info
+
+    def has_collided(self):
+        new_collision_t_stamp = self.client.simGetCollisionInfo().time_stamp
+        if self.collision_t_stamp is None:
+            self.collision_t_stamp = new_collision_t_stamp
+        if new_collision_t_stamp != self.collision_t_stamp:
+            self.collision_t_stamp = new_collision_t_stamp
+            self.client.simPrintLogMessage("Collision with object")
+            return True
+        else:
+            z_pos = self.get_position()[2]
+            if z_pos > self.floor_z:
+                self.client.simPrintLogMessage("Collision with floor")
+                return True
+            elif z_pos < self.ceiling_z:
+                self.client.simPrintLogMessage("Collision with ceiling")
+                return True
+            else:
+                return False
 
     def get_position(self):
         position = utils.get_position(self.client)
