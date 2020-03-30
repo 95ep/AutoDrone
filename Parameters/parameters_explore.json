@@ -1,6 +1,7 @@
 {
   "mode": "evaluation",
   "env_str": "Exploration",
+  "Exploration": {},
   "neural_network": {
     "hidden_size": 32,
     "num_hidden_layers": 2,
@@ -30,8 +31,7 @@
     "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/Runs/Exploration1/saved_models/model2600.pth"
   },
   "eval": {
-    "n_evals": 1,
     "n_eval_steps": 256,
-    "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/Runs/Exploration1/saved_models/model3020.pth"
+    "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/Runs/Exploration1/saved_models/model2400.pth"
   }
 }
