@@ -197,20 +197,6 @@ def invalid_trgt(env):
     return target
 
 
-def has_collided(client, floor_z=0.5, ceiling_z=-4.5):
-
-    collision_info = client.simGetCollisionInfo()
-    if collision_info.has_collided:
-        client.simPrintLogMessage("Collision with object")
-    z_pos = get_position(client).z_val
-    if z_pos > floor_z:
-        client.simPrintLogMessage("Collision with floor")
-    if z_pos < ceiling_z:
-        client.simPrintLogMessage("Collision with ceiling")
-
-    return collision_info.has_collided or z_pos > floor_z or z_pos < ceiling_z
-
-
 def target_found(client, target_position, valid_trgt = True, threshold=0.5):
     if valid_trgt:
         compass = get_compass_reading(client, target_position)
