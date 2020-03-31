@@ -602,14 +602,15 @@ class MapEnv(gym.Env):
         info = {'env': 'Exploration'}
         return observation, reward, done, info
 
-    def render(self, render_2d=True, local=False, num_ticks_approx=6, show_detected=False):
-        if render_2d:
+    def render(self, render_3d=False, local=False, num_ticks_approx=6, show_detected=False):
+        if render_3d:
+            self._visualize3d(local=local, show_detected=show_detected)
+        else:
             ax = None
             if self.ax is not None:
                 ax = self.ax
             self._visualize2d(local=local, ax=ax, num_ticks_approx=num_ticks_approx)
-        else:
-            self._visualize3d(local=local, show_detected=show_detected)
+
 
     def close(self):
         pass
