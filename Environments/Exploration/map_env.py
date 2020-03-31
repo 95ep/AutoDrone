@@ -497,19 +497,39 @@ class MapEnv(gym.Env):
 
         plt.pause(0.005)
 
-    def _visualize3d(self, local=False):  # TODO: implement
+    def _visualize3d(self, local=False, show_detected=False):  # TODO: implement
         token_map = self._get_map(local=local, binary=False)
+
+        X, Y, Z = np.mgrid[:token_map.shape[0], :token_map.shape[1], :token_map.shape[2]]
+        point_list = np.array([[x, y, z] for x, y, z in zip(np.ravel(X), np.ravel(Y), np.ravel(Z))])  # 'flat' (2d) index array
+        colors = np.array(['black', 'midnightblue', 'lightsteelblue', 'limegreen',
+                           'red', 'gold', 'darkgreen'])  # black color to shift index + 1
+        alphas = np.array([0, 0.05, 0.1, 0.6, 0.6, 1, 1])
+        token_map_flat = np.ravel(token_map)
+        color_list = colors[token_map_flat]
+        alpha_list = alphas[token_map_flat]
+        high_pass_filter_threshold = 1.5 if show_detected else 2.5
+        mask = token_map_flat > high_pass_filter_threshold
+
+        r = 25  # point radius
+        points = vtkplotter.shapes.Points(point_list[mask], r=r, c=color_list[mask], alpha=alpha_list[mask])
+        vtkplotter.show(points, newPlotter=True)
+
+    def _visualize3d_OLD(self, local=False):  # TODO: implement
+        token_map = self._get_map(local=local, binary=False)
+        token_map[token_map < 2.5] == 0
         #X, Y, Z = np.mgrid[:token_map.shape[0], :token_map.shape[1], :token_map.shape[2]]
-        vol = vtkplotter.Volume(token_map)
+        vol = vtkplotter.Volume(token_map, c=('midnightblue', 'lightsteelblue', 'limegreen',
+                      'red', 'gold', 'darkgreen'), alpha=(0., 0.05, 0.2, 0.8, 0.5, 1.0))
         color_list = np.array([#[0., 0., 0.3, 0.1],
-                               [0.9, 0.95, 1., 0.2],
+                               #[0.9, 0.95, 1., 0.2],
                                [0.2, 1., 0.2, 0.8],
                                [1., 0.2, 0.2, 0.6],
                                [1., 1., 0, 1.],
                                [0., 0.7, 0., 1.]])
         color_map = colors.ListedColormap(color_list)
-        lego = vol.legosurface(vmin=1.5, cmap=color_map)
-        vtkplotter.show(lego)
+        lego = vol.legosurface(vmin=2., vmax=6., cmap=color_map)
+        vtkplotter.show([vol, lego], N=2)
 
     def _move_by_delta_position(self, delta_position, step_length=0.1):  # naive, straight path
         """
@@ -582,11 +602,14 @@ class MapEnv(gym.Env):
         info = {'env': 'Exploration'}
         return observation, reward, done, info
 
-    def render(self, local=False, num_ticks_approx=6):
-        ax = None
-        if self.ax is not None:
-            ax = self.ax
-        self._visualize2d(local=local, ax=ax, num_ticks_approx=num_ticks_approx)
+    def render(self, render_2d=True, local=False, num_ticks_approx=6, show_detected=False):
+        if render_2d:
+            ax = None
+            if self.ax is not None:
+                ax = self.ax
+            self._visualize2d(local=local, ax=ax, num_ticks_approx=num_ticks_approx)
+        else:
+            self._visualize3d(local=local, show_detected=show_detected)
 
     def close(self):
         pass

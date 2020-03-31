@@ -10,7 +10,7 @@
         "max_pool_config": [false, false, false]
     },
 
-    "object_detection_frequency": 5,
+    "object_detection_frequency": 2,
     "obstacle_detection_frequency": 3,
 
     "Exploration": {
