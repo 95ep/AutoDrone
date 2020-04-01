@@ -46,4 +46,4 @@ plist = np.array([[0,0,0], [0,0,1],[0,0,2],[0,0,3],[1,1,-1]])
 r = 20
 c = np.array([[1,0,0],[0,1,0],[0,0,1],[0,1,1],[1,1,0]])
 points = vtkplotter.shapes.Points(plist, r=r, c=c, alpha=0.7)
-show(points)
+show(points, newPlotter=True)
