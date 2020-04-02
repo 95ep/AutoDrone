@@ -662,6 +662,7 @@ class AirSimMapEnv(MapEnv):
 
         self.object_detection_frequency = parameters['object_detection_frequency']
         self.obstacle_detection_frequency = parameters['obstacle_detection_frequency']
+        self.env_airsim.setup_object_detection(**parameters['object_detection'])
 
     def _move_by_delta_position(self, delta_position):
         """
@@ -695,7 +696,9 @@ class AirSimMapEnv(MapEnv):
             object_positions = []
             obstacle_positions = []
             if steps > 0 and steps % self.object_detection_frequency == 0:
-                pass  # TODO: implement
+                object_positions = self.env_airsim.get_trgt_objects()
+                if len(object_positions) > 0:
+                    print("Number of objects found {}".format(len(object_positions)))
             if steps > 0 and steps % self.obstacle_detection_frequency == 0:
                 obstacle_positions = self.env_airsim.get_obstacles(field_of_view=self.fov_angle)
             pos = self.env_airsim.get_position()
