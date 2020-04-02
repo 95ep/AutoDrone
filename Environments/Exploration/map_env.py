@@ -269,6 +269,105 @@ class MapEnv(gym.Env):
         """
 
         :param position: absolute position
+        :param orientation: 2d np array (will be normalized)
+        :return:
+        """
+        # currently only works in 2D
+        # TODO: generalize to 3D later on
+        # approximate function: distance is calculated from cell perspective, not position perspective
+        assert 'visible' in self.map_keys, 'no map exists that tracks visible cells'
+        assert len(orientation) == 2, 'orientation should be 2 dimensional vector (v_x, v_y)'
+        assert orientation[0] ** 2 + orientation[1] ** 2 > 0, 'orientation must not be zero vector'
+        orientation = np.array(orientation, dtype=np.float32)
+        orientation /= np.linalg.norm(orientation)
+        center_x = position[0]
+        center_y = position[1]
+        center_z = position[2]
+
+        scale_x, scale_y, scale_z = self.cell_scale
+        radius = self.vision_range
+
+        # retrieve x and y coordinates for cell centers
+        x = np.reshape(self.cell_positions[0][:-1] + self.cell_scale[0] / 2, (-1, 1, 1))
+        y = np.reshape(self.cell_positions[1][:-1] + self.cell_scale[1] / 2, (1, -1, 1))
+        z = np.reshape(self.cell_positions[2][:-1] + self.cell_scale[2] / 2, (1, 1, -1))
+
+        mask_sphere = (x-center_x) ** 2 + (y-center_y) ** 2 + (z-center_z) ** 2 <= radius ** 2
+
+        cos_theta, sin_theta = np.cos(self.fov_angle / 2), np.sin(self.fov_angle / 2)
+        rot_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
+
+        # find first mask of vision cone in the x-y plane
+        v_left = rot_matrix @ orientation
+        v_right = rot_matrix.transpose() @ orientation
+        mask_left = v_left[0] * (y-center_y) - v_left[1] * (x-center_x) + z - z <= 0  # '+z-z' to make mask 3d
+        mask_right = v_right[0] * (y-center_y) - v_right[1] * (x-center_x) + z - z >= 0
+
+        # find seconod mask of vision cone in the orientation-z plane
+        temp_up = rot_matrix @ np.array([1, 0])  # rotated vector in the orientation-z plane
+        v_up = np.array([orientation[0] * temp_up[0], orientation[1] * temp_up[0], temp_up[1]])
+        # approximately cross(v, rotation(pi/2) * v), find perpendicular normal vector
+        n_up = np.array([-v_up[0]*v_up[2], -v_up[1]*v_up[2], v_up[0] ** 2 + v_up[1] ** 2])
+        # mask points on the wrong side of the plane desribed by the normal vector
+        mask_up = n_up[0] * (x-center_x) + n_up[1] * (y-center_y) + n_up[2] * (z-center_z) <= 0
+        # repeat for other border of the cone
+        temp_down = rot_matrix.transpose() @ np.array([1, 0])
+        v_down = np.array([orientation[0] * temp_down[0], orientation[1] * temp_down[0], temp_down[1]])
+        n_down = np.array([-v_down[0]*v_down[2], -v_down[1]*v_down[2], v_down[0] ** 2 + v_down[1] ** 2])
+        mask_down = n_down[0] * (x-center_x) + n_down[1] * (y-center_y) + n_down[2] * (z-center_z) >= 0
+
+        cone_mask = (mask_left & mask_right) * (mask_up & mask_down) if self.fov_angle < np.pi else (mask_left | mask_right) * (mask_up | mask_down)
+#        cone_mask = (mask_left & mask_right)* mask_up if self.fov_angle < np.pi else (mask_left | mask_right)
+
+        mask = mask_sphere * cone_mask
+
+        # mask vision behind obstacles
+        visible_obstacles = self.cell_map['obstacle'] * mask
+        cell_diag = np.linalg.norm(np.array(self.cell_scale))  # length of cell diagonal ~= maximum occlusion size
+
+        for position_idx in np.argwhere(visible_obstacles):
+            xx = self.cell_positions[0][position_idx[0]] + self.cell_scale[0] / 2
+            yy = self.cell_positions[1][position_idx[1]] + self.cell_scale[1] / 2
+            zz = self.cell_positions[2][position_idx[2]] + self.cell_scale[2] / 2
+
+            v = np.array([xx - center_x, yy - center_y, zz - center_z])
+            # approximation of occlusion lines
+            angle = (cell_diag / np.linalg.norm(v)) * 1  # TODO: find good factor
+            cos_theta, sin_theta = np.cos(angle / 2), np.sin(angle / 2)
+            rot_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
+
+            v_left = rot_matrix @ v[:2]
+            v_right = rot_matrix.transpose() @ v[:2]
+
+            mask_left = v_left[0] * (y - center_y) - v_left[1] * (x - center_x) + z - z <= 0
+            mask_right = v_right[0] * (y - center_y) - v_right[1] * (x - center_x) + z - z >= 0
+
+            norm_v_2d = np.linalg.norm(v[:2])
+            temp_up = rot_matrix @ np.array([norm_v_2d, v[2]])
+            v_up = np.array([v[0] * temp_up[0] / norm_v_2d, v[1] * temp_up[0] / norm_v_2d, temp_up[1]])
+            n_up = np.array([-v_up[0]*v_up[2], -v_up[1]*v_up[2], v_up[0] ** 2 + v_up[1] ** 2])
+            mask_up = n_up[0] * (x-center_x) + n_up[1] * (y-center_y) + n_up[2] * (z-center_z) <= 0
+            temp_down = rot_matrix.transpose() @ np.array([norm_v_2d, v[2]])
+            v_down = np.array([v[0] * temp_down[0] / norm_v_2d, v[1] * temp_down[0] / norm_v_2d, temp_down[1]])
+            n_down = np.array([-v_down[0]*v_down[2], -v_down[1]*v_down[2], v_down[0] ** 2 + v_down[1] ** 2])
+            mask_down = n_down[0] * (x-center_x) + n_down[1] * (y-center_y) + n_down[2] * (z-center_z) >= 0
+
+            mask_distance = - v[0] * (x - xx) -v[1] * (y - yy) -v[2] * (z - zz) <= 0
+
+            #temp_mask =  mask_left * mask_right * mask_distance
+            temp_mask = mask_left * mask_right * mask_up * mask_down * mask_distance
+            #temp_mask = mask_up * mask_down #* mask_distance
+            #mask = mask | temp_mask
+            mask *= ~temp_mask
+
+        fov_mask = mask
+
+        return fov_mask
+
+    def _field_of_view_old(self, position, orientation):
+        """
+
+        :param position: absolute position
         :param orientation: normed 2d np array
         :return:
         """
@@ -504,7 +603,7 @@ class MapEnv(gym.Env):
         point_list = np.array([[x, y, z] for x, y, z in zip(np.ravel(X), np.ravel(Y), np.ravel(Z))])  # 'flat' (2d) index array
         colors = np.array(['black', 'midnightblue', 'lightsteelblue', 'limegreen',
                            'red', 'gold', 'darkgreen'])  # black color to shift index + 1
-        alphas = np.array([0, 0.05, 0.1, 0.6, 0.6, 1, 1])
+        alphas = np.array([0, 0.05, 0.15, 0.6, 0.6, 1, 1])
         token_map_flat = np.ravel(token_map)
         color_list = colors[token_map_flat]
         alpha_list = alphas[token_map_flat]
@@ -513,7 +612,7 @@ class MapEnv(gym.Env):
 
         r = 25  # point radius
         points = vtkplotter.shapes.Points(point_list[mask], r=r, c=color_list[mask], alpha=alpha_list[mask])
-        vtkplotter.show(points, newPlotter=True)
+        vtkplotter.show(points, interactive=True, newPlotter=True)
 
     def _visualize3d_OLD(self, local=False):  # TODO: implement
         token_map = self._get_map(local=local, binary=False)
