@@ -17,3 +17,6 @@ ObjectDetection/images/*
 
 # logs
 runs/*
+
+# Plots
+*.png
