@@ -19,4 +19,4 @@ ObjectDetection/images/*
 runs/*
 
 # Plots
-*.png
+MetricsPlotters/plots/*
