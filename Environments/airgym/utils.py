@@ -176,8 +176,26 @@ def valid_trgt(env):
 
 
 def invalid_trgt(env):
-    if env == "basic23":
-        r = np.random.rand()
+    r = np.random.rand()
+    if env == "subT":
+        if r < 0.2:
+            target_x = 1 - np.random.rand()*31
+            target_y = -117 + np.random.rand()*3
+        elif r < 0.4:
+            target_x = -4 - np.random.rand()*4
+            target_y = -125.5 + np.random.rand()*3
+        elif r < 0.6:
+            target_x = -22 - np.random.rand()*4
+            target_y = -125.5 + np.random.rand()*3
+        elif r < 0.8:
+            target_x = -4 - np.random.rand()*4
+            target_y = -131 - np.random.rand()*5
+        else:
+            target_x = -22 - np.random.rand()*4
+            target_y = -131 - np.random.rand()*5
+        target = np.array([target_x, target_y])
+
+    elif env == "basic23":
         if r < 1/4:
             target_x = -2
             target_y = 6 - 12 * np.random.rand()
