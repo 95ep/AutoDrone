@@ -238,7 +238,9 @@ class AirsimEnv(gym.Env):
 
         sift = cv.xfeatures2d.SIFT_create()
         kp_t, desc_t = sift.detectAndCompute(train_image, None)
-
+        if len(kp_t) == 0:
+            global_points = np.array([], dtype=float)
+            return global_points
         x = np.array([kp_t[i].pt for i in range(len(kp_t))])
         bandwidth = estimate_bandwidth(x, quantile=0.2, n_samples=500)
         if bandwidth < 0.1:
