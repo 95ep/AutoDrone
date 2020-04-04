@@ -123,7 +123,7 @@ def _update(actor_critic, data, optimizer, minibatch_size, train_iters,
     return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, np.array(approx_kl_iter).mean()
 
 
-def evaluate(env, env_utils, actor_critic, n_eval_steps=1024):
+def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True):
     log_dict = {'Eval/TotalReturn': 0, 'Eval/nDones': 0, 'Eval/TotalSteps': 0}
 
 
@@ -136,7 +136,8 @@ def evaluate(env, env_utils, actor_critic, n_eval_steps=1024):
             value, action, _ = actor_critic.act(comb_obs, deterministic=True)
 
         next_obs, reward, done, info = env.step(env_utils.process_action(action))
-        env.render()
+        if render:
+            env.render()
 
         if 'env' in info and info['env'] == "AirSim":
             if 'Eval/nTerminationsCorrect' not in log_dict:
@@ -158,7 +159,7 @@ def evaluate(env, env_utils, actor_critic, n_eval_steps=1024):
             obs_vector, obs_visual = env_utils.process_obs(env.reset())
             comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
-    if 'env' in info and info['env'] == "Exploration":
+    if 'env' in info and info['env'] == "Exploration" and render:
         env.render(local=False)  # TODO: ONLY IF EXPLORATION
         import time
         time.sleep(3)

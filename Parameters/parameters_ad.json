@@ -10,20 +10,26 @@
         "max_pool_config": [false, false, false]
     },
 
-    "object_detection_frequency": 2,
+    "object_detection_frequency": 10000000000,
     "obstacle_detection_frequency": 3,
 
+    "object_detection": {
+      "query_paths": [],
+      "rejection_factor": 0.8,
+      "min_match_thres": 10
+    },
+
     "Exploration": {
-      "starting_map_size": [32,32,2],
-      "cell_scale": [0.3, 0.3, 0.3],
-      "starting_position": [0,0,1],
-      "buffer_distance": [10,10,0],
-      "local_map_dim": [32, 32, 1],
+      "starting_map_size": [32,32,8],
+      "cell_scale": [0.7, 0.7, 1],
+      "starting_position": [0,0,-0.7],
+      "buffer_distance": [15,15,0],
+      "local_map_dim": [32, 32, 3],
       "vision_range": 3,
       "fov_angle": 1.57,
       "map_keys": ["unknown", "visible", "visited", "obstacle", "object", "position"],
       "thresholds": {
-        "visible": 1,
+        "visible": 2,
         "visited": 1,
         "obstacle": 2,
         "object": 2
@@ -62,7 +68,7 @@
           "SettingsVersion": 1.2,
           "SimMode": "Multirotor",
           "ViewMode": "",
-          "ClockSpeed": 8,
+          "ClockSpeed": 32,
           "CameraDefaults": {
             "CaptureSettings": [
               {
@@ -118,7 +124,8 @@
         "weights": ""
     },
     "eval": {
-        "n_eval_steps": 1024,
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/subT-new-trgts-resumed/saved_models/model660.pth"
+        "n_eval_steps": 64,
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/.pth",
+        "render": false
     }
 }

@@ -26,7 +26,8 @@ def make_env_utils(**param_kwargs):
         env_utils_obj = EnvUtilsExploration(**param_kwargs[env_str])
         env = env_utils_obj.make_env()
     elif env_str == 'AutonomousDrone':
-        pass  # TODO
+        env_utils_obj = EnvUtilsAutonomousDrone(**param_kwargs['Exploration'], **param_kwargs)
+        env = env_utils_obj.make_env()
     else:
         raise ValueError("env_str not recognized.")
 
@@ -198,6 +199,44 @@ class EnvUtilsExploration(EnvUtilsSuper):
 
     def make_env(self):
         env = exploration_dev.make(**self.exploration_kwargs)
+        self.network_kwargs['has_visual_encoder'] = True
+        self.network_kwargs['continuous_actions'] = True
+        self.network_kwargs['visual_input_shape'] = env.observation_space.shape
+        self.network_kwargs['action_dim'] = env.action_space.shape[0]
+        return env
+
+    def make_buffer(self, steps_per_epoch, gamma, lam):
+        if self.network_kwargs['has_vector_encoder']:
+            vector_shape = self.network_kwargs['vector_input_shape']
+        else:
+            vector_shape = None
+        if self.network_kwargs['has_visual_encoder']:
+            visual_shape = self.network_kwargs['visual_input_shape']
+        else:
+            visual_shape = None
+
+        action_shape = self.network_kwargs['action_dim']
+
+        return PPOBuffer(steps_per_epoch, vector_shape, visual_shape, action_shape, gamma, lam)
+
+    def process_obs(self, obs_from_env):
+        obs_vector = None
+        obs_visual = torch.as_tensor(obs_from_env, dtype=torch.float32).unsqueeze(0)
+
+        return obs_vector, obs_visual
+
+    def process_action(self, action):
+        return action.squeeze().numpy()
+
+
+class EnvUtilsAutonomousDrone(EnvUtilsSuper):
+    def __init__(self, **autonomous_drone_kwargs):
+        super().__init__()
+        self.autonomous_drone_kwargs = autonomous_drone_kwargs
+
+    def make_env(self):
+        import Environments.Exploration.map_env as map_env
+        env = map_env.make(**self.autonomous_drone_kwargs)
         self.network_kwargs['has_visual_encoder'] = True
         self.network_kwargs['continuous_actions'] = True
         self.network_kwargs['visual_input_shape'] = env.observation_space.shape

@@ -11,6 +11,9 @@ from Agents.neutral_net import NeutralNet
 
 
 def make(**env_kwargs):
+    if 'env_str' in env_kwargs:
+        if env_kwargs['env_str'] == 'AutonomousDrone':
+            return AirSimMapEnv(**env_kwargs)
     return MapEnv(**env_kwargs)
 
 class MapEnv(gym.Env):
@@ -98,7 +101,7 @@ class MapEnv(gym.Env):
                               (self.vision_range / self.cell_scale[1]) * np.pi  # divide by area
         # assumes binary observations
         self.observation_space = spaces.Box(low=0, high=1, shape=(self.local_map_dim[0], self.local_map_dim[1],
-                                                                  (len(self.map_keys) - 1) * self.local_map_dim[2]),
+                                                                  len(self.map_keys) * self.local_map_dim[2]),
                                             dtype=np.int)
         self.action_space = spaces.Box(low=np.array([-np.inf, -np.inf]), high=np.array([np.inf, np.inf]),
                                        dtype=np.float64)
@@ -189,7 +192,7 @@ class MapEnv(gym.Env):
                     expand = True
 
         if expand:
-            print('expanding map automatically with size: ' + str(size_increase))
+            #print('expanding map automatically with size: ' + str(size_increase))
             self._expand(size_increase)
 
     def _automatic_expansion(self, position):
@@ -218,7 +221,7 @@ class MapEnv(gym.Env):
                     expand = True
 
         if expand:
-            print('expanding map automatically with size: ' + str(size_increase))
+            #print('expanding map automatically with size: ' + str(size_increase))
             self._expand(size_increase)
 
     def _get_cell(self, position):
