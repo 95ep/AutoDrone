@@ -209,8 +209,8 @@ class AirsimEnv(gym.Env):
         u_grid, v_grid = np.meshgrid(w_idx, h_idx)
         points_2d = [(u, v) for u, v in zip(u_grid.flatten(), v_grid.flatten())]
 
-        if len(points_2d) > 0:
-            point_cloud = utils.reproject_2d_points(points_2d, depth, self.max_dist, field_of_view)
+        point_cloud = utils.reproject_2d_points(points_2d, depth, self.max_dist, field_of_view)
+        if point_cloud.shape[0] > 0:
             obstacles_3d_coords = utils.local2global(point_cloud, self.client)
         else:
             obstacles_3d_coords = np.array([], dtype=float)
