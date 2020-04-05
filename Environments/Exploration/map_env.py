@@ -791,7 +791,7 @@ class AirSimMapEnv(MapEnv):
             obs_air, reward, collision, info = self.env_airsim.step(action)
             if collision:
                 done = True
-            if action == 0:
+            elif action == 0:
                 done = True
                 success = info['terminated_at_target']
 
