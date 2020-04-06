@@ -139,7 +139,7 @@ def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True):
         if render:
             env.render()
 
-        if 'env' in info and info['env'] == "AirSim":
+        if 'env' in info and (info['env'] == "AirSim" or info['env'] == "Exploration"):
             if 'Eval/nTerminationsCorrect' not in log_dict:
                 log_dict['Eval/nTerminationsCorrect'] = 0
                 log_dict['Eval/nTerminationsIncorrect'] = 0
@@ -242,7 +242,7 @@ def PPO_trainer(env, actor_critic, env_utils, log_dir,
 
                 next_obs, reward, done, info = env.step(env_utils.process_action(action))
 
-                if 'env' in info and info['env'] == "AirSim":
+                if 'env' in info and (info['env'] == "AirSim" or info['env'] == "Exploration"):
                     if 'Episode/nTerminationsCorrect' not in log_dict:
                         log_dict['Episode/nTerminationsCorrect'] = 0
                         log_dict['Episode/nTerminationsIncorrect'] = 0

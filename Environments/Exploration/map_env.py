@@ -509,7 +509,7 @@ class MapEnv(gym.Env):
 
         r = 25  # point radius
         points = vtkplotter.shapes.Points(point_list[mask], r=r, c=color_list[mask], alpha=alpha_list[mask])
-        vtkplotter.show(points, interactive=True, newPlotter=True, axes={'xyGrid':True, 'yzGrid': True, 'zxGrid':True}))
+        vtkplotter.show(points, interactive=True, newPlotter=True, axes={'xyGrid':True, 'yzGrid': True, 'zxGrid':True})
 
     def _move_by_delta_position(self, delta_position, step_length=0.1):  # naive, straight path
         """
@@ -578,7 +578,7 @@ class MapEnv(gym.Env):
         else:
             reward = self.REWARD_FAILURE
         observation = self._get_map(local=local, binary=binary)
-        info = {'env': 'Exploration', 'waypoint_reached': success}
+        info = {'env': 'Exploration', 'terminated_at_target': success}
         return observation, reward, done, info
 
     def render(self, render_3d=False, local=False, num_ticks_approx=6, show_detected=False):
