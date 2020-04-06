@@ -176,24 +176,6 @@ class MapEnv(gym.Env):
         self.map_shape = new_map_shape
         self.cell_positions = new_cell_positions
 
-    def _automatic_expansion_old(self, position):
-        """
-        expand if position (in meters) is within buffer distance of borders.
-        :param position:
-        :return:
-        """
-        expand = False
-        size_increase = [[0, 0], [0, 0], [0, 0]]
-        for dim in range(self.dimensions):
-            for j in range(2):
-                distance_to_border = np.abs(position[dim] - self.cell_positions[dim][j*-1])
-                if distance_to_border < self.buffer_distance[dim]:
-                    size_increase[dim][j] = self.buffer_distance[dim]
-                    expand = True
-
-        if expand:
-            #print('expanding map automatically with size: ' + str(size_increase))
-            self._expand(size_increase)
 
     def _automatic_expansion(self, position):
         """
@@ -367,94 +349,6 @@ class MapEnv(gym.Env):
 
         return fov_mask
 
-    def _field_of_view_old(self, position, orientation):
-        """
-
-        :param position: absolute position
-        :param orientation: normed 2d np array
-        :return:
-        """
-        # currently only works in 2D
-        # TODO: generalize to 3D later on
-        # approximate function: distance is calculated from cell perspective, not position perspective
-        assert 'visible' in self.map_keys, 'no map exists that tracks visible cells'
-
-        center_x = position[0]
-        center_y = position[1]
-        size_z = self.map_shape[2]
-
-        scale_x, scale_y, _ = self.cell_scale
-        radius = self.vision_range
-
-        # retrieve x and y coordinates for cell centers
-        x = np.expand_dims(self.cell_positions[0][:-1] + self.cell_scale[0] / 2, axis=1)
-        y = np.expand_dims(self.cell_positions[1][:-1] + self.cell_scale[1] / 2, axis=0)
-
-        circle_mask = (x-center_x) ** 2 + (y-center_y) ** 2 <= radius ** 2
-
-        cos_theta, sin_theta = np.cos(self.fov_angle / 2), np.sin(self.fov_angle / 2)
-        rot_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
-        left_border_direction = rot_matrix @ orientation
-        right_border_direction = rot_matrix.transpose() @ orientation
-
-        left_mask = left_border_direction[0] * (y-center_y) - left_border_direction[1] * (x-center_x) <= 0
-        right_mask = right_border_direction[0] * (y-center_y) - right_border_direction[1] * (x-center_x) >= 0
-
-        mask = circle_mask * ((left_mask & right_mask) if self.fov_angle < np.pi else (left_mask | right_mask))
-        # apply same mask on every height (z-dim)
-        mask_z = np.repeat(mask[:, :, np.newaxis], size_z, axis=2)
-
-        # mask vision behind obstacles
-        visible_obstacles = self.cell_map['obstacle'] * mask_z
-        cell_diag = np.linalg.norm([self.cell_scale[0], self.cell_scale[1]])  # length of cell diagonal
-        """ Fully functioning 2d solution ---- Start
-        for position_idx in np.argwhere(visible_obstacles):
-            xx = self.cell_positions[0][position_idx[0]] + self.cell_scale[0] / 2
-            yy = self.cell_positions[1][position_idx[1]] + self.cell_scale[1] / 2
-
-            v = np.array([xx - center_x, yy - center_y])
-            # approximation of occlusion lines
-            angle = cell_diag / (2 * np.pi * np.linalg.norm(v)) * 5  # TODO: find good factor
-            cos_theta, sin_theta = np.cos(angle / 2), np.sin(angle / 2)
-            rot_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
-
-            left_border_direction = rot_matrix @ v
-            right_border_direction = rot_matrix.transpose() @ v
-
-            left_mask = left_border_direction[0] * (y - center_y) - left_border_direction[1] * (x - center_x) <= 0
-            right_mask = right_border_direction[0] * (y - center_y) - right_border_direction[1] * (x - center_x) >= 0
-            distance_mask = -v[1] * (y - yy) - v[0] * (x - xx) <= 0
-            temp_mask = left_mask * right_mask * distance_mask
-
-            mask = mask * ~temp_mask
-
-        fov_mask = np.repeat(mask[:, :, np.newaxis], size_z, axis=2)
-        # Fully functioning 2d solution ---- End
-        """
-        for position_idx in np.argwhere(visible_obstacles):
-            xx = self.cell_positions[0][position_idx[0]] + self.cell_scale[0] / 2
-            yy = self.cell_positions[1][position_idx[1]] + self.cell_scale[1] / 2
-
-            v = np.array([xx - center_x, yy - center_y])
-            # approximation of occlusion lines
-            angle = cell_diag / (2 * np.pi * np.linalg.norm(v)) * 5  # TODO: find good factor
-            cos_theta, sin_theta = np.cos(angle / 2), np.sin(angle / 2)
-            rot_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
-
-            left_border_direction = rot_matrix @ v
-            right_border_direction = rot_matrix.transpose() @ v
-
-            left_mask = left_border_direction[0] * (y - center_y) - left_border_direction[1] * (x - center_x) <= 0
-            right_mask = right_border_direction[0] * (y - center_y) - right_border_direction[1] * (x - center_x) >= 0
-            distance_mask = -v[1] * (y - yy) - v[0] * (x - xx) <= 0
-            temp_mask = left_mask * right_mask * distance_mask
-
-            mask_z[:, :, position_idx[2]] = mask_z[:, :, position_idx[2]] * ~temp_mask
-
-        fov_mask = mask_z
-
-        return fov_mask
-
     def _update(self, new_position, orientation=None, detected_obstacles=(), detected_objects=()):
         """
 
@@ -615,23 +509,7 @@ class MapEnv(gym.Env):
 
         r = 25  # point radius
         points = vtkplotter.shapes.Points(point_list[mask], r=r, c=color_list[mask], alpha=alpha_list[mask])
-        vtkplotter.show(points, interactive=True, newPlotter=True)
-
-    def _visualize3d_OLD(self, local=False):  # TODO: implement
-        token_map = self._get_map(local=local, binary=False)
-        token_map[token_map < 2.5] == 0
-        #X, Y, Z = np.mgrid[:token_map.shape[0], :token_map.shape[1], :token_map.shape[2]]
-        vol = vtkplotter.Volume(token_map, c=('midnightblue', 'lightsteelblue', 'limegreen',
-                      'red', 'gold', 'darkgreen'), alpha=(0., 0.05, 0.2, 0.8, 0.5, 1.0))
-        color_list = np.array([#[0., 0., 0.3, 0.1],
-                               #[0.9, 0.95, 1., 0.2],
-                               [0.2, 1., 0.2, 0.8],
-                               [1., 0.2, 0.2, 0.6],
-                               [1., 1., 0, 1.],
-                               [0., 0.7, 0., 1.]])
-        color_map = colors.ListedColormap(color_list)
-        lego = vol.legosurface(vmin=2., vmax=6., cmap=color_map)
-        vtkplotter.show([vol, lego], N=2)
+        vtkplotter.show(points, interactive=True, newPlotter=True, axes={'xyGrid':True, 'yzGrid': True, 'zxGrid':True}))
 
     def _move_by_delta_position(self, delta_position, step_length=0.1):  # naive, straight path
         """
@@ -664,8 +542,9 @@ class MapEnv(gym.Env):
                     break
             num_detected_cells += self._update(pos.copy())
             steps += 1
+            done = success
 
-        return success, num_detected_cells, steps
+        return success, num_detected_cells, steps, done
 
     def reset(self, starting_position=None, local=True, binary=True):
         if starting_position is None:
@@ -692,16 +571,14 @@ class MapEnv(gym.Env):
         :return:
         """
         delta_position = np.concatenate((np.array(action, dtype=np.float32), np.array([0.], dtype=np.float32)), axis=0)
-        success, num_detected_cells, steps = self._move_by_delta_position(delta_position)
+        success, num_detected_cells, steps, done = self._move_by_delta_position(delta_position)
 
         if success:
             reward = num_detected_cells / self.reward_scaling + self.REWARD_STEP  # penalizing small steps
-            done = False
         else:
             reward = self.REWARD_FAILURE
-            done = True
         observation = self._get_map(local=local, binary=binary)
-        info = {'env': 'Exploration'}
+        info = {'env': 'Exploration', 'waypoint_reached': success}
         return observation, reward, done, info
 
     def render(self, render_3d=False, local=False, num_ticks_approx=6, show_detected=False):
@@ -775,6 +652,7 @@ class AirSimMapEnv(MapEnv):
         :return:
         """
         self.env_airsim.target_position = self._get_current_position() + delta_position
+        self.env_airsim.valid_trgt = True
 
         obs_air = self.env_airsim._get_state()
         done, reached_destination, collision = False, False, False
@@ -792,7 +670,7 @@ class AirSimMapEnv(MapEnv):
             if collision:
                 done = True
             elif action == 0:
-                done = True
+                done = False
                 success = info['terminated_at_target']
 
             object_positions = []
@@ -812,7 +690,7 @@ class AirSimMapEnv(MapEnv):
 
             steps += 1
 
-        return success, num_detected_cells, steps
+        return success, num_detected_cells, steps, done
 
     def reset(self):
         _ = self.env_airsim.reset()
