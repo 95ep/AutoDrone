@@ -509,7 +509,7 @@ class MapEnv(gym.Env):
 
         r = 25  # point radius
         points = vtkplotter.shapes.Points(point_list[mask], r=r, c=color_list[mask], alpha=alpha_list[mask])
-        vtkplotter.show(points, interactive=True, newPlotter=True, axes={'xyGrid':True, 'yzGrid': True, 'zxGrid':True}))
+        vtkplotter.show(points, interactive=True, newPlotter=True, axes={'xyGrid':True, 'yzGrid': True, 'zxGrid':True})
 
     def _move_by_delta_position(self, delta_position, step_length=0.1):  # naive, straight path
         """
@@ -578,7 +578,7 @@ class MapEnv(gym.Env):
         else:
             reward = self.REWARD_FAILURE
         observation = self._get_map(local=local, binary=binary)
-        info = {'env': 'Exploration', 'waypoint_reached': success}
+        info = {'env': 'Exploration', 'terminated_at_target': success}
         return observation, reward, done, info
 
     def render(self, render_3d=False, local=False, num_ticks_approx=6, show_detected=False):
@@ -656,18 +656,30 @@ class AirSimMapEnv(MapEnv):
         self.env_airsim.valid_trgt = True
 
         obs_air = self.env_airsim._get_state()
-        done, reached_destination, collision = False, False, False
+        done, trajectory_ended, collision = False, False, False
         success = False
         num_detected_cells = 0
         steps = 0
         # move to waypoint
-        while not done:
+        while not trajectory_ended:
+
             obs_vector, obs_visual = self.env_utils_airsim.process_obs(obs_air)
             comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
             with torch.no_grad():
                 value, action, log_prob = self.local_navigator.act(comb_obs)
             action = self.env_utils_airsim.process_action(action)
             obs_air, reward, collision, info = self.env_airsim.step(action)
+            if collision:
+                done = True
+                trajectory_ended = True
+            elif action == 0:
+                done = False
+                success = info['terminated_at_target']
+                trajectory_ended = True
+            elif steps == self.navigator_max_steps:
+                done = False
+                success = False
+                trajectory_ended = True
 
             object_positions = []
             obstacle_positions = []
@@ -685,15 +697,7 @@ class AirSimMapEnv(MapEnv):
                                                detected_obstacles=obstacle_positions)
             steps += 1
 
-            if collision:
-                done = True
-            elif action == 0:
-                done = False
-                success = info['terminated_at_target']
-                break
-            if steps == self.navigator_max_steps:
-                break
-                
+
         return success, num_detected_cells, steps, done
 
     def reset(self):
