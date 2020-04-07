@@ -60,16 +60,27 @@ obs = m.reset()
 
 # Make the moves
 waypoints = [
+np.array([-0.5, -1.0]),
 np.array([-0.5, -3.5]),
+np.array([4, -3.5]),
+np.array([10, -3.5]),
+np.array([15, -3.5]),
 np.array([20, -3.5]),
+np.array([15, -3.5]),
+np.array([10, -3.5]),
 np.array([-0.5, -3.5]),
-np.array([-0.5, 3.5]),
-np.array([20, 3.5]),
-np.array([20, 4.5]),
+np.array([-0.5, 3.0]),
+np.array([4.5, 3.0]),
+np.array([10.5, 3.0]),
+np.array([20, 3.0]),
+np.array([20, 4.0]),
+np.array([10, 4.0]),
+np.array([5, 4.0]),
 np.array([-0.5, 4.5]),
 ]
 
 for goal in waypoints:
+    print("Goal: {}".format(goal))
     not_reached = True
     pos = m.env_airsim.get_position()
     delta =  np.array([goal[0]-pos[0], goal[1]-pos[1]])
