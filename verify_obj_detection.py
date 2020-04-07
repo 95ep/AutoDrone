@@ -47,7 +47,8 @@ gt_monitor_positions = [
 [0.87, 5.55, 0.05]
 ]
 
-with open("D:/Exjobb2020ErikFilip/AutoDrone/Parameters/parameters_verify_objs.json") as f:
+# TODO: Use args instead
+with open("D:/Exjobb2020ErikFilip/AutoDrone/Parameters/parameters_verify_obst.json") as f:
     parameters = json.load(f)
 
 kwargs = parameters["Exploration"]
@@ -60,7 +61,6 @@ obs = m.reset()
 
 # Make the moves
 waypoints = [
-np.array([-0.5, -1.0]),
 np.array([-0.5, -3.5]),
 np.array([4, -3.5]),
 np.array([10, -3.5]),
@@ -102,32 +102,33 @@ detected_positions = []
 for cell in obj_cells:
     detected_positions.append(m._get_position(cell))
 
-n_true_positive = 0
-n_false_positive = 0
-monitors_found = [False for _ in range(len(gt_monitor_positions))]
-for pos in detected_positions:
-    correct_pos = False
-    for i, gt_pos in enumerate(gt_monitor_positions):
-        if abs(pos[0] - gt_pos[0]) < (x_scale) and \
-        abs(pos[1] - gt_pos[1]) < (y_scale) and \
-        abs(pos[2] - gt_pos[2]) < (z_scale):
-            correct_pos = True
-            monitors_found[i] = True
-            n_true_positive += 1
-            break
-    if not correct_pos:
-        n_false_positive += 1
+if len(detected_positions) > 0:
+    n_true_positive = 0
+    n_false_positive = 0
+    monitors_found = [False for _ in range(len(gt_monitor_positions))]
+    for pos in detected_positions:
+        correct_pos = False
+        for i, gt_pos in enumerate(gt_monitor_positions):
+            if abs(pos[0] - gt_pos[0]) < (x_scale) and \
+            abs(pos[1] - gt_pos[1]) < (y_scale) and \
+            abs(pos[2] - gt_pos[2]) < (z_scale):
+                correct_pos = True
+                monitors_found[i] = True
+                n_true_positive += 1
+                break
+        if not correct_pos:
+            n_false_positive += 1
 
-n_recalled = sum(monitors_found)
-precision = n_true_positive / len(detected_positions)
-recall = n_recalled / len(monitors_found)
+    n_recalled = sum(monitors_found)
+    precision = n_true_positive / len(detected_positions)
+    recall = n_recalled / len(monitors_found)
 
 
-print("n true postive {}".format(n_true_positive))
-print("n false positive {}".format(n_false_positive))
-print("n monitors found {}".format(n_recalled))
-print("Precision {}, recall {}".format(precision, recall))
-print("All positions of objects detected")
-print(detected_positions)
+    print("n true postive {}".format(n_true_positive))
+    print("n false positive {}".format(n_false_positive))
+    print("n monitors found {}".format(n_recalled))
+    print("Precision {}, recall {}".format(precision, recall))
+    print("All positions of objects detected")
+    print(detected_positions)
 
 m.render(render_3d=True)
