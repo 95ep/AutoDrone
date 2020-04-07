@@ -35,7 +35,6 @@
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/neutral-airsim/saved_models/model500.pth"
     },
     "eval": {
-        "n_evals": 1,
         "n_eval_steps": 2500,
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/refac/test-pong/saved_models/model1400.pth"
     }

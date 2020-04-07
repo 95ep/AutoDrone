@@ -1,5 +1,5 @@
 {
-    "mode": "training",
+    "mode": "evaluation",
     "env_str": "CartPole",
     "neural_network": {
         "hidden_size": 16,
@@ -40,7 +40,6 @@
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/neutral-airsim/saved_models/model500.pth"
     },
     "eval": {
-        "n_evals": 5,
         "n_eval_steps": 200,
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/refac/test-cartpole/saved_models/model60.pth"
     }
