@@ -655,12 +655,12 @@ class AirSimMapEnv(MapEnv):
         self.env_airsim.valid_trgt = True
 
         obs_air = self.env_airsim._get_state()
-        done, reached_destination, collision = False, False, False
+        done, trajectory_ended, collision = False, False, False
         success = False
         num_detected_cells = 0
         steps = 0
         # move to waypoint
-        while not done:
+        while not trajectory_ended:
             obs_vector, obs_visual = self.env_utils_airsim.process_obs(obs_air)
             comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
             with torch.no_grad():
@@ -669,9 +669,11 @@ class AirSimMapEnv(MapEnv):
             obs_air, reward, collision, info = self.env_airsim.step(action)
             if collision:
                 done = True
+                trajectory_ended = True
             elif action == 0:
                 done = False
                 success = info['terminated_at_target']
+                trajectory_ended = True
 
             object_positions = []
             obstacle_positions = []

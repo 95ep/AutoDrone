@@ -33,8 +33,8 @@ class AirsimEnv(gym.Env):
                  reward_rotate=-0.01,
                  distance_threshold=0.5,
                  invalid_prob=0.0,
-                 floor_z=0.5,
-                 ceiling_z=-1,
+                 floor_z=100,
+                 ceiling_z=-100,
                  scene_string=""
                  ):
 
