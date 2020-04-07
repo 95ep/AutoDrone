@@ -10,6 +10,7 @@
         "max_pool_config": [false, false, false]
     },
 
+    "navigator_max_steps": 100,
     "object_detection_frequency": 10000000000,
     "obstacle_detection_frequency": 3,
 

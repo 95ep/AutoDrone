@@ -639,6 +639,7 @@ class AirSimMapEnv(MapEnv):
         self.local_navigator = NeutralNet(**network_kwargs)
         self.local_navigator.load_state_dict(torch.load(parameters['Exploration']['local_navigation']['weights']))
 
+        self.navigator_max_steps = parameters['navigator_max_steps']
         self.object_detection_frequency = parameters['object_detection_frequency']
         self.obstacle_detection_frequency = parameters['obstacle_detection_frequency']
         self.env_airsim.setup_object_detection(**parameters['object_detection'])
@@ -667,11 +668,6 @@ class AirSimMapEnv(MapEnv):
                 value, action, log_prob = self.local_navigator.act(comb_obs)
             action = self.env_utils_airsim.process_action(action)
             obs_air, reward, collision, info = self.env_airsim.step(action)
-            if collision:
-                done = True
-            elif action == 0:
-                done = False
-                success = info['terminated_at_target']
 
             object_positions = []
             obstacle_positions = []
@@ -687,9 +683,17 @@ class AirSimMapEnv(MapEnv):
                                                orientation=orientation,
                                                detected_objects=object_positions,
                                                detected_obstacles=obstacle_positions)
-
             steps += 1
 
+            if collision:
+                done = True
+            elif action == 0:
+                done = False
+                success = info['terminated_at_target']
+                break
+            if steps == self.navigator_max_steps:
+                break
+                
         return success, num_detected_cells, steps, done
 
     def reset(self):
