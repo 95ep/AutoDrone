@@ -110,7 +110,7 @@ def _update(actor_critic, data, optimizer, minibatch_size, train_iters,
             total_loss.backward()
             optimizer.step()
 
-        if np.array(approx_kl_iter).mean() > target_kl:
+        if target_kl > 0 and np.array(approx_kl_iter).mean() > target_kl:
             print_progress_bar(1, 1)
             print("Early stopping at step {} due to reaching max kl.".format(i))
             break

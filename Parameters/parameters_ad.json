@@ -10,7 +10,7 @@
         "max_pool_config": [false, false, false]
     },
 
-    "navigator_max_steps": 100,
+    "navigator_max_steps": 50,
     "object_detection_frequency": 10000000000,
     "obstacle_detection_frequency": 3,
 
@@ -48,7 +48,7 @@
             "padding_config": [1, 1, 1],
             "max_pool_config": [true, true, false]
         },
-        "weights": "C:/Users/Filip/Projects/Rise/AutoDrone/runs/subT-new-trgts-resumed/saved_models/model660.pth"
+        "weights": "C:/Users/Filip/Projects/Rise/AutoDrone/runs/subT-resume660-with-invalid-trgts/saved_models/model3280.pth"
       }
     },
     "AirSim": {
@@ -107,22 +107,22 @@
     "training": {
         "gamma": 0.99,
         "n_epochs": 250000,
-        "steps_per_epoch": 2048,
-        "minibatch_size": 128,
+        "steps_per_epoch": 512,
+        "minibatch_size": 64,
         "clip_ratio": 0.2,
-        "lr": 1e-4,
-        "train_iters": 8,
+        "lr": 1e-5,
+        "train_iters": 16,
         "lam": 0.95,
         "max_episode_len": 1024,
         "value_loss_coef": 0.5,
         "entropy_coef": 0.01,
-        "target_kl": 0.03,
-        "save_freq": 10,
+        "target_kl": 0,
+        "save_freq": 1,
         "prob_train_on_manual_experience": 0.0,
         "manual_experience_path": "Trajectories/",
-        "resume_training": false,
-        "epoch_to_resume": 0,
-        "weights": ""
+        "resume_training": true,
+        "epoch_to_resume": 28,
+        "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/runs/Exploration3/saved_models/model28.pth"
     },
     "eval": {
         "n_eval_steps": 64,

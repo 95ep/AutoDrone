@@ -666,7 +666,7 @@ class AirSimMapEnv(MapEnv):
             obs_vector, obs_visual = self.env_utils_airsim.process_obs(obs_air)
             comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
             with torch.no_grad():
-                value, action, log_prob = self.local_navigator.act(comb_obs)
+                value, action, log_prob = self.local_navigator.act(comb_obs, deterministic=False)
             action = self.env_utils_airsim.process_action(action)
             obs_air, reward, collision, info = self.env_airsim.step(action)
             if collision:
