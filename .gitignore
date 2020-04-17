@@ -20,3 +20,6 @@ runs/*
 
 # Plots
 MetricsPlotters/plots/*
+
+# Verification output
+verification/*
