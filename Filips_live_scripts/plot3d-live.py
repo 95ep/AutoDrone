@@ -42,8 +42,8 @@ show([vol, lego], N=2)
 from vtkplotter import *
 import vtkplotter
 import numpy as np
-plist = np.array([[0,0,0], [0,0,1],[0,0,2],[0,0,3],[1,1,-1]])
+plist = np.array([[0,0,0], [0,0,1],[0,0,2],[0,0,3],[1,1,-1], [-1,-1,1], [-2,-3,-1], [1,3,-2], [4, 2, 2]])
 r = 20
-c = np.array([[1,0,0],[0,1,0],[0,0,1],[0,1,1],[1,1,0]])
+c = np.array([[1,0,0],[0,1,0],[0,0,1],[0,1,1],[1,1,0],[1,0.2,0],[0.5,1,0],[0.8,0,1],[0.4,0.6,1]])
 points = vtkplotter.shapes.Points(plist, r=r, c=c, alpha=0.7)
-show(points, newPlotter=True)
+show(points, newPlotter=True, axes=1)

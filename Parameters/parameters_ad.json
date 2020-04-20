@@ -121,8 +121,8 @@
         "prob_train_on_manual_experience": 0.0,
         "manual_experience_path": "Trajectories/",
         "resume_training": true,
-        "epoch_to_resume": 28,
-        "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/runs/Exploration3/saved_models/model28.pth"
+        "epoch_to_resume": 30,
+        "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/runs/Exploration3/saved_models/model30.pth"
     },
     "eval": {
         "n_eval_steps": 64,
