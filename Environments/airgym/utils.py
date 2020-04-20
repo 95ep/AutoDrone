@@ -158,19 +158,8 @@ def valid_trgt(env):
         target = np.array([target_x, target_y])
 
     elif env == "basic23":
-        if r < 1/6:
-            target_x = 20.5 - 21.5 * np.random.rand()
-            target_y = 0
-        else:
-            target_y = 5 - 9 * np.random.rand()
-            if r < 2/5:
-                target_x = 3.8
-            elif r < 3/5:
-                target_x = 9.4
-            elif r < 4/5:
-                target_x = 15.5
-            else:
-                target_x = 20.5
+        target_x = 21 - 22 * np.random.rand()
+        target_y = 5 - 9 * np.random.rand()
         target = np.array([target_x, target_y])
     else:
         raise ValueError("Env not recognized")
