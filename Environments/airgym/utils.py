@@ -196,18 +196,18 @@ def invalid_trgt(env):
         target = np.array([target_x, target_y])
 
     elif env == "basic23":
-        if r < 1/4:
-            target_x = -2
-            target_y = 6 - 12 * np.random.rand()
-        elif r < 2/4:
-            target_x = 22
-            target_y = 6 - 12 * np.random.rand()
-        elif r < 3/4:
+        if r < 1/4: # South sector
+            target_x = -2 - 15 * np.random.rand()
+            target_y = 16 - 32 * np.random.rand()
+        elif r < 2/4: # North sector
+            target_x = 22 + 15 * np.random.rand()
+            target_y = 16 - 32 * np.random.rand()
+        elif r < 3/4: # West sector
             target_x = 22 - 24 * np.random.rand()
-            target_y = -6
-        else:
+            target_y = -6 - 15 * np.random.rand()
+        else: # East sector
             target_x = 22 - 24 * np.random.rand()
-            target_y = 7
+            target_y = 7 + 15 * np.random.rand()
         target = np.array([target_x, target_y])
     else:
         raise ValueError("Env not recognized")
