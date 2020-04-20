@@ -35,7 +35,7 @@ def move_up(client, velocity=0.5, duration=0.5):
     # Move up approx 0.25 m. Note direction of z-axis.
     client.moveByVelocityAsync(0, 0, -velocity, duration=duration).join()
     # Stop the UAV
-    client.rotateByYawRateAsync(0, 1e-6).join()
+    client.moveByVelocityAsync(0, 0, -3e-3, duration=1e-6).join()
 
 
 def move_down(client, velocity=0.5, duration=0.5):
