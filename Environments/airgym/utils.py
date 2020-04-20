@@ -118,7 +118,10 @@ def local2global(point_cloud, client):
     client_pos = np.array([[pos_vec.x_val, pos_vec.y_val, pos_vec.z_val]])
     client_orientation = client.simGetGroundTruthKinematics().orientation
     pitch, roll, yaw = airsim.to_eularian_angles(client_orientation)
-    # pitch, roll, yaw = -pitch, -roll, -yaw
+
+    # Account for camera offset
+    offset = np.array([0.46, 0, 0])
+    point_cloud = point_cloud + offset
 
     rot_mat = np.array([
         [np.cos(yaw)*np.cos(pitch), np.cos(yaw)*np.sin(pitch)*np.sin(roll) - np.sin(yaw)*np.cos(roll),
