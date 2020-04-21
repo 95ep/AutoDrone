@@ -2,6 +2,9 @@ import numpy as np
 from Environments.Exploration.map_env import make, AirSimMapEnv
 import time
 import json
+import argparse
+import os
+
 
 # All positions of monitors
 gt_monitor_positions = [
@@ -48,7 +51,12 @@ gt_monitor_positions = [
 ]
 
 # TODO: Use args instead
-with open("D:/Exjobb2020ErikFilip/AutoDrone/Parameters/parameters_verify_obst.json") as f:
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--parameters', type=str)
+parser.add_argument('--save_dir', type=str)
+args = parser.parse_args()
+with open(args.parameters) as f:
     parameters = json.load(f)
 
 kwargs = parameters["Exploration"]
@@ -96,39 +104,73 @@ for goal in waypoints:
 
 
 map = m._get_map(local=False, binary=False)
+# Extract objects
 obj_map = map == m.tokens['object']
 obj_cells = np.argwhere(obj_map)
-detected_positions = []
+object_positions = []
 for cell in obj_cells:
-    detected_positions.append(m._get_position(cell))
+    object_positions.append(m._get_position(cell))
 
-if len(detected_positions) > 0:
+# Extract obstacles
+obs_map = map == m.tokens['obstacle']
+obs_cells = np.argwhere(obs_map)
+obstacle_positions = []
+for cell in obs_cells:
+     obstacle_positions.append(m._get_position(cell))
+
+# Extract visited
+visited_map = map == m.tokens['visited']
+visited_cells = np.argwhere(visited_map)
+visited_positions = []
+for cell in visited_cells:
+     visited_positions.append(m._get_position(cell))
+
+
+if len(object_positions) > 0:
+    # Calculate precision
     n_true_positive = 0
     n_false_positive = 0
-    monitors_found = [False for _ in range(len(gt_monitor_positions))]
-    for pos in detected_positions:
+    for pos in object_positions:
         correct_pos = False
         for i, gt_pos in enumerate(gt_monitor_positions):
             if abs(pos[0] - gt_pos[0]) < (x_scale) and \
             abs(pos[1] - gt_pos[1]) < (y_scale) and \
             abs(pos[2] - gt_pos[2]) < (z_scale):
                 correct_pos = True
-                monitors_found[i] = True
                 n_true_positive += 1
                 break
         if not correct_pos:
             n_false_positive += 1
 
-    n_recalled = sum(monitors_found)
-    precision = n_true_positive / len(detected_positions)
-    recall = n_recalled / len(monitors_found)
+    precision = n_true_positive / len(object_positions)
 
+    n_recalled = 0
+    for gt_pos in gt_monitor_positions:
+        for pos in object_positions:
+            if abs(pos[0] - gt_pos[0]) < (x_scale) and \
+            abs(pos[1] - gt_pos[1]) < (y_scale) and \
+            abs(pos[2] - gt_pos[2]) < (z_scale):
+                n_recalled += 1
+                break
+
+    recall = n_recalled / len(gt_monitor_positions)
 
     print("n true postive {}".format(n_true_positive))
     print("n false positive {}".format(n_false_positive))
     print("n monitors found {}".format(n_recalled))
     print("Precision {}, recall {}".format(precision, recall))
     print("All positions of objects detected")
-    print(detected_positions)
+    print(object_positions)
+
+
+save_dir = os.path.dirname(args.save_dir)
+if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
+
+# TODO: Add gt and check why save doesn't work
+np.save(save_dir + '/objects.npy', np.array(object_positions))
+np.save(save_dir + '/obstacles.npy', np.array(obstacle_positions))
+np.save(save_dir + '/visited.npy', np.array(visited_positions))
+np.save(save_dir + '/ground_truth', np.array(gt_monitor_positions))
 
 m.render(render_3d=True)

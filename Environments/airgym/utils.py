@@ -118,7 +118,10 @@ def local2global(point_cloud, client):
     client_pos = np.array([[pos_vec.x_val, pos_vec.y_val, pos_vec.z_val]])
     client_orientation = client.simGetGroundTruthKinematics().orientation
     pitch, roll, yaw = airsim.to_eularian_angles(client_orientation)
-    # pitch, roll, yaw = -pitch, -roll, -yaw
+
+    # Account for camera offset
+    offset = np.array([0.46, 0, 0])
+    point_cloud = point_cloud + offset
 
     rot_mat = np.array([
         [np.cos(yaw)*np.cos(pitch), np.cos(yaw)*np.sin(pitch)*np.sin(roll) - np.sin(yaw)*np.cos(roll),
@@ -155,19 +158,8 @@ def valid_trgt(env):
         target = np.array([target_x, target_y])
 
     elif env == "basic23":
-        if r < 1/6:
-            target_x = 20.5 - 21.5 * np.random.rand()
-            target_y = 0
-        else:
-            target_y = 5 - 9 * np.random.rand()
-            if r < 2/5:
-                target_x = 3.8
-            elif r < 3/5:
-                target_x = 9.4
-            elif r < 4/5:
-                target_x = 15.5
-            else:
-                target_x = 20.5
+        target_x = 21 - 22 * np.random.rand()
+        target_y = 5 - 9 * np.random.rand()
         target = np.array([target_x, target_y])
     else:
         raise ValueError("Env not recognized")
@@ -196,18 +188,18 @@ def invalid_trgt(env):
         target = np.array([target_x, target_y])
 
     elif env == "basic23":
-        if r < 1/4:
-            target_x = -2
-            target_y = 6 - 12 * np.random.rand()
-        elif r < 2/4:
-            target_x = 22
-            target_y = 6 - 12 * np.random.rand()
-        elif r < 3/4:
+        if r < 1/4: # South sector
+            target_x = -2 - 15 * np.random.rand()
+            target_y = 16 - 32 * np.random.rand()
+        elif r < 2/4: # North sector
+            target_x = 22 + 15 * np.random.rand()
+            target_y = 16 - 32 * np.random.rand()
+        elif r < 3/4: # West sector
             target_x = 22 - 24 * np.random.rand()
-            target_y = -6
-        else:
+            target_y = -6 - 15 * np.random.rand()
+        else: # East sector
             target_x = 22 - 24 * np.random.rand()
-            target_y = 7
+            target_y = 7 + 15 * np.random.rand()
         target = np.array([target_x, target_y])
     else:
         raise ValueError("Env not recognized")
