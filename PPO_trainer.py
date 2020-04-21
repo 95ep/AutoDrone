@@ -126,7 +126,6 @@ def _update(actor_critic, data, optimizer, minibatch_size, train_iters,
 def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True):
     log_dict = {'Eval/TotalReturn': 0, 'Eval/nDones': 0, 'Eval/TotalSteps': 0}
 
-
     # Set up interactions with env
     obs_vector, obs_visual = env_utils.process_obs(env.reset())
     comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
@@ -154,10 +153,13 @@ def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True):
         obs_vector, obs_visual = env_utils.process_obs(next_obs)
         comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
         if done:
-            log_dict['Eval/nDones'] += 1
-            # Reset env
-            obs_vector, obs_visual = env_utils.process_obs(env.reset())
-            comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
+            if 'env' not in info:
+                break
+            else:
+                log_dict['Eval/nDones'] += 1
+                # Reset env
+                obs_vector, obs_visual = env_utils.process_obs(env.reset())
+                comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
     if 'env' in info and info['env'] == "Exploration" and render:
         env.render(local=False)  # TODO: ONLY IF EXPLORATION

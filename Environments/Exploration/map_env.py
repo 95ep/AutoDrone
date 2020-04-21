@@ -28,7 +28,7 @@ class MapEnv(gym.Env):
                  fov_angle=np.pi/2,
                  map_keys=['unknown', 'visible', 'visited', 'obstacle', 'object', 'position'],
                  thresholds={'visible': 1, 'visited': 1, 'obstacle': 1, 'object': 1},
-                 map_idx=-1,
+                 map_idx=0,
                  interactive_plot=False,
                  REWARD_FAILURE=-10,
                  REWARD_STEP=-0.5,
@@ -46,7 +46,7 @@ class MapEnv(gym.Env):
         :param fov_angle: field of view angle in radians.
         :param map_keys: string of labels for which things to be tracked in the map and visualized
         :param thresholds: dict. Number of detections in a cell needed to mark. as occurance
-        :param map_idx: int in range [0,7] to choose from predefined training maps, None to randomize index. -1 default map.
+        :param map_idx: int in range [1,7] to choose from predefined training maps, -1 to randomize index. 0 default empty map.
         """
         assert len(starting_map_size) == 3, 'Class does currently only work for exactly 3 dimensions.'
         self.LARGE_NUMBER = 20
@@ -111,6 +111,7 @@ class MapEnv(gym.Env):
             self.ax = fig.subplots()
         else:
             self.ax = None
+        self.map_idx = map_idx
 
     def _debug(self, msg=""):
         if msg:
@@ -511,6 +512,10 @@ class MapEnv(gym.Env):
         points = vtkplotter.shapes.Points(point_list[mask], r=r, c=color_list[mask], alpha=alpha_list[mask])
         vtkplotter.show(points, interactive=True, newPlotter=True, axes={'xyGrid':True, 'yzGrid': True, 'zxGrid':True})
 
+    def _training_map(self, map_idx):
+        from Environments.Exploration import training_maps
+        return training_maps.generate_map(map_idx)
+
     def _move_by_delta_position(self, delta_position, step_length=0.1):  # naive, straight path
         """
         Reaches target by taking smalls steps until close to target
@@ -520,6 +525,7 @@ class MapEnv(gym.Env):
         :return:
         """
         success = True
+        done = False
         num_detected_cells = 0
         steps = 0
 
@@ -539,14 +545,17 @@ class MapEnv(gym.Env):
             if check_for_obstacles:
                 if self._get_info(pos)['obstacle'] > self.thresholds['obstacle']:
                     success = False
+                    done = True
                     break
             num_detected_cells += self._update(pos.copy())
             steps += 1
-            done = success
 
         return success, num_detected_cells, steps, done
 
     def reset(self, starting_position=None, local=True, binary=True):
+        if self.map_idx != 0:
+            starting_position, obstacles = _training_map(self.map_idx)
+
         if starting_position is None:
             starting_position = self.starting_position
         self.position = starting_position
@@ -559,6 +568,8 @@ class MapEnv(gym.Env):
         self.cell_map, self.map_shape, self.cell_positions = self._create_map(map_borders)
         self._automatic_expansion(self.position)  # expand map if we move close to a border
         self._move_to_cell(self._get_cell(self.position))
+        if self.map_idx != 0:
+            self._update(self.position, detected_obstacles=obstacles)
         observation = self._get_map(local=local, binary=binary)
         return observation
 
@@ -595,7 +606,7 @@ class MapEnv(gym.Env):
         pass
 
 
-# TODO New class inheriting from MapEnv, which uses neural actor
+
 class AirSimMapEnv(MapEnv):
 
     def __init__(self,
@@ -608,7 +619,7 @@ class AirSimMapEnv(MapEnv):
                  fov_angle=np.pi/2,
                  map_keys=['unknown', 'visible', 'visited', 'obstacle', 'object', 'position'],
                  thresholds={'visible': 1, 'visited': 1, 'obstacle': 1, 'object': 1},
-                 map_idx=-1,
+                 map_idx=0,
                  interactive_plot=False,
                  REWARD_FAILURE=-10,
                  REWARD_STEP=-0.5,
