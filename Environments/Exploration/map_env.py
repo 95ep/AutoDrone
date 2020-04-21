@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 import gym
 from gym import spaces
+from matplotlib.colors import ListedColormap
 
 import torch
 import vtkplotter
@@ -112,6 +113,7 @@ class MapEnv(gym.Env):
         else:
             self.ax = None
         self.map_idx = map_idx
+        self.z_value = None
 
     def _debug(self, msg=""):
         if msg:
@@ -251,15 +253,14 @@ class MapEnv(gym.Env):
         if self.cell_map[map_key][cell] < self.LARGE_NUMBER:
             self.cell_map[map_key][cell] += 1
 
-    def _field_of_view(self, position, orientation):
+    def _field_of_view(self, position, orientation, z_value=None):
         """
 
         :param position: absolute position
         :param orientation: 2d np array (will be normalized)
+        :param z_value: None or float. If float, generates vision cone with height=1 at z_value for 2d exploration training.
         :return:
         """
-        # currently only works in 2D
-        # TODO: generalize to 3D later on
         # approximate function: distance is calculated from cell perspective, not position perspective
         assert 'visible' in self.map_keys, 'no map exists that tracks visible cells'
         assert len(orientation) == 2, 'orientation should be 2 dimensional vector (v_x, v_y)'
@@ -274,9 +275,9 @@ class MapEnv(gym.Env):
         radius = self.vision_range
 
         # retrieve x and y coordinates for cell centers
-        x = np.reshape(self.cell_positions[0][:-1] + self.cell_scale[0] / 2, (-1, 1, 1))
-        y = np.reshape(self.cell_positions[1][:-1] + self.cell_scale[1] / 2, (1, -1, 1))
-        z = np.reshape(self.cell_positions[2][:-1] + self.cell_scale[2] / 2, (1, 1, -1))
+        x = np.reshape(self.cell_positions[0][:-1] + scale_x / 2, (-1, 1, 1))
+        y = np.reshape(self.cell_positions[1][:-1] + scale_y / 2, (1, -1, 1))
+        z = np.reshape(self.cell_positions[2][:-1] + scale_z / 2, (1, 1, -1))
 
         mask_sphere = (x-center_x) ** 2 + (y-center_y) ** 2 + (z-center_z) ** 2 <= radius ** 2
 
@@ -289,32 +290,38 @@ class MapEnv(gym.Env):
         mask_left = v_left[0] * (y-center_y) - v_left[1] * (x-center_x) + z - z <= 0  # '+z-z' to make mask 3d
         mask_right = v_right[0] * (y-center_y) - v_right[1] * (x-center_x) + z - z >= 0
 
-        # find seconod mask of vision cone in the orientation-z plane
-        temp_up = rot_matrix @ np.array([1, 0])  # rotated vector in the orientation-z plane
-        v_up = np.array([orientation[0] * temp_up[0], orientation[1] * temp_up[0], temp_up[1]])
-        # approximately cross(v, rotation(pi/2) * v), find perpendicular normal vector
-        n_up = np.array([-v_up[0]*v_up[2], -v_up[1]*v_up[2], v_up[0] ** 2 + v_up[1] ** 2])
-        # mask points on the wrong side of the plane desribed by the normal vector
-        mask_up = n_up[0] * (x-center_x) + n_up[1] * (y-center_y) + n_up[2] * (z-center_z) <= 0
-        # repeat for other border of the cone
-        temp_down = rot_matrix.transpose() @ np.array([1, 0])
-        v_down = np.array([orientation[0] * temp_down[0], orientation[1] * temp_down[0], temp_down[1]])
-        n_down = np.array([-v_down[0]*v_down[2], -v_down[1]*v_down[2], v_down[0] ** 2 + v_down[1] ** 2])
-        mask_down = n_down[0] * (x-center_x) + n_down[1] * (y-center_y) + n_down[2] * (z-center_z) >= 0
+        if z_value is not None:
+            cone_mask = mask_left & mask_right if self.fov_angle < np.pi else mask_left | mask_right
+            z_mask_upper = x - x + y - y + z <= z_value + 0.05  # adding small tolerance
+            z_mask_lower = x - x + y - y + z >= z_value - 0.05  # adding small tolerance
+            mask = mask_sphere * cone_mask * z_mask_upper * z_mask_lower
+        else:
+            # find second mask of vision cone in the orientation-z plane
+            temp_up = rot_matrix @ np.array([1, 0])  # rotated vector in the orientation-z plane
+            v_up = np.array([orientation[0] * temp_up[0], orientation[1] * temp_up[0], temp_up[1]])
+            # approximately cross(v, rotation(pi/2) * v), find perpendicular normal vector
+            n_up = np.array([-v_up[0]*v_up[2], -v_up[1]*v_up[2], v_up[0] ** 2 + v_up[1] ** 2])
+            # mask points on the wrong side of the plane desribed by the normal vector
+            mask_up = n_up[0] * (x-center_x) + n_up[1] * (y-center_y) + n_up[2] * (z-center_z) <= 0
+            # repeat for other border of the cone
+            temp_down = rot_matrix.transpose() @ np.array([1, 0])
+            v_down = np.array([orientation[0] * temp_down[0], orientation[1] * temp_down[0], temp_down[1]])
+            n_down = np.array([-v_down[0]*v_down[2], -v_down[1]*v_down[2], v_down[0] ** 2 + v_down[1] ** 2])
+            mask_down = n_down[0] * (x-center_x) + n_down[1] * (y-center_y) + n_down[2] * (z-center_z) >= 0
 
-        cone_mask = (mask_left & mask_right) * (mask_up & mask_down) if self.fov_angle < np.pi else (mask_left | mask_right) * (mask_up | mask_down)
-#        cone_mask = (mask_left & mask_right)* mask_up if self.fov_angle < np.pi else (mask_left | mask_right)
+            cone_mask = (mask_left & mask_right) * (mask_up & mask_down) if self.fov_angle < np.pi else (mask_left | mask_right) * (mask_up | mask_down)
+            #cone_mask = (mask_left & mask_right)* mask_up if self.fov_angle < np.pi else (mask_left | mask_right)
 
-        mask = mask_sphere * cone_mask
+            mask = mask_sphere * cone_mask
 
         # mask vision behind obstacles
         visible_obstacles = self.cell_map['obstacle'] * mask
         cell_diag = np.linalg.norm(np.array(self.cell_scale))  # length of cell diagonal ~= maximum occlusion size
 
         for position_idx in np.argwhere(visible_obstacles):
-            xx = self.cell_positions[0][position_idx[0]] + self.cell_scale[0] / 2
-            yy = self.cell_positions[1][position_idx[1]] + self.cell_scale[1] / 2
-            zz = self.cell_positions[2][position_idx[2]] + self.cell_scale[2] / 2
+            xx = self.cell_positions[0][position_idx[0]] + scale_x / 2
+            yy = self.cell_positions[1][position_idx[1]] + scale_y / 2
+            zz = self.cell_positions[2][position_idx[2]] + scale_z / 2
 
             v = np.array([xx - center_x, yy - center_y, zz - center_z])
             # approximation of occlusion lines
@@ -350,7 +357,7 @@ class MapEnv(gym.Env):
 
         return fov_mask
 
-    def _update(self, new_position, orientation=None, detected_obstacles=(), detected_objects=()):
+    def _update(self, new_position, orientation=None, detected_obstacles=(), detected_objects=(), z_value=None):
         """
 
         :param new_position: tuple or list, (x, y, z)
@@ -373,7 +380,7 @@ class MapEnv(gym.Env):
         for object_position in detected_objects:
             self._mark_cell(self._get_cell(object_position), 'object')
 
-        fov_mask = self._field_of_view(new_position, orientation)
+        fov_mask = self._field_of_view(new_position, orientation, z_value=z_value)
         # number of detected cells for which the detection threshold has not yet been reached
         num_detected = np.sum(fov_mask) - np.sum(self.cell_map['visible'][fov_mask] // self.thresholds['visible'] == 0)
         self.cell_map['visible'][fov_mask] += 1
@@ -446,7 +453,7 @@ class MapEnv(gym.Env):
     def _get_current_position(self):
         return self.position
 
-    def _visualize2d(self, local=False, ax=None, num_ticks_approx=6):
+    def _visualize_2d(self, local=False, ax=None, num_ticks_approx=6):
         if ax is None:
             fig = plt.figure()
             ax = fig.subplots()
@@ -494,23 +501,47 @@ class MapEnv(gym.Env):
 
         plt.pause(0.005)
 
-    def _visualize3d(self, local=False, show_detected=False):  # TODO: implement
+    def _visualize_3d(self, local=False, show_detected=False, voxels=False, ceiling_z=None):
         token_map = self._get_map(local=local, binary=False)
+        if ceiling_z is not None:
+            assert ceiling_z > self.cell_positions[2][0], 'Ceiling threshold set too low. Must be smaller than {}'.format(self.cell_positions[2][0])
+            if ceiling_z > self.cell_positions[2][-1]:
+                idx = -1
+            else:
+                idx = -1 + np.argwhere(self.cell_positions[2] >= ceiling_z)[0][0]
+            token_map = token_map[:, :, :idx]
 
-        X, Y, Z = np.mgrid[:token_map.shape[0], :token_map.shape[1], :token_map.shape[2]]
-        point_list = np.array([[x, y, z] for x, y, z in zip(np.ravel(X), np.ravel(Y), np.ravel(Z))])  # 'flat' (2d) index array
-        colors = np.array(['black', 'midnightblue', 'lightsteelblue', 'limegreen',
-                           'red', 'gold', 'darkgreen'])  # black color to shift index + 1
-        alphas = np.array([0, 0.05, 0.15, 0.6, 0.6, 1, 1])
-        token_map_flat = np.ravel(token_map)
-        color_list = colors[token_map_flat]
-        alpha_list = alphas[token_map_flat]
-        high_pass_filter_threshold = 1.5 if show_detected else 2.5
-        mask = token_map_flat > high_pass_filter_threshold
+        if not voxels:
+            X, Y, Z = np.mgrid[:token_map.shape[0], :token_map.shape[1], :token_map.shape[2]]
+            point_list = np.array([[x, y, z] for x, y, z in zip(np.ravel(X), np.ravel(Y), np.ravel(Z))])  # 'flat' (2d) index array
+            colors = np.array(['black', 'midnightblue', 'lightsteelblue', 'limegreen',
+                               'red', 'gold', 'darkgreen'])  # black color to shift index + 1
+            alphas = np.array([0, 0.05, 0.15, 0.6, 0.6, 1, 1])
+            token_map_flat = np.ravel(token_map)
+            color_list = colors[token_map_flat]
+            alpha_list = alphas[token_map_flat]
+            high_pass_filter_threshold = 1.5 if show_detected else 2.5
+            mask = token_map_flat > high_pass_filter_threshold
 
-        r = 25  # point radius
-        points = vtkplotter.shapes.Points(point_list[mask], r=r, c=color_list[mask], alpha=alpha_list[mask])
-        vtkplotter.show(points, interactive=True, newPlotter=True, axes={'xyGrid':True, 'yzGrid': True, 'zxGrid':True})
+            r = 25  # point radius
+            points = vtkplotter.shapes.Points(point_list[mask], r=r, c=color_list[mask], alpha=alpha_list[mask])
+            vtkplotter.show(points, interactive=True, newPlotter=True, axes={'xyGrid':True, 'yzGrid': True, 'zxGrid':True})
+        else:
+            factor = 2
+            new_map = np.zeros((token_map.shape[0] * factor, token_map.shape[1] * factor, token_map.shape[2] * factor))
+            for i in range(factor):
+                for j in range(factor):
+                    for k in range(factor):
+                        new_map[i::factor, j::factor, k::factor] = token_map
+            token_map = new_map
+
+            color_list = np.array([[0.2, 1., 0.2, 0.8], [1., 0.2, 0.2, 0.6], [1., 1., 0, 1.], [0., 0.7, 0., 1.]])
+            if show_detected: color_list = np.concatenate((np.array([[0.9, 0.95, 1., 0.2]]), color_list))
+            color_map = ListedColormap(color_list)
+            vol = vtkplotter.Volume(token_map)  # , c=colors, alpha=alphas)
+            lego = vol.legosurface(vmin=2 if show_detected else 3, vmax=6, cmap=color_map)
+
+            vtkplotter.show(lego, interactive=True, newPlotter=True)
 
     def _training_map(self, map_idx):
         from Environments.Exploration import training_maps
@@ -543,18 +574,19 @@ class MapEnv(gym.Env):
             pos += v_norm * step_length
 
             if check_for_obstacles:
-                if self._get_info(pos)['obstacle'] > self.thresholds['obstacle']:
+                if self._get_info(pos)['obstacle'] >= self.thresholds['obstacle']:
                     success = False
                     done = True
                     break
-            num_detected_cells += self._update(pos.copy())
+            num_detected_cells += self._update(pos.copy(), z_value=self.z_value)
             steps += 1
 
         return success, num_detected_cells, steps, done
 
     def reset(self, starting_position=None, local=True, binary=True):
         if self.map_idx != 0:
-            starting_position, obstacles = _training_map(self.map_idx)
+            starting_position, obstacles = self._training_map(self.map_idx)
+            self.z_value = starting_position[2]
 
         if starting_position is None:
             starting_position = self.starting_position
@@ -592,14 +624,14 @@ class MapEnv(gym.Env):
         info = {'env': 'Exploration', 'terminated_at_target': success}
         return observation, reward, done, info
 
-    def render(self, render_3d=False, local=False, num_ticks_approx=6, show_detected=False):
+    def render(self, render_3d=False, local=False, num_ticks_approx=6, show_detected=False, voxels=True, ceiling_z=None):
         if render_3d:
-            self._visualize3d(local=local, show_detected=show_detected)
+            self._visualize_3d(local=local, show_detected=show_detected, voxels=voxels, ceiling_z=ceiling_z)
         else:
             ax = None
             if self.ax is not None:
                 ax = self.ax
-            self._visualize2d(local=local, ax=ax, num_ticks_approx=num_ticks_approx)
+            self._visualize_2d(local=local, ax=ax, num_ticks_approx=num_ticks_approx)
 
 
     def close(self):
