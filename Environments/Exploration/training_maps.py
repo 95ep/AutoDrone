@@ -18,11 +18,15 @@ def generate_map(map_idx):
     for z in Z[1:-1]:
         for x in X:
             obstacles.append([x, Y[0], z])
+            obstacles.append([x, Y[1], z])
             obstacles.append([x, Y[-1], z])
+            obstacles.append([x, Y[-2], z])
 
         for y in Y:
             obstacles.append([X[0], y, z])
             obstacles.append([X[-1], y, z])
+            obstacles.append([X[1], y, z])
+            obstacles.append([X[-2], y, z])
 
     # add floor and ceiling
     for x in X:
@@ -152,4 +156,6 @@ def generate_map(map_idx):
 
     starting_position.append(z_pos)
     starting_position = np.array(starting_position, dtype=np.float32)
-    return starting_position, obstacles
+    solved_threshold = 3000
+
+    return starting_position, obstacles, solved_threshold

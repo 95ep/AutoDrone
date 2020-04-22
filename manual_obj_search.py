@@ -77,8 +77,8 @@ if __name__ == '__main__':
     with open(args.parameters) as f:
         parameters = json.load(f)
 
-    q_paths = ["D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_100.jpg"]#,
-                    #"D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_101.jpg"]
+    q_paths = ["D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_100.jpg",
+                "D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_101.jpg"]
     env_utils, env = make_env_utils(**parameters)
     oc = ObjectCollector(env, env_utils, q_paths)
     oc.collect_objects()
