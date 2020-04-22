@@ -23,3 +23,9 @@ MetricsPlotters/plots/*
 
 # Verification output
 verification/*
+
+# Saved trajectories
+Trajectories/*
+
+# All imgs
+*.png
