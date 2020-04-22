@@ -97,9 +97,9 @@ class MapEnv(gym.Env):
                 assert thresholds[key] >= 0, 'Threshold[{}] = {}. Value must be >= 0'.format(key, thresholds[key])
             elif key is not 'unknown' or key is not 'position':
                 self.thresholds[key] = 1
-
-        self.reward_scaling = (self.vision_range / self.cell_scale[0]) * \
-                              (self.vision_range / self.cell_scale[1]) * np.pi  # divide by area
+        # detecting 50% of vision area approximately equals reward of 1
+        self.reward_scaling = 0.5 * (self.vision_range / self.cell_scale[0]) * \
+                                    (self.vision_range / self.cell_scale[1]) * fov_angle / 2  # divide by area
         # assumes binary observations
         self.observation_space = spaces.Box(low=0, high=1, shape=(self.local_map_dim[0], self.local_map_dim[1],
                                                                   len(self.map_keys) * self.local_map_dim[2]),
@@ -108,12 +108,15 @@ class MapEnv(gym.Env):
                                        dtype=np.float64)
         if interactive_plot:  # TODO: double check
             plt.ion()
-            fig = plt.figure()
-            self.ax = fig.subplots()
+            self.fig = plt.figure()
+            self.ax = self.fig.subplots()
         else:
+            self.fig = None
             self.ax = None
         self.map_idx = map_idx
         self.z_value = None
+        self.total_detected = None
+        self.solved_threshold = None
 
     def _debug(self, msg=""):
         if msg:
@@ -325,7 +328,8 @@ class MapEnv(gym.Env):
 
             v = np.array([xx - center_x, yy - center_y, zz - center_z])
             # approximation of occlusion lines
-            angle = (cell_diag / np.linalg.norm(v)) * 1  # TODO: find good factor
+            angle = np.arctan(cell_diag / 2 / np.linalg.norm(v)) * 2  # TODO: find good factor
+            angle = np.max((angle, np.pi))
             cos_theta, sin_theta = np.cos(angle / 2), np.sin(angle / 2)
             rot_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
 
@@ -345,7 +349,7 @@ class MapEnv(gym.Env):
             n_down = np.array([-v_down[0]*v_down[2], -v_down[1]*v_down[2], v_down[0] ** 2 + v_down[1] ** 2])
             mask_down = n_down[0] * (x-center_x) + n_down[1] * (y-center_y) + n_down[2] * (z-center_z) >= 0
 
-            mask_distance = - v[0] * (x - xx) -v[1] * (y - yy) -v[2] * (z - zz) <= 0
+            mask_distance = - v[0] * (x - xx) - v[1] * (y - yy) - v[2] * (z - zz) <= 0
 
             #temp_mask =  mask_left * mask_right * mask_distance
             temp_mask = mask_left * mask_right * mask_up * mask_down * mask_distance
@@ -382,7 +386,7 @@ class MapEnv(gym.Env):
 
         fov_mask = self._field_of_view(new_position, orientation, z_value=z_value)
         # number of detected cells for which the detection threshold has not yet been reached
-        num_detected = np.sum(fov_mask) - np.sum(self.cell_map['visible'][fov_mask] // self.thresholds['visible'] == 0)
+        num_detected = np.sum(fov_mask) - np.sum((self.cell_map['visible'][fov_mask] // self.thresholds['visible']) > 0)
         self.cell_map['visible'][fov_mask] += 1
         self.cell_map['visible'][fov_mask].clip(0, self.LARGE_NUMBER)
 
@@ -453,13 +457,31 @@ class MapEnv(gym.Env):
     def _get_current_position(self):
         return self.position
 
-    def _visualize_2d(self, local=False, ax=None, num_ticks_approx=6):
+    def _crop_token_map(self, local, ceiling_z=None, floor_z=None):
+        token_map = self._get_map(local=local, binary=False)
+        if ceiling_z is not None:
+            assert ceiling_z > self.cell_positions[2][0], 'Ceiling threshold set too low. Must be bigger than {}'.format(self.cell_positions[2][0])
+            if ceiling_z > self.cell_positions[2][-1]:
+                idx = -1
+            else:
+                idx = -1 + np.argwhere(self.cell_positions[2] >= ceiling_z)[0][0]
+            token_map = token_map[:, :, :idx]
+
+        if floor_z is not None:
+            assert floor_z < self.cell_positions[2][-1], 'Floor threshold set too high. Must be smaller than {}'.format(self.cell_positions[2][-1])
+            if floor_z < self.cell_positions[2][0]:
+                idx = 0
+            else:
+                idx = 1 + np.argwhere(self.cell_positions[2] <= floor_z)[-1][0]
+            token_map = token_map[:, :, idx:]
+        return token_map
+
+    def _visualize_2d(self, token_map, local=False, ax=None, num_ticks_approx=6):
         if ax is None:
             fig = plt.figure()
             ax = fig.subplots()
         assert 2 <= self.dimensions <= 3, 'Map is {}d. Can only visualize 2d and 3d maps.'.format(self.dimensions)
 
-        token_map = self._get_map(local=local, binary=False)
         assert len(token_map.shape) == 3, 'Token map is {}d. (Un-)squeeze to 3d'.format(len(token_map.shape))
         token_map = np.max(token_map, axis=2)
 
@@ -501,15 +523,7 @@ class MapEnv(gym.Env):
 
         plt.pause(0.005)
 
-    def _visualize_3d(self, local=False, show_detected=False, voxels=False, ceiling_z=None):
-        token_map = self._get_map(local=local, binary=False)
-        if ceiling_z is not None:
-            assert ceiling_z > self.cell_positions[2][0], 'Ceiling threshold set too low. Must be smaller than {}'.format(self.cell_positions[2][0])
-            if ceiling_z > self.cell_positions[2][-1]:
-                idx = -1
-            else:
-                idx = -1 + np.argwhere(self.cell_positions[2] >= ceiling_z)[0][0]
-            token_map = token_map[:, :, :idx]
+    def _visualize_3d(self, token_map, show_detected=False, voxels=False):
 
         if not voxels:
             X, Y, Z = np.mgrid[:token_map.shape[0], :token_map.shape[1], :token_map.shape[2]]
@@ -547,12 +561,13 @@ class MapEnv(gym.Env):
         from Environments.Exploration import training_maps
         return training_maps.generate_map(map_idx)
 
-    def _move_by_delta_position(self, delta_position, step_length=0.1):  # naive, straight path
+    def _move_by_delta_position(self, delta_position, step_length=0.1, safe_mode=False):  # naive, straight path
         """
         Reaches target by taking smalls steps until close to target
         TODO: implement 3d
         :param delta_position: (dx, dy, 0) for the time being
         :param step_length:
+        :param safe_mode: If true, the movement terminates before an obstacle is hit
         :return:
         """
         success = True
@@ -575,8 +590,12 @@ class MapEnv(gym.Env):
 
             if check_for_obstacles:
                 if self._get_info(pos)['obstacle'] >= self.thresholds['obstacle']:
-                    success = False
-                    done = True
+                    if safe_mode:
+                        success = True
+                        done = False
+                    else:
+                        success = False
+                        done = True
                     break
             num_detected_cells += self._update(pos.copy(), z_value=self.z_value)
             steps += 1
@@ -584,15 +603,15 @@ class MapEnv(gym.Env):
         return success, num_detected_cells, steps, done
 
     def reset(self, starting_position=None, local=True, binary=True):
+        self.total_detected = 0
         if self.map_idx != 0:
-            starting_position, obstacles = self._training_map(self.map_idx)
+            starting_position, obstacles, self.solved_threshold = self._training_map(self.map_idx)
             self.z_value = starting_position[2]
 
         if starting_position is None:
             starting_position = self.starting_position
         self.position = starting_position
 
-        self.starting_map_size
         # describe the edges of the map
         map_borders = [(-length / 2 + offset, length / 2 + offset) for length, offset in
                        zip(self.starting_map_size, starting_position)]
@@ -602,10 +621,11 @@ class MapEnv(gym.Env):
         self._move_to_cell(self._get_cell(self.position))
         if self.map_idx != 0:
             self._update(self.position, detected_obstacles=obstacles)
+            self.cell_map['visible'][:] = 0
         observation = self._get_map(local=local, binary=binary)
         return observation
 
-    def step(self, action, local=True, binary=True):
+    def step(self, action, local=True, binary=True, safe_mode=False):
         """
 
         :param action: 2d array describing a waypoint in relative position: (dx, dy)
@@ -614,29 +634,39 @@ class MapEnv(gym.Env):
         :return:
         """
         delta_position = np.concatenate((np.array(action, dtype=np.float32), np.array([0.], dtype=np.float32)), axis=0)
-        success, num_detected_cells, steps, done = self._move_by_delta_position(delta_position)
+        success, num_detected_cells, steps, done = self._move_by_delta_position(delta_position, safe_mode=safe_mode)
 
         if success:
             reward = num_detected_cells / self.reward_scaling + self.REWARD_STEP  # penalizing small steps
         else:
             reward = self.REWARD_FAILURE
+
         observation = self._get_map(local=local, binary=binary)
         info = {'env': 'Exploration', 'terminated_at_target': success}
+
+        if self.solved_threshold is not None:
+            self.total_detected += num_detected_cells
+            if self.total_detected >= self.solved_threshold:
+                done = True
+                info['solved'] = True
+
         return observation, reward, done, info
 
-    def render(self, render_3d=False, local=False, num_ticks_approx=6, show_detected=False, voxels=True, ceiling_z=None):
+    def render(self, render_3d=False, local=False, num_ticks_approx=6, show_detected=False, voxels=True, ceiling_z=None, floor_z=None):
+        token_map = self._crop_token_map(local, ceiling_z=ceiling_z, floor_z=floor_z)
         if render_3d:
-            self._visualize_3d(local=local, show_detected=show_detected, voxels=voxels, ceiling_z=ceiling_z)
+            self._visualize_3d(token_map, show_detected=show_detected, voxels=voxels)
         else:
             ax = None
             if self.ax is not None:
                 ax = self.ax
-            self._visualize_2d(local=local, ax=ax, num_ticks_approx=num_ticks_approx)
+            self._visualize_2d(token_map, local=local, ax=ax, num_ticks_approx=num_ticks_approx)
 
 
     def close(self):
-        pass
-
+        if self.fig is not None:
+            plt.close(self.fig)
+        del self
 
 
 class AirSimMapEnv(MapEnv):
