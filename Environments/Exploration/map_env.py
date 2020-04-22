@@ -592,7 +592,6 @@ class MapEnv(gym.Env):
             starting_position = self.starting_position
         self.position = starting_position
 
-        self.starting_map_size
         # describe the edges of the map
         map_borders = [(-length / 2 + offset, length / 2 + offset) for length, offset in
                        zip(self.starting_map_size, starting_position)]

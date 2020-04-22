@@ -198,7 +198,8 @@ class EnvUtilsExploration(EnvUtilsSuper):
         self.exploration_kwargs = exploration_kwargs
 
     def make_env(self):
-        env = exploration_dev.make(**self.exploration_kwargs)
+        import Environments.Exploration.map_env as map_env
+        env = map_env.make(**self.exploration_kwargs)
         self.network_kwargs['has_visual_encoder'] = True
         self.network_kwargs['continuous_actions'] = True
         self.network_kwargs['visual_input_shape'] = env.observation_space.shape
