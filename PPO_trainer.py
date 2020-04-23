@@ -136,7 +136,10 @@ def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True):
 
         next_obs, reward, done, info = env.step(env_utils.process_action(action))
         if render:
-            env.render()
+            if 'env' in info and info['env'] == "Exploration":
+                env.render(local=False, ceiling_z=2, floor_z=0, show_detected=True)
+            else:
+                env.render()
 
         if 'env' in info and (info['env'] == "AirSim" or info['env'] == "Exploration"):
             if 'Eval/nTerminationsCorrect' not in log_dict:
@@ -162,9 +165,9 @@ def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True):
                 comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
     if 'env' in info and info['env'] == "Exploration" and render:
-        env.render(local=False)  # TODO: ONLY IF EXPLORATION
+        env.render(local=False, ceiling_z=2, floor_z=0, show_detected=True)  # TODO: ONLY IF EXPLORATION
         import time
-        time.sleep(3)
+        time.sleep(10)
     log_dict['Eval/AvgReturn'] = log_dict['Eval/TotalReturn'] / (log_dict['Eval/nDones'] + 1)
     log_dict['Eval/AvgEpisodeLen'] = log_dict['Eval/TotalSteps'] / (log_dict['Eval/nDones'] + 1)
     return log_dict
