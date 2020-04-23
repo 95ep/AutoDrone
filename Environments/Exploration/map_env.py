@@ -88,7 +88,8 @@ class MapEnv(gym.Env):
         self.fov_angle = fov_angle
         self.map_keys = map_keys
         self.thresholds = thresholds
-        for key in self.thresholds.keys():  # remove non-valid key-value pairs in thresholds
+        keys = list(self.thresholds.keys())
+        for key in keys:  # remove non-valid key-value pairs in thresholds
             if key not in self.map_keys:
                 del self.thresholds[key]
 
@@ -328,8 +329,8 @@ class MapEnv(gym.Env):
 
             v = np.array([xx - center_x, yy - center_y, zz - center_z])
             # approximation of occlusion lines
-            angle = np.arctan(cell_diag / 2 / np.linalg.norm(v)) * 2  # TODO: find good factor
-            angle = np.max((angle, np.pi))
+            angle = np.arctan(cell_diag / np.linalg.norm(v)) * 1  # TODO: find good factor
+            angle = np.min((angle, np.pi))
             cos_theta, sin_theta = np.cos(angle / 2), np.sin(angle / 2)
             rot_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
 
