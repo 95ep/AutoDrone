@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--parameters', type=str)
 parser.add_argument('--checkpoints', type=str, default=None)
 parser.add_argument('--logdir', type=str)
+parser.add_argument('--eval_start', type=int, default=0)
 args = parser.parse_args()
 
 # Open the json parameters file
@@ -53,6 +54,9 @@ epoch_and_path_list.sort(key = lambda x:x[0])
 
 log_writer = SummaryWriter(log_dir=args.logdir)
 for epoch, path in epoch_and_path_list:
+    if epoch < args.eval_start:
+        continue
+
     ac.load_state_dict(torch.load(path))
     print("Evaluating epoch {}".format(epoch))
 
