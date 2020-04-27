@@ -136,6 +136,30 @@ def local2global(point_cloud, client):
     global_points = global_points.transpose()
     return global_points
 
+def valid_spawn(env):
+
+    if env == 'basic23':
+        r = np.random.rand()
+        if r < 1/5:
+            target_x = 4.2 - np.random.rand() * 1
+            target_y = 4.7 - np.random.rand() * 9
+        elif r < 2/5:
+            target_x = 10.2 - np.random.rand() * 1
+            target_y = 4.7 - np.random.rand() * 9
+        elif r < 3/5:
+            target_x = 16.2 - np.random.rand() * 1
+            target_y = 4.7 - np.random.rand() * 9
+        elif r < 4/5:
+            target_x = 21.1
+            target_y = 4.7 - np.random.rand() * 9
+        else:
+            target_x = 20.9 - np.random.rand() * 21.9
+            target_y = 1 - np.random.rand() * 2.6
+
+        return np.array([target_x, target_y])
+    else:
+        return valid_trgt(env)
+
 
 def valid_trgt(env):
     r = np.random.rand()
@@ -246,7 +270,7 @@ def reset(client, scene=None):
     if scene is not None:
         time.sleep(0.2)
         pose = client.simGetVehiclePose()
-        start_pos = valid_trgt(scene)
+        start_pos = valid_spawn(scene)
         pose.position.x_val = start_pos[0]
         pose.position.y_val = start_pos[1]
         pose.position.z_val = 0

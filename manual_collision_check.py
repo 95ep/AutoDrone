@@ -36,7 +36,7 @@ class CollisionChecker():
 
             elif key == 'r':
                 print("ENVIRONMENT RESET BY PLAYER")
-                reset(self.client)
+                reset(self.client, "basic23")
             elif key == 'b' or key == 't':
                 print('TERMINATED BY PLAYER')
                 break
