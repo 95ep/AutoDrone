@@ -730,7 +730,7 @@ class AirSimMapEnv(MapEnv):
         self.obstacle_detection_frequency = parameters['obstacle_detection_frequency']
         self.env_airsim.setup_object_detection(**parameters['object_detection'])
 
-    def _move_by_delta_position(self, delta_position):
+    def _move_by_delta_position(self, delta_position, safe_mode=None):
         """
         Reaches target by taking smalls steps until close to target
         TODO: implement 3d

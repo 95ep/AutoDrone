@@ -62,6 +62,8 @@ class ObjectCollector:
                 break
             elif key == 'c':
                 self.capture_object()
+            elif key == 'p':
+                print(self.env.client.simGetGroundTruthKinematics().position)
 
             if action is not None:
                 obs, reward, done, info = self.env.step(action)
