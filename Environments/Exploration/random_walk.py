@@ -30,9 +30,9 @@ metrics = ['detected', 'reward']
 
 log = np.zeros((len(sigmas), num_maps, runs_per_map, max_steps, len(metrics)))
 
-parameters = {"cell_scale": (1, 1, 1), "starting_map_size": (10, 10, 3), "local_map_dim": (1,1,1), "buffer_distance": (10, 10, 0), "vision_range": 8}
+parameters = {"cell_scale": (1, 1, 1), "starting_map_size": (10, 10, 3), "local_map_dim": (16,16,1), "buffer_distance": (10, 10, 0), "vision_range": 8}
 parameters["interactive_plot"] = True
-
+parameters["map_keys"] = ["unknown", "visible", "visited", "obstacle"]
 for s in range(len(sigmas)):
     for i in range(num_maps):
         parameters["map_idx"] = i+1

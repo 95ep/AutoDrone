@@ -4,9 +4,9 @@ sys.path.append("C:/Users/Filip/Projects/RISE/AutoDrone")
 from Environments.Exploration import map_env
 import numpy as np
 
-X = np.linspace(-10, 10, 81)
-Y = np.linspace(-10, 10, 81)
-Z = np.linspace(0, 10, 41)
+X = np.linspace(-10, 10, 101)
+Y = np.linspace(-10, 10, 101)
+Z = np.linspace(0, 10, 51)
 
 obstacles = []
 
@@ -20,7 +20,7 @@ for z in Z[1:]:
 
     for y in Y:
         obstacles.append([X[0], y, z])
-        obstacles.append([X[-1], y, z])
+        #obstacles.append([X[-1], y, z])
 
     for y in Y[int(len(Y)/2):]:
         obstacles.append([4, y, z])
@@ -31,10 +31,10 @@ for z in Z[int(len(Z) * 0.55):int(len(Z)*0.75)]:
 
 for z in Z[1:int(len(Z)*0.5)]:
     for y in Y[int(len(Y)*0.3):int(len(Y)*0.6)]:
-        obstacles.append([7, y, z])
+        obstacles.append([6, y, z])
 
 # Plot only cone
-parameters = {"cell_scale": (0.25, 0.25, 0.25), "starting_map_size": (10, 10, 10), "local_map_dim": (1,1,1),
+parameters = {"cell_scale": (0.3, 0.3, 0.3), "starting_map_size": (20, 20, 10), "local_map_dim": (1,1,1),
               "buffer_distance": (10, 10, 0), "vision_range": 8}
 
 parameters["map_idx"] = 0
