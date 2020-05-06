@@ -98,12 +98,16 @@ class MapEnv(gym.Env):
                 assert thresholds[key] >= 0, 'Threshold[{}] = {}. Value must be >= 0'.format(key, thresholds[key])
             elif key is not 'unknown' or key is not 'position':
                 self.thresholds[key] = 1
-        # detecting 50% of vision area approximately equals reward of 1
-        self.reward_scaling = 0.5 * (self.vision_range / self.cell_scale[0]) * \
-                                    (self.vision_range / self.cell_scale[1]) * fov_angle / 2  # divide by area
+        # detecting 100% of vision area approximately equals reward of 1
+        self.reward_scaling = (self.vision_range / self.cell_scale[0]) * \
+                              (self.vision_range / self.cell_scale[1]) * fov_angle / 2  # divide by area
         # assumes binary observations
+        """ TODO: old correct line:
         self.observation_space = spaces.Box(low=0, high=1, shape=(self.local_map_dim[0], self.local_map_dim[1],
                                                                   len(self.map_keys) * self.local_map_dim[2]),
+                                            dtype=np.int) """ # New TEST: (remove, unknown, visited)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(self.local_map_dim[0], self.local_map_dim[1],
+                                                                  (len(self.map_keys) - 2) * self.local_map_dim[2]),
                                             dtype=np.int)
         self.action_space = spaces.Box(low=np.array([-np.inf, -np.inf]), high=np.array([np.inf, np.inf]),
                                        dtype=np.float64)
@@ -250,8 +254,9 @@ class MapEnv(gym.Env):
         return positions
 
     def _move_to_cell(self, cell):
-        if self.cell_map['visited'][cell] < self.LARGE_NUMBER:
-            self.cell_map['visited'][cell] += 1
+        if 'visited' in self.map_keys:
+            if self.cell_map['visited'][cell] < self.LARGE_NUMBER:
+                self.cell_map['visited'][cell] += 1
 
     def _mark_cell(self, cell, map_key):
         if self.cell_map[map_key][cell] < self.LARGE_NUMBER:
@@ -436,7 +441,8 @@ class MapEnv(gym.Env):
             map_shape = self.map_shape
 
         if binary:
-            cell_map = np.concatenate([value for value in cell_map.values()], axis=2)
+            cell_map = np.concatenate([cell_map[key] for key in cell_map.keys() if (key != 'visited' and key != 'unknown')], axis=2) # TODO: NEW WRONG LINE
+            #cell_map = np.concatenate([value for value in cell_map.values()], axis=2) # TODO : Old correct line
             cell_map = np.array(cell_map, dtype=np.float32)  # float32 for neural net input
         else:
             temp_cell_map = np.ones(map_shape, dtype=np.int32) * self.tokens['unknown']
@@ -579,7 +585,7 @@ class MapEnv(gym.Env):
         pos = np.array(self._get_current_position(), dtype=np.float32)
         v = delta_position
         if np.all(v == 0):  # already at target
-            return success, num_detected_cells
+            return success, num_detected_cells, steps, done
 
         magnitude = np.linalg.norm(v)
         v_norm = v / magnitude
@@ -638,7 +644,13 @@ class MapEnv(gym.Env):
         success, num_detected_cells, steps, done = self._move_by_delta_position(delta_position, safe_mode=safe_mode)
 
         if success:
-            reward = num_detected_cells / self.reward_scaling + self.REWARD_STEP  # penalizing small steps
+            #reward = num_detected_cells / self.reward_scaling + self.REWARD_STEP  # penalizing small steps
+            steps = np.max((steps, 1))
+            reward = 25 * num_detected_cells / self.reward_scaling / steps
+            if steps < 10:
+                reward *= (steps / 10) ** 4
+            else:
+                reward *= (steps / 10) ** (1/4)
         else:
             reward = self.REWARD_FAILURE
 
@@ -718,7 +730,7 @@ class AirSimMapEnv(MapEnv):
         self.obstacle_detection_frequency = parameters['obstacle_detection_frequency']
         self.env_airsim.setup_object_detection(**parameters['object_detection'])
 
-    def _move_by_delta_position(self, delta_position):
+    def _move_by_delta_position(self, delta_position, safe_mode=None):
         """
         Reaches target by taking smalls steps until close to target
         TODO: implement 3d

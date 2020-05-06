@@ -1,5 +1,5 @@
 {
-  "mode": "training",
+  "mode": "evaluation",
   "env_str": "Exploration",
   "Exploration": {
     "starting_map_size": [10,10,3],
@@ -9,7 +9,7 @@
     "local_map_dim": [48, 48, 1],
     "vision_range": 8,
     "fov_angle": 1.57,
-    "map_keys": ["unknown", "visible", "visited", "obstacle"],
+    "map_keys": ["unknown", "visible", "visited", "obstacle", "object", "position"],
     "thresholds": {
       "visible": 1,
       "visited": 1,
@@ -17,7 +17,7 @@
       "object": 1
     },
     "map_idx": -1,
-    "interactive_plot": false,
+    "interactive_plot": true,
     "REWARD_FAILURE": -10,
     "REWARD_STEP": -0.1
   },
@@ -35,23 +35,24 @@
     "steps_per_epoch": 512,
     "minibatch_size": 64,
     "clip_ratio": 0.2,
-    "lr": 5e-5,
+    "lr": 1e-4,
     "train_iters": 16,
     "lam": 0.95,
-    "max_episode_len": 64,
+    "max_episode_len": 250,
     "value_loss_coef": 0.5,
-    "entropy_coef": 0.001,
-    "target_kl": 1,
+    "entropy_coef": 0.01,
+    "target_kl": 1e6,
     "save_freq": 5,
     "resume_training": true,
-    "epoch_to_resume": 540,
+    "epoch_to_resume": 590,
     "prob_train_on_manual_experience": 0,
     "manual_experience_path": "",
-    "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/Runs/Exploration_Higher_Capacity/saved_models/model540.pth"
+    "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/Runs/Exploration/saved_models/model590.pth"
   },
   "eval": {
     "n_eval_steps": 256,
-    "render": false,
-    "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/Runs/Exploration/saved_models/model540.pth"
+    "render": true,
+    "deterministic": false,
+    "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/Runs/Exploration_Higher_Capacity/saved_models/model690.pth"
   }
 }

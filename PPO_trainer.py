@@ -123,7 +123,7 @@ def _update(actor_critic, data, optimizer, minibatch_size, train_iters,
     return mean_total_loss, mean_action_loss, mean_value_loss, mean_entropy, np.array(approx_kl_iter).mean()
 
 
-def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True):
+def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True, deterministic=True):
     log_dict = {'Eval/TotalReturn': 0, 'Eval/nDones': 0, 'Eval/TotalSteps': 0}
 
     # Set up interactions with env
