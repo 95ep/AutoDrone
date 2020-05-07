@@ -29,3 +29,6 @@ Trajectories/*
 
 # All imgs
 *.png
+
+# All data files
+*.csv
