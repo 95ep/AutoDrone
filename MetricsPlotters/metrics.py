@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # Shared variables
 label_fontsize = 16
 tick_fontsize = 12
-dpi = 200
+dpi = 300
 save_dir = "local_nav"
 gamma = 0.6
 color_alpha = 0.3
@@ -14,19 +14,19 @@ color_alpha = 0.3
 if True:
     # Plot 1
     #change here
-    train_return_path = "D:/Exjobb2020ErikFilip/AutoDrone/MetricsPlotters/plots/local_nav/nTerminationsIncorrect.csv"
-    human_baseline = 1.33
-    fig_name = "n_terminations_incorrect"
+    metrics_path = "D:/Exjobb2020ErikFilip/AutoDrone/MetricsPlotters/plots/local_nav/nCrashes.csv"
+    human_baseline =2
+    fig_name = "n_collisions"
     fig_title = ""
     x_label = "Epoch"
-    y_label = "# terminations incorrect"
-    ylim = [0, 130]
+    y_label = "# collisions"
+    ylim = [0, 50]
 
     parent_dir = "plots/" + save_dir
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
 
-    df = pd.read_csv(train_return_path)
+    df = pd.read_csv(metrics_path)
     epochs_train = df.Step
     tot_ret_train = df.Value
 
