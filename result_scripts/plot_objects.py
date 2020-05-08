@@ -1,5 +1,6 @@
 import numpy as np
 import vtkplotter as vtkp
+from verify_obj_detection import precision_recall
 
 save_pth = '/Users/erikpersson/PycharmProjects/AutoDrone/plots/objs_ver2'
 gt_pos = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/local3_epoch_2270_objs/ground_truth.npy')
@@ -12,6 +13,7 @@ print("Shape of gt_pos {}".format(gt_pos.shape))
 print("Shape of obstac {}".format(obstac.shape))
 print("Shape of objs {}".format(objs.shape))
 print("Shape of visited {}".format(visited.shape))
+precision_recall(objs, gt_pos, scale=[0.7, 0.7, 0.7 ])
 
 gt_color = [0, 0, 255, 150]
 obj_color = [255, 255, 0, 255]
