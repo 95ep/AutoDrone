@@ -643,16 +643,17 @@ class MapEnv(gym.Env):
         delta_position = np.concatenate((np.array(action, dtype=np.float32), np.array([0.], dtype=np.float32)), axis=0)
         success, num_detected_cells, steps, done = self._move_by_delta_position(delta_position, safe_mode=safe_mode)
 
-        if success:
-            #reward = num_detected_cells / self.reward_scaling + self.REWARD_STEP  # penalizing small steps
-            steps = np.max((steps, 1))
-            reward = 25 * num_detected_cells / self.reward_scaling / steps
-            if steps < 10:
-                reward *= (steps / 10) ** 4
-            else:
-                reward *= (steps / 10) ** (1/4)
+        steps = np.max((steps, 1))
+        reward = 25 * num_detected_cells / self.reward_scaling / steps
+        if steps < 10:
+            reward *= (steps / 10) ** 4
         else:
+            reward *= (steps / 10) ** (1/4)
+        if done:
             reward = self.REWARD_FAILURE
+        elif not success:
+            reward += self.REWARD_FAILURE
+
 
         observation = self._get_map(local=local, binary=binary)
         info = {'env': 'Exploration', 'terminated_at_target': success}
@@ -729,6 +730,10 @@ class AirSimMapEnv(MapEnv):
         self.object_detection_frequency = parameters['object_detection_frequency']
         self.obstacle_detection_frequency = parameters['obstacle_detection_frequency']
         self.env_airsim.setup_object_detection(**parameters['object_detection'])
+
+        self.reward_scaling = (self.vision_range / self.cell_scale[0]) * \
+                              (self.vision_range / self.cell_scale[1]) * \
+                              (self.vision_range / self.cell_scale[2]) * fov_angle / 2  # divide by area
 
     def _move_by_delta_position(self, delta_position, safe_mode=None):
         """
