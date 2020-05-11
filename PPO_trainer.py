@@ -150,6 +150,10 @@ def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True, deter
                     log_dict['Eval/nTerminationsCorrect'] += 1
                 else:
                     log_dict['Eval/nTerminationsIncorrect'] += 1
+            if 'explored' in info:
+                if 'Eval/ExplorationOverTime' not in log_dict:
+                    log_dict['Eval/ExplorationOverTime'] = 0
+                log_dict['Eval/ExplorationOverTime'] += info['explored']
 
         log_dict['Eval/TotalReturn'] += reward
 
@@ -256,6 +260,10 @@ def PPO_trainer(env, actor_critic, env_utils, log_dir,
                             log_dict['Episode/nTerminationsCorrect'] += 1
                         else:
                             log_dict['Episode/nTerminationsIncorrect'] += 1
+                    if 'explored' in info:
+                        if 'Episode/ExplorationOverTime' not in log_dict:
+                            log_dict['Episode/ExplorationOverTime'] = 0
+                        log_dict['Episode/ExplorationOverTime'] += info['explored']
 
                 log_dict['Episode/TotalReturn'] += reward
 
