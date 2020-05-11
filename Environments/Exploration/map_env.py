@@ -658,8 +658,9 @@ class MapEnv(gym.Env):
         observation = self._get_map(local=local, binary=binary)
         info = {'env': 'Exploration', 'terminated_at_target': success}
 
+        self.total_detected += num_detected_cells
+        info['explored'] = self.total_detected
         if self.solved_threshold is not None:
-            self.total_detected += num_detected_cells
             if self.total_detected >= self.solved_threshold:
                 done = True
                 info['solved'] = True
@@ -765,7 +766,10 @@ class AirSimMapEnv(MapEnv):
                 trajectory_ended = True
             elif action == 0:
                 done = False
-                success = info['terminated_at_target']
+                if safe_mode:
+                    success = True
+                else:
+                    success = info['terminated_at_target']
                 trajectory_ended = True
             elif steps == self.navigator_max_steps:
                 done = False
