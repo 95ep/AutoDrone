@@ -761,7 +761,10 @@ class AirSimMapEnv(MapEnv):
                 trajectory_ended = True
             elif action == 0:
                 done = False
-                success = info['terminated_at_target']
+                if safe_mode:
+                    success = True
+                else:
+                    success = info['terminated_at_target']
                 trajectory_ended = True
             elif steps == self.navigator_max_steps:
                 done = False
