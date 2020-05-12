@@ -137,7 +137,7 @@ def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True, deter
         next_obs, reward, done, info = env.step(env_utils.process_action(action))
         if render:
             if 'env' in info and info['env'] == "Exploration":
-                env.render(local=False, ceiling_z=2, floor_z=0, show_detected=True)
+                env.render(local=False, ceiling_z=None, floor_z=-1.9, show_detected=True, render_3d=True)
             else:
                 env.render()
 
