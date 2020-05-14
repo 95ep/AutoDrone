@@ -111,14 +111,13 @@ if __name__ == '__main__':
     np.array([4, -3.5]),
     np.array([10, -3.5]),
     np.array([15, -3.5]),
-    np.array([20, -3.5]),
+    np.array([20.5, -3.5]),
     np.array([15, -3.5]),
     np.array([10, -3.5]),
     np.array([-0.5, -3.5]),
-    np.array([-0.5, 3.0]),
-    np.array([4.5, 3.0]),
-    np.array([10.5, 3.0]),
-    np.array([20, 3.0]),
+    np.array([-0.5, 4.0]),
+    np.array([4.5, 4.0]),
+    np.array([10.5, 4.0]),
     np.array([20, 4.0]),
     np.array([10, 4.0]),
     np.array([5, 4.0]),
@@ -131,7 +130,11 @@ if __name__ == '__main__':
         pos = m.env_airsim.get_position()
         delta =  np.array([goal[0]-pos[0], goal[1]-pos[1]])
         while not_reached:
-            obs, reward, done, info = m.step(delta)
+            try:
+                obs, reward, done, info = m.step(delta)
+            except Exception as e:
+                print(e)
+                break
             pos = m.env_airsim.get_position()
             delta = np.array([goal[0]-pos[0], goal[1]-pos[1]])
             if np.sqrt(delta[0]**2 + delta[1]**2) < 0.5:
