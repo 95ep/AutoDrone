@@ -81,6 +81,8 @@ def precision_recall(object_positions, gt_monitor_positions, scale):
     print("All positions of objects detected")
     print(object_positions)
 
+    return precision, recall
+
 
 if __name__ == '__main__':
     import numpy as np
