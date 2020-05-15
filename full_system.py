@@ -27,11 +27,16 @@ if not parameters['random_exploration']:
     # Add additional kwargs from parameter file
     network_kwargs.update(parameters['neural_network'])
 
+    old_shape = network_kwargs['visual_input_shape']
+    network_kwargs['visual_input_shape'] = (old_shape[0], old_shape[1], 6)
+
     ac = NeutralNet(**network_kwargs)
 
-    ac.load_state_dict(torch.load(parameters['exploration']['weights']))
+    ac.load_state_dict(torch.load(parameters['weights']))
 
-obs_vector, obs_visual = env_utils.process_obs(env.reset())
+obs = env.reset()
+obs = obs[:,:,0:6]
+obs_vector, obs_visual = env_utils.process_obs(obs)
 comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 for step in range(parameters['n_steps']):
     if parameters['random_exploration']:
@@ -41,6 +46,8 @@ for step in range(parameters['n_steps']):
             value, action, log_prob = ac.act(comb_obs)
 
     next_obs, reward, done, info = env.step(env_utils.process_action(action))
+    print("Nr of objects: {}".format(np.count_nonzero(next_obs[:,:,-3:])))
+    next_obs = next_obs[:,:,0:6]
     obs_vector, obs_visual = env_utils.process_obs(next_obs)
     comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
@@ -53,7 +60,11 @@ for step in range(parameters['n_steps']):
     for cell in obj_cells:
         object_positions.append(env._get_position(cell))
 
-    precision, recall = precision_recall(object_positions, gt_monitor_positions, parameters['Exploration']['cell_scale'])
+    if len(object_positions) > 0:
+        precision, recall = precision_recall(object_positions, gt_monitor_positions, parameters['Exploration']['cell_scale'])
+    else:
+        precision = 0
+        recall = 0
     n_detected_objects = len(gt_monitor_positions) * recall
 
     log_writer.add_scalar('n_detected_objects', n_detected_objects, step)
