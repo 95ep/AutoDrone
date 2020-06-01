@@ -641,7 +641,7 @@ class MapEnv(gym.Env):
         :return:
         """
         delta_position = np.concatenate((np.array(action, dtype=np.float32), np.array([0.], dtype=np.float32)), axis=0)
-        _, num_detected_cells, steps, done = self._move_by_delta_position(delta_position, safe_mode=safe_mode)
+        terminated_at_target, num_detected_cells, steps, done = self._move_by_delta_position(delta_position, safe_mode=safe_mode)
 
         steps = np.max((steps, 1))
         reward = 25 * num_detected_cells / self.reward_scaling / steps
@@ -653,7 +653,7 @@ class MapEnv(gym.Env):
             reward = self.REWARD_FAILURE
 
         observation = self._get_map(local=local, binary=binary)
-        info = {'env': 'Exploration', 'terminated_at_target': success}
+        info = {'env': 'Exploration', 'terminated_at_target': terminated_at_target}
 
         self.total_detected += num_detected_cells
         info['explored'] = self.total_detected
