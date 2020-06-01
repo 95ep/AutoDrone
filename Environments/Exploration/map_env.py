@@ -1,21 +1,25 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import colors
 import gym
 from gym import spaces
+from matplotlib import colors
 from matplotlib.colors import ListedColormap
-
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import vtkplotter
+
 from Environments.env_utils import make_env_utils
 from NeuralNetwork.neural_net import NeuralNet
 
 
 def make(**env_kwargs):
+    """
+    Can be used instead of calling MapEnv() directly.
+    """
     if 'env_str' in env_kwargs:
         if env_kwargs['env_str'] == 'AutonomousDrone':
             return AirSimMapEnv(**env_kwargs)
     return MapEnv(**env_kwargs)
+
 
 class MapEnv(gym.Env):
 
@@ -35,19 +39,25 @@ class MapEnv(gym.Env):
                  REWARD_STEP=-0.5,
                  ):
         """
-        # TODO: improve doc-string
-        Creates an n-dimensional map environment, where n is the length of starting_map_size. The map will be centered around
-        the starting position
+        Creates an n-dimensional voxel/cell map environment, where n is decided by len(starting_map_size).
+        The map will be centered around the starting position. The map will dynamically increase in size when necessary.
+        The map can keep track of locations for different categories specified by map_keys. A local map can be accessed
+        which only shows a part of the full map, centered around the current position of the agent. The map can also be
+        used as a reinforcement learning environment, which follows the gym framework.
+
         :param starting_map_size: map size in meters
-        :param cell_scale: cell length in meters
+        :param cell_scale: length of each cell in meters
         :param starting_position: starting position of the agent
-        :param buffer_distance: the furthest distance from border that triggers extension of the map
-        :param local_map_dim: number of CELLS in the local map Manually enter starting_map_size and cell_scale to match wanted output
-        :param vision_range: vision range in meters. Should probably be smaller than buffer_distance
-        :param fov_angle: field of view angle in radians.
+        :param buffer_distance: the furthest distance from a border that triggers extension of the map
+        :param local_map_dim: number of CELLS in the local map. Manually enter starting_map_size and cell_scale to match wanted output shape.
+        :param vision_range: vision range in meters. Recommended that it is smaller than buffer_distance, but not necessary
+        :param fov_angle: field of view angle of the vision of the drone, in radians.
         :param map_keys: string of labels for which things to be tracked in the map and visualized
         :param thresholds: dict. Number of detections in a cell needed to mark. as occurance
-        :param map_idx: int in range [1,7] to choose from predefined training maps, -1 to randomize index. 0 default empty map.
+        :param map_idx: int in range [-1,9] to choose from predefined training maps, -1 to randomize index. 0 default empty map, suitable for Airsim.
+        :param interactive_plot: Set to True only if rendering 2D pyplots and want the plot to update in the same window.
+        :param REWARD_FAILURE: Reinforcement learning penalty for collisions
+        :param REWARD_STEP: Reinfocement learning penalty for defining a waypoint
         """
         assert len(starting_map_size) == 3, 'Class does currently only work for exactly 3 dimensions.'
         self.LARGE_NUMBER = 20
@@ -102,16 +112,12 @@ class MapEnv(gym.Env):
         self.reward_scaling = (self.vision_range / self.cell_scale[0]) * \
                               (self.vision_range / self.cell_scale[1]) * fov_angle / 2  # divide by area
         # assumes binary observations
-        """ TODO: old correct line:
-        self.observation_space = spaces.Box(low=0, high=1, shape=(self.local_map_dim[0], self.local_map_dim[1],
-                                                                  len(self.map_keys) * self.local_map_dim[2]),
-                                            dtype=np.int) """ # New TEST: (remove, unknown, visited)
         self.observation_space = spaces.Box(low=0, high=1, shape=(self.local_map_dim[0], self.local_map_dim[1],
                                                                   (len(self.map_keys) - 1) * self.local_map_dim[2]),
                                             dtype=np.int)
         self.action_space = spaces.Box(low=np.array([-np.inf, -np.inf]), high=np.array([np.inf, np.inf]),
                                        dtype=np.float64)
-        if interactive_plot:  # TODO: double check
+        if interactive_plot:
             plt.ion()
             self.fig = plt.figure()
             self.ax = self.fig.subplots()
@@ -123,21 +129,13 @@ class MapEnv(gym.Env):
         self.total_detected = None
         self.solved_threshold = None
 
-    def _debug(self, msg=""):
-        if msg:
-            print("===== " + msg + " debug start =====")
-        print("Position: ", self.position)
-        print("Map shape: ", self.map_shape)
-        print("Borders:   x:["+str(self.cell_positions[0][0])+", " + str(self.cell_positions[0][-1]) +"], " +
-                         "y:["+str(self.cell_positions[1][0])+", " + str(self.cell_positions[1][-1]) +"], " +
-                         "z:["+str(self.cell_positions[2][0])+", " + str(self.cell_positions[2][-1]) +"]")
-        print("Local map dimension: ", self.local_map_dim)
-        if msg:
-            print("===== " + msg + " debug end =====")
-            print("")
-
     def _create_map(self, map_borders):
+        """
+        Creates an empty map.
 
+        :param map_borders: list with start and end positions in each dimension. Ex: [[x0, x1],[y0,y1]]
+        :return: dictionary of cell/voxel maps for each map key, size of map, array of cell positions for each dimension.
+        """
         num_cells = np.zeros(self.dimensions, dtype=np.int32)
         buffer_length = np.zeros(self.dimensions)
         # find number of cells that need to be used for each dimension
@@ -163,9 +161,8 @@ class MapEnv(gym.Env):
 
     def _expand(self, size_increase):
         """
-
+        Increase the size of the map.
         :param size_increase: increment in meters - list of tuple-like e.g. [(5,0), (10,10), (0,1)]
-        :return:
         """
         current_borders = [(self.cell_positions[dim][0], self.cell_positions[dim][-1])
                            for dim in range(self.dimensions)]
@@ -193,7 +190,6 @@ class MapEnv(gym.Env):
         Find the size to expand the map with. Expand only if position (in meters)
         is outside borders or within the buffer distance of borders.
         :param position: array-like absolute position, or list of array-like
-        :return:
         """
         position = np.array(position, dtype=np.float32)
         if len(position.shape) == 1:
@@ -214,26 +210,15 @@ class MapEnv(gym.Env):
                     expand = True
 
         if expand:
-            #print('expanding map automatically with size: ' + str(size_increase))
             self._expand(size_increase)
 
     def _get_cell(self, position):
-
+        """
+        Get index to the cell at position
+        :param position: array like [x, y, ...]
+        :return: idx of cell (ix,iy,...)
+        """
         self._automatic_expansion(position)
-        """
-        # check if map needs to be expanded
-        expand = False
-        size_increase = [[0, 0], [0, 0], [0, 0]]
-        for dim in range(self.dimensions):
-            if self.cell_positions[dim][0] > position[dim]:
-                size_increase[dim][0] = self.cell_positions[dim][0] - position[dim] + self.buffer_distance[dim]
-                expand = True
-            if self.cell_positions[dim][-1] < position[dim]:
-                size_increase[dim][1] = position[dim] - self.cell_positions[dim][-1] + self.buffer_distance[dim]
-                expand = True
-        if expand:
-            self._expand(size_increase)
-        """
         cell = ()
         for dim in range(self.dimensions):
             if position[dim] == self.cell_positions[dim][-1]:  # if at (top) border
@@ -246,28 +231,39 @@ class MapEnv(gym.Env):
 
     def _get_position(self, cell):
         """
-        Assumes cell is valid.
-        :param cell:
-        :return:
+        Get the position of the cell. Assumes cell is valid (exists in map).
+        :param cell: idx of cell (ix,iy,...)
+        :return: position of cell, array like [x, y, ...]
         """
         positions = [self.cell_positions[dim][cell[dim]] + self.cell_scale[dim] / 2 for dim in range(self.dimensions)]
         return positions
 
     def _move_to_cell(self, cell):
+        """
+        Moves agent position to the position of the cell
+        :param cell: idx of cell (ix,iy,...)
+        """
         if 'visited' in self.map_keys:
             if self.cell_map['visited'][cell] < self.LARGE_NUMBER:
                 self.cell_map['visited'][cell] += 1
 
     def _mark_cell(self, cell, map_key):
+        """
+        Adds a detection of the map_key category in specific cell.
+        :param cell: idx of cell (ix,iy,...)
+        :param map_key: the detected category, e.g. 'object'
+        """
         if self.cell_map[map_key][cell] < self.LARGE_NUMBER:
             self.cell_map[map_key][cell] += 1
 
     def _field_of_view(self, position, orientation, z_value=None):
         """
+        Vision model of the agent. Find which cells in the map that are visible to the agent given the position and
+        orientation. Obstacles that are present in the map will occlude cells behind them.
 
         :param position: absolute position
-        :param orientation: 2d np array (will be normalized)
-        :param z_value: None or float. If float, generates vision cone with height=1 at z_value for 2d exploration training.
+        :param orientation: 2d np array (v_x, v_y). (It will be normalized)
+        :param z_value: None or float. If float, generates vision cone with height=1 at z_value suitable for 2d exploration training.
         :return:
         """
         # approximate function: distance is calculated from cell perspective, not position perspective
@@ -319,8 +315,6 @@ class MapEnv(gym.Env):
             mask_down = n_down[0] * (x-center_x) + n_down[1] * (y-center_y) + n_down[2] * (z-center_z) >= 0
 
             cone_mask = (mask_left & mask_right) * (mask_up & mask_down) if self.fov_angle < np.pi else (mask_left | mask_right) * (mask_up | mask_down)
-            #cone_mask = (mask_left & mask_right)* mask_up if self.fov_angle < np.pi else (mask_left | mask_right)
-
             mask = mask_sphere * cone_mask
 
         # mask vision behind obstacles
@@ -334,7 +328,7 @@ class MapEnv(gym.Env):
 
             v = np.array([xx - center_x, yy - center_y, zz - center_z])
             # approximation of occlusion lines
-            angle = np.arctan(cell_diag / np.linalg.norm(v)) * 1  # TODO: find good factor
+            angle = np.arctan(cell_diag / np.linalg.norm(v)) * 1
             angle = np.min((angle, np.pi))
             cos_theta, sin_theta = np.cos(angle / 2), np.sin(angle / 2)
             rot_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
@@ -356,24 +350,21 @@ class MapEnv(gym.Env):
             mask_down = n_down[0] * (x-center_x) + n_down[1] * (y-center_y) + n_down[2] * (z-center_z) >= 0
 
             mask_distance = - v[0] * (x - xx) - v[1] * (y - yy) - v[2] * (z - zz) <= 0
-
-            #temp_mask =  mask_left * mask_right * mask_distance
             temp_mask = mask_left * mask_right * mask_up * mask_down * mask_distance
-            #temp_mask = mask_up * mask_down #* mask_distance
-            #mask = mask | temp_mask
             mask *= ~temp_mask
 
         fov_mask = mask
-
         return fov_mask
 
     def _update(self, new_position, orientation=None, detected_obstacles=(), detected_objects=(), z_value=None):
         """
+        Update the environment according to the new position and orientation, and add detections to the map.
 
         :param new_position: tuple or list, (x, y, z)
+        :param orientation: 2d np array of the camera direction (used for _mark_visible()). If None, direction is estimated
         :param detected_obstacles: list of absolute positions
         :param detected_objects: list of absolute positions
-        :param orientation: 2d np array of the camera direction (used for _mark_visible()). If None, direction is estimated
+        :param z_value: specify the height for 2D exploration, else None.
         :return: number of cells in field of view that have not yet been detected.
         """
         if orientation is None:  # estimate orientation
@@ -403,8 +394,6 @@ class MapEnv(gym.Env):
         If local, get local map, else get global map.
         If binary = True, binary maps are stacked in z dim, one for each map_key, which is suitable for neural network
         input. Else, the map is built using tokens representing the different keys. Suitable for visualization
-        :param binary:
-        :return:
         """
         current_cell = self._get_cell(self.position)
         # Expand map if local map covers non-existing cells
@@ -430,7 +419,6 @@ class MapEnv(gym.Env):
         if local:
             local_idx = []
             for dim in range(self.dimensions):
-                #start = np.max((current_cell[dim] - self.local_map_dim[dim] // 2, int(0))) TODO: remove if new line works
                 start = current_cell[dim] - self.local_map_dim[dim] // 2
                 end = start + self.local_map_dim[dim]
                 local_idx.append(slice(start, end))
@@ -441,8 +429,7 @@ class MapEnv(gym.Env):
             map_shape = self.map_shape
 
         if binary:
-            cell_map = np.concatenate([cell_map[key] for key in cell_map.keys() if (key != 'unknown')], axis=2) # TODO: NEW WRONG LINE
-            #cell_map = np.concatenate([value for value in cell_map.values()], axis=2) # TODO : Old correct line
+            cell_map = np.concatenate([cell_map[key] for key in cell_map.keys() if (key != 'unknown')], axis=2)
             cell_map = np.array(cell_map, dtype=np.float32)  # float32 for neural net input
         else:
             temp_cell_map = np.ones(map_shape, dtype=np.int32) * self.tokens['unknown']
@@ -456,8 +443,6 @@ class MapEnv(gym.Env):
     def _get_info(self, position):
         """
         Get detections for position
-        :param position:
-        :return:
         """
         return {k: v[self._get_cell(position)] for k, v in self.cell_map.items()}
 
@@ -465,6 +450,11 @@ class MapEnv(gym.Env):
         return self.position
 
     def _crop_token_map(self, local, ceiling_z=None, floor_z=None):
+        """
+        Crop the map, removing cells outside the ceiling/floor values.
+
+        :param local: Also crop in x,y dimensions.
+        """
         token_map = self._get_map(local=local, binary=False)
         if ceiling_z is not None:
             assert ceiling_z > self.cell_positions[2][0], 'Ceiling threshold set too low. Must be bigger than {}'.format(self.cell_positions[2][0])
@@ -484,6 +474,14 @@ class MapEnv(gym.Env):
         return token_map
 
     def _visualize_2d(self, token_map, local=False, ax=None, num_ticks_approx=6):
+        """
+        Plot a 2D visualization of the map
+
+        :param token_map: the map to be visualized
+        :param local: if True, show cropped part of the map, else show everything
+        :param ax: pyplot object to show the plot in
+        :param num_ticks_approx: Number of ticks on the axis in the plot
+        """
         if ax is None:
             fig = plt.figure()
             ax = fig.subplots()
@@ -531,7 +529,13 @@ class MapEnv(gym.Env):
         plt.pause(0.005)
 
     def _visualize_3d(self, token_map, show_detected=False, voxels=False):
+        """
+        Plot a 3D visualization of the map.
 
+        :param token_map: the map to be visualized.
+        :param show_detected: Show voxels that are 'visited' if True.
+        :param voxels: Show cubic voxels if True, else show 3D points.
+        """
         if not voxels:
             X, Y, Z = np.mgrid[:token_map.shape[0], :token_map.shape[1], :token_map.shape[2]]
             point_list = np.array([[x, y, z] for x, y, z in zip(np.ravel(X), np.ravel(Y), np.ravel(Z))])  # 'flat' (2d) index array
@@ -565,17 +569,19 @@ class MapEnv(gym.Env):
             vtkplotter.show(lego, interactive=True, newPlotter=True)
 
     def _training_map(self, map_idx):
+        """
+        Obtain toy map for 2D exploration
+        """
         from Environments.Exploration import training_maps
         return training_maps.generate_map(map_idx)
 
     def _move_by_delta_position(self, delta_position, step_length=0.1, safe_mode=False):  # naive, straight path
         """
-        Reaches target by taking smalls steps until close to target
-        TODO: implement 3d
+        For 2D exploration: Move agent. Reaches target by taking smalls steps until close to target
         :param delta_position: (dx, dy, 0) for the time being
-        :param step_length:
+        :param step_length: length of each step in meters
         :param safe_mode: If true, the movement terminates before an obstacle is hit
-        :return:
+        :return: success - False if collision occured, num_detected_cells - number of cells that were seen, steps taken, done - True if trajectory over (collision or max steps)
         """
         success = True
         done = False
@@ -610,6 +616,14 @@ class MapEnv(gym.Env):
         return success, num_detected_cells, steps, done
 
     def reset(self, starting_position=None, local=True, binary=True):
+        """
+        Function according to reinforcement learning framework. Creates a new empty map and returns an observation of it.
+
+        :param starting_position: position of agent.
+        :param local: boolean, local or global observation (cropped or full)
+        :param binary: One cell map for each map keys is produced if True, else one map in total with different values showing the map keys.
+        :return: map observation
+        """
         self.total_detected = 0
         if self.map_idx != 0:
             starting_position, obstacles, self.solved_threshold = self._training_map(self.map_idx)
@@ -634,11 +648,10 @@ class MapEnv(gym.Env):
 
     def step(self, action, local=True, binary=True, safe_mode=False):
         """
+        Function according to reinforcement learning framework. For 2D exploration. Moves the agent to the waypoint defined by action.
 
         :param action: 2d array describing a waypoint in relative position: (dx, dy)
-        :param local:
-        :param binary:
-        :return:
+        :return: observation, reward, done, info
         """
         delta_position = np.concatenate((np.array(action, dtype=np.float32), np.array([0.], dtype=np.float32)), axis=0)
         terminated_at_target, num_detected_cells, steps, done = self._move_by_delta_position(delta_position, safe_mode=safe_mode)
@@ -665,6 +678,17 @@ class MapEnv(gym.Env):
         return observation, reward, done, info
 
     def render(self, render_3d=False, local=False, num_ticks_approx=6, show_detected=False, voxels=True, ceiling_z=None, floor_z=None):
+        """
+        Calls the different visualization functions to render the environement state.
+        :param render_3d: True, else 2D render
+        :param local: If True, crop the map to only include the immediate surroundings.
+        :param num_ticks_approx:
+        :param show_detected: Show cells that are 'visited' if True.
+        :param voxels: see visualize_3d
+        :param ceiling_z: see visualize_3d
+        :param floor_z: see visualize_3d
+        :return:
+        """
         token_map = self._crop_token_map(local, ceiling_z=ceiling_z, floor_z=floor_z)
         if render_3d:
             self._visualize_3d(token_map, show_detected=show_detected, voxels=voxels)
@@ -682,7 +706,10 @@ class MapEnv(gym.Env):
 
 
 class AirSimMapEnv(MapEnv):
-
+    """
+    Extension of MapEnv which includes AirSim. Reimplements 'move_by_delta_position' to use a local navigation agent instead of
+    the naive approach to move straight towards the goal.
+    """
     def __init__(self,
                  starting_map_size=(10., 10., 2.),
                  cell_scale=(1., 1., 1.),
@@ -734,13 +761,6 @@ class AirSimMapEnv(MapEnv):
                               (self.vision_range / self.cell_scale[2]) * fov_angle / 2  # divide by area
 
     def _move_by_delta_position(self, delta_position, safe_mode=None):
-        """
-        Reaches target by taking smalls steps until close to target
-        TODO: implement 3d
-        :param waypoint:
-        :param step_length:
-        :return:
-        """
         self.env_airsim.target_position = self._get_current_position() + delta_position
         self.env_airsim.valid_trgt = True
 
