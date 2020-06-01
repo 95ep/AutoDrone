@@ -4,7 +4,7 @@ import os
 import torch
 
 from Environments.env_utils import make_env_utils
-from Agents.neutral_net import NeutralNet
+from NeuralNetwork.neural_net import NeuralNet
 from PPO_trainer import PPO_trainer, evaluate
 
 
@@ -26,7 +26,7 @@ network_kwargs = env_utils.get_network_kwargs()
 # Add additional kwargs from parameter file
 network_kwargs.update(parameters['neural_network'])
 
-ac = NeutralNet(**network_kwargs)
+ac = NeuralNet(**network_kwargs)
 
 if parameters['mode'] == 'training':
     # Create the directories for logs and saved models

@@ -3,7 +3,7 @@ import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 
 from Environments.env_utils import make_env_utils
-from Agents.neutral_net import NeutralNet
+from NeuralNetwork.neural_net import NeuralNet
 from verify_obj_detection import gt_monitor_positions, precision_recall
 
 # Create parser and parse arguments
@@ -38,7 +38,7 @@ if not parameters['random_exploration']:
     old_shape = network_kwargs['visual_input_shape']
     network_kwargs['visual_input_shape'] = (old_shape[0], old_shape[1], 6)
 
-    ac = NeutralNet(**network_kwargs)
+    ac = NeuralNet(**network_kwargs)
 
     ac.load_state_dict(torch.load(parameters['weights']))
 else:

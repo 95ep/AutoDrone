@@ -8,7 +8,7 @@ from matplotlib.colors import ListedColormap
 import torch
 import vtkplotter
 from Environments.env_utils import make_env_utils
-from Agents.neutral_net import NeutralNet
+from NeuralNetwork.neural_net import NeuralNet
 
 
 def make(**env_kwargs):
@@ -721,7 +721,7 @@ class AirSimMapEnv(MapEnv):
         network_kwargs = self.env_utils_airsim.get_network_kwargs()
         network_kwargs.update(parameters['Exploration']['local_navigation']['neural_network'])  # add additional kwargs from parameter file
 
-        self.local_navigator = NeutralNet(**network_kwargs)
+        self.local_navigator = NeuralNet(**network_kwargs)
         self.local_navigator.load_state_dict(torch.load(parameters['Exploration']['local_navigation']['weights']))
 
         self.navigator_max_steps = parameters['navigator_max_steps']

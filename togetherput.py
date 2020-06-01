@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 from Environments.env_utils import make_env_utils
-from Agents.neutral_net import NeutralNet
+from NeuralNetwork.neural_net import NeuralNet
 
 
 class AutonomousDrone:
@@ -28,7 +28,7 @@ class AutonomousDrone:
         # Add additional kwargs from parameter file
         network_kwargs.update(parameters['neural_network'])
 
-        self.point_navigator = NeutralNet(**network_kwargs)
+        self.point_navigator = NeuralNet(**network_kwargs)
         self.point_navigator.load_state_dict(torch.load(parameters['point_navigation']['weights']))
         self.object_detection_frequency = parameters['point_navigation']['object_detection_frequency']
         self.obstacle_detection_frequency = parameters['point_navigation']['obstacle_detection_frequency']
