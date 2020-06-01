@@ -2,23 +2,27 @@ import numpy as np
 import vtkplotter as vtkp
 from verify_obj_detection import precision_recall
 
-save_pth = '/Users/erikpersson/PycharmProjects/AutoDrone/plots/objs_ver2'
-gt_pos = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/local3_epoch_2270_objs/ground_truth.npy')
-obstac = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/local3_epoch_2270_objs/obstacles.npy')
-objs = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/local3_epoch_2270_objs/objects.npy')
-visited = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/local3_epoch_2270_objs/visited.npy')
+save_pth = '/Users/erikpersson/PycharmProjects/AutoDrone/plots/objs_ver5'
+gt_pos = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/manual_obj_ver/ground_truth.npy')
+obstac = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/manual_obj_ver/obstacles.npy')
+objs = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/manual_obj_ver/objects.npy')
+visited = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/manual_obj_ver/visited.npy')
 ceiling_level = -1.2
 
 print("Shape of gt_pos {}".format(gt_pos.shape))
 print("Shape of obstac {}".format(obstac.shape))
 print("Shape of objs {}".format(objs.shape))
 print("Shape of visited {}".format(visited.shape))
-precision_recall(objs, gt_pos, scale=[0.7, 0.7, 0.7 ])
+_, _, true_pos, false_pos = precision_recall(objs, gt_pos, scale=[0.7, 0.7, 0.7 ])
+true_pos = np.array(true_pos)
+false_pos = np.array(false_pos)
 
 gt_color = [0, 0, 255, 150]
-obj_color = [255, 255, 0, 255]
+true_color = [255, 255, 0, 255]
+false_color = [0, 255, 255, 255]
 obstac_color = [255, 51, 51, 140]
 visited_color = [0, 255, 0, 70]
+
 
 obstac_list = []
 for o in obstac:
@@ -32,14 +36,16 @@ for v in visited:
         visited_list.append(v)
 visited = np.array(visited_list)
 
-plist1 = np.concatenate((visited, gt_pos, objs), axis=0)
+plist1 = np.concatenate((visited, gt_pos, true_pos, false_pos), axis=0)
 c1 = []
 for _ in range(visited.shape[0]):
     c1.append(visited_color)
 for _ in range(gt_pos.shape[0]):
     c1.append(gt_color)
-for _ in range(objs.shape[0]):
-    c1.append(obj_color)
+for _ in range(true_pos.shape[0]):
+    c1.append(true_color)
+for _ in range(false_pos.shape[0]):
+    c1.append(false_color)
 
 c2 = c1.copy()
 for _ in range(obstac.shape[0]):

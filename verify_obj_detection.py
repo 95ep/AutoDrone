@@ -49,6 +49,8 @@ def precision_recall(object_positions, gt_monitor_positions, scale):
     # Calculate precision
     n_true_positive = 0
     n_false_positive = 0
+    true_positive_pos = []
+    false_positive_pos = []
     for pos in object_positions:
         correct_pos = False
         for i, gt_pos in enumerate(gt_monitor_positions):
@@ -60,6 +62,9 @@ def precision_recall(object_positions, gt_monitor_positions, scale):
                 break
         if not correct_pos:
             n_false_positive += 1
+            false_positive_pos.append(pos)
+        else:
+            true_positive_pos.append(pos)
 
     precision = n_true_positive / len(object_positions)
 
@@ -81,7 +86,7 @@ def precision_recall(object_positions, gt_monitor_positions, scale):
     print("All positions of objects detected")
     print(object_positions)
 
-    return precision, recall
+    return precision, recall, true_positive_pos, false_positive_pos
 
 
 if __name__ == '__main__':
