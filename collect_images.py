@@ -4,6 +4,7 @@ import airsim
 import json
 import msvcrt
 import numpy as np
+import matplotlib.pyplot as plt
 from PIL import Image
 from Environments.env_utils import make_env_utils
 
@@ -25,6 +26,20 @@ class ImageCollector:
         rgb = np.array(bgr[:, :, [2, 1, 0]])
         img = Image.fromarray(rgb)
         img.save("ObjectDetection/airsim_imgs/image{}.jpg".format(self.img_idx))
+        print("Image {} captured!".format(self.img_idx))
+        self.img_idx += 1
+
+    def capture_depth(self):
+        requests = [airsim.ImageRequest(
+            'front_center', airsim.ImageType.DepthPlanner, pixels_as_float=True, compress=False)]
+        responses = self.env.client.simGetImages(requests)
+        response = responses[0]
+        depth = airsim.list_to_2d_float_array(
+            response.image_data_float, response.width, response.height)
+        #rgb = np.array(bgr[:, :, [2, 1, 0]])
+        img = Image.fromarray(depth)
+        plt.imshow(depth, cmap='gray', vmin=-5, vmax=30)
+        plt.savefig("ObjectDetection/airsim_imgs/depth/image{}.png".format(self.img_idx), dpi=300)
         print("Image {} captured!".format(self.img_idx))
         self.img_idx += 1
 
@@ -53,7 +68,7 @@ class ImageCollector:
                 print('TERMINATED BY PLAYER')
                 break
             elif key == 'c':
-                self.capture_image()
+                self.capture_depth()
 
             if action is not None:
                 obs, reward, done, info = self.env.step(action)

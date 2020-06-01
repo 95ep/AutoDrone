@@ -8,8 +8,8 @@ MIN_MATCH_COUNT = 10
 REJECTION_FACTOR = 0.75
 
 queryImage1 = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_100.jpg',cv.IMREAD_GRAYSCALE)          # queryImage
-queryImage2 = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_101.jpg',cv.IMREAD_GRAYSCALE)
-trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/image102_low_low_res.jpg',cv.IMREAD_GRAYSCALE) # trainImage
+queryImage2 = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_100.jpg',cv.IMREAD_GRAYSCALE)
+trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/image102 - Copy.jpg',cv.IMREAD_GRAYSCALE) # trainImage
 # queryImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/cone-only-4.jpg',cv.IMREAD_GRAYSCALE)          # queryImage
 # trainImage = cv.imread('D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/image1.jpg',cv.IMREAD_GRAYSCALE) # trainImage
 
@@ -53,13 +53,13 @@ for i in range(n_clusters):
 
 cluster_time = time.time() - cluster_start
 
-# cluster_fig = plt.figure()
-# ax = cluster_fig.subplots(n_clusters//3+1,3).flatten()
-# for i in range(n_clusters):
-#     kpImg = cv.drawKeypoints(trainImage, kp_per_cluster[i], None, flags=cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-#     ax[i].imshow(kpImg)
-#
-# plt.show()
+cluster_fig = plt.figure()
+ax = cluster_fig.subplots(n_clusters//3+1,3).flatten()
+for i in range(n_clusters):
+    kpImg = cv.drawKeypoints(trainImage, kp_per_cluster[i], None, flags=cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    ax[i].imshow(kpImg)
+
+plt.show()
 homographies = []
 dst_list = []
 
@@ -146,7 +146,9 @@ for dst in dst_list:
     y = int(np.sum(dst[:,0,1]) / 4)
     img_pt = cv.circle(trainImage, (x,y), 30, 255, thickness=4)
 
-plt.imshow(trainImage, cmap='gray'), plt.show()
+plt.imshow(trainImage, cmap='gray')
+plt.savefig('multi_objects.png', dpi=300)
+plt.show()
 # Plot everything
 # fig1 = plt.figure()
 # ax11 = fig1.subplots()

@@ -1,5 +1,5 @@
 {
-    "mode": "training",
+    "mode": "evaluation",
     "env_str": "AirSim",
     "neural_network": {
         "hidden_size": 32,
@@ -18,18 +18,18 @@
           "reward_rotate": -0.05,
           "max_dist": 10,
           "distance_threshold": 0.5,
-          "invalid_prob": 0.12,
+          "invalid_prob": 0.1,
           "sensors": ["depth", "pointgoal_with_gps_compass"],
-          "floor_z": 0.5,
-          "ceiling_z": -1,
-          "scene_string": "subT"
+          "floor_z": 100,
+          "ceiling_z": -100,
+          "scene_string": "basic23"
         },
-        "airsim_settings_path": "C:/Users/Filip/Documents/AirSim/settings.json",
+        "airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
         "airsim_settings": {
           "SettingsVersion": 1.2,
           "SimMode": "Multirotor",
           "ViewMode": "",
-          "ClockSpeed": 32,
+          "ClockSpeed": 4,
           "CameraDefaults": {
             "CaptureSettings": [
               {
@@ -66,26 +66,27 @@
     },
     "training": {
         "gamma": 0.99,
-        "n_epochs": 250000,
+        "n_epochs": 3500,
         "steps_per_epoch": 2048,
         "minibatch_size": 128,
         "clip_ratio": 0.2,
-        "lr": 2e-5,
-        "train_iters": 16,
+        "lr": 1e-5,
+        "train_iters": 8,
         "lam": 0.95,
-        "max_episode_len": 1024,
+        "max_episode_len": 512,
         "value_loss_coef": 0.5,
-        "entropy_coef": 0.01,
+        "entropy_coef": 0.005 ,
         "target_kl": 0.03,
         "save_freq": 10,
         "prob_train_on_manual_experience": 0.0,
         "manual_experience_path": "Trajectories/",
         "resume_training": true,
-        "epoch_to_resume": 2910,
-        "weights": "C:/Users/Filip/Projects/Rise/AutoDrone/runs/subT-resume2700-with-invalid-trgts/saved_models/model2910.pth"
+        "epoch_to_resume": 2661,
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/clean/local_nav3/saved_models/model2660.pth"
     },
     "eval": {
-        "n_eval_steps": 6000,
-        "weights": "C:/Users/Filip/Projects/Rise/AutoDrone/runs/subT-new-trgts-resumed/saved_models/model1920.pth"
+        "n_eval_steps": 512,
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/clean/local_nav3/saved_models/model2000.pth",
+        "deterministic": false
     }
 }

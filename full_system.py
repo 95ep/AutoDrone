@@ -1,4 +1,4 @@
-import argparse, json, torch
+import argparse, json, torch, os
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 
@@ -15,6 +15,14 @@ args = parser.parse_args()
 # Open the json parameters file
 with open(args.parameters) as f:
     parameters = json.load(f)
+
+parent_dir = os.path.dirname(args.logdir)
+if not os.path.exists(parent_dir):
+    os.makedirs(parent_dir)
+
+# Copy all parameters to log dir
+with open(args.logdir + 'parameters.json', 'w') as f:
+    json.dump(parameters, f, indent='\t')
 
 log_writer = SummaryWriter(log_dir=args.logdir + 'log/')
 
@@ -33,6 +41,9 @@ if not parameters['random_exploration']:
     ac = NeutralNet(**network_kwargs)
 
     ac.load_state_dict(torch.load(parameters['weights']))
+else:
+    mean = np.array([0, 0])
+    cov = parameters['sigma'] * np.eye(2)
 
 obs = env.reset()
 obs = obs[:,:,0:6]
@@ -40,17 +51,17 @@ obs_vector, obs_visual = env_utils.process_obs(obs)
 comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 for step in range(parameters['n_steps']):
     if parameters['random_exploration']:
-        raise NotImplementedError
+        action = np.random.multivariate_normal(mean, cov)
+        action = torch.tensor(action, dtype=torch.float32)
     else:
         with torch.no_grad():
             value, action, log_prob = ac.act(comb_obs)
 
     next_obs, reward, done, info = env.step(env_utils.process_action(action))
-    print("Nr of objects: {}".format(np.count_nonzero(next_obs[:,:,-3:])))
     next_obs = next_obs[:,:,0:6]
     obs_vector, obs_visual = env_utils.process_obs(next_obs)
     comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
-
+    
     # Extract objects found
     map = env._get_map(local=False, binary=False)
     # Extract objects

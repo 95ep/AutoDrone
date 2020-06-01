@@ -6,7 +6,6 @@ from Environments.env_utils import make_env_utils
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--parameters', type=str)
-parser.add_argument('--file_number', type=int, default=0)
 args = parser.parse_args()
 with open(args.parameters) as f:
     parameters = json.load(f)
@@ -52,6 +51,7 @@ while True:
 
     if action is not None:
         _, reward, done, info = env.step(action)
+        env.render()
         log_dict['TotalSteps'] += 1
         log_dict['TotalReturn'] += reward
         if done:
@@ -70,5 +70,6 @@ while True:
                 break
         step += 1
 
+env.close()
 print("Log dict")
 print(log_dict)

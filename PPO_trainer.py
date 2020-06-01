@@ -125,14 +125,13 @@ def _update(actor_critic, data, optimizer, minibatch_size, train_iters,
 
 def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True, deterministic=True):
     log_dict = {'Eval/TotalReturn': 0, 'Eval/nDones': 0, 'Eval/TotalSteps': 0}
-
     # Set up interactions with env
     obs_vector, obs_visual = env_utils.process_obs(env.reset())
     comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
     for step in range(n_eval_steps):
         log_dict['Eval/TotalSteps'] += 1
         with torch.no_grad():
-            value, action, _ = actor_critic.act(comb_obs, deterministic=True)
+            value, action, _ = actor_critic.act(comb_obs, deterministic=deterministic)
 
         next_obs, reward, done, info = env.step(env_utils.process_action(action))
         if render:

@@ -107,7 +107,7 @@ class MapEnv(gym.Env):
                                                                   len(self.map_keys) * self.local_map_dim[2]),
                                             dtype=np.int) """ # New TEST: (remove, unknown, visited)
         self.observation_space = spaces.Box(low=0, high=1, shape=(self.local_map_dim[0], self.local_map_dim[1],
-                                                                  (len(self.map_keys) - 2) * self.local_map_dim[2]),
+                                                                  (len(self.map_keys) - 1) * self.local_map_dim[2]),
                                             dtype=np.int)
         self.action_space = spaces.Box(low=np.array([-np.inf, -np.inf]), high=np.array([np.inf, np.inf]),
                                        dtype=np.float64)
@@ -441,7 +441,7 @@ class MapEnv(gym.Env):
             map_shape = self.map_shape
 
         if binary:
-            cell_map = np.concatenate([cell_map[key] for key in cell_map.keys() if (key != 'visited' and key != 'unknown')], axis=2) # TODO: NEW WRONG LINE
+            cell_map = np.concatenate([cell_map[key] for key in cell_map.keys() if (key != 'unknown')], axis=2) # TODO: NEW WRONG LINE
             #cell_map = np.concatenate([value for value in cell_map.values()], axis=2) # TODO : Old correct line
             cell_map = np.array(cell_map, dtype=np.float32)  # float32 for neural net input
         else:
@@ -641,7 +641,7 @@ class MapEnv(gym.Env):
         :return:
         """
         delta_position = np.concatenate((np.array(action, dtype=np.float32), np.array([0.], dtype=np.float32)), axis=0)
-        success, num_detected_cells, steps, done = self._move_by_delta_position(delta_position, safe_mode=safe_mode)
+        _, num_detected_cells, steps, done = self._move_by_delta_position(delta_position, safe_mode=safe_mode)
 
         steps = np.max((steps, 1))
         reward = 25 * num_detected_cells / self.reward_scaling / steps
@@ -651,9 +651,6 @@ class MapEnv(gym.Env):
             reward *= (steps / 10) ** (1/4)
         if done:
             reward = self.REWARD_FAILURE
-        elif not success:
-            reward += self.REWARD_FAILURE
-
 
         observation = self._get_map(local=local, binary=binary)
         info = {'env': 'Exploration', 'terminated_at_target': success}

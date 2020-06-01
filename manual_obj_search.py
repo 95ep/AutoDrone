@@ -15,7 +15,7 @@ class ObjectCollector:
     def __init__(self, env, env_utils, q_paths):
         self.env = env
         self.env_utils = env_utils
-        self.env.setup_object_detection(q_paths, rejection_factor=0.8, min_match_thres=10)
+        self.env.setup_object_detection(q_paths, rejection_factor=0.75, min_match_thres=10)
 
     def capture_object(self):
         point_cloud, dst_list = self.env.get_trgt_objects()
@@ -81,6 +81,7 @@ if __name__ == '__main__':
 
     q_paths = ["D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_100.jpg",
                 "D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_101.jpg"]
+                #"D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_202.jpg"]
     env_utils, env = make_env_utils(**parameters)
     oc = ObjectCollector(env, env_utils, q_paths)
     oc.collect_objects()

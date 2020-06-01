@@ -12,12 +12,13 @@
 
     "navigator_max_steps": 100,
     "object_detection_frequency": 1,
-    "obstacle_detection_frequency": 1,
+    "obstacle_detection_frequency": 2,
 
     "object_detection": {
       "query_paths": [
-          "D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_100.jpg",
-          "D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_101.jpg"
+          "D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_200.jpg",
+          "D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_201.jpg",
+          "D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_202.jpg"
         ],
       "rejection_factor": 0.8,
       "min_match_thres": 10
@@ -25,7 +26,7 @@
 
     "Exploration": {
       "starting_map_size": [32,32,2],
-      "cell_scale": [0.7, 0.7, 0.7],
+      "cell_scale": [0.5, 0.5, 0.5],
       "starting_position": [0,0,1],
       "buffer_distance": [10,10,0],
       "local_map_dim": [32, 32, 1],
@@ -35,10 +36,10 @@
       "thresholds": {
         "visible": 1,
         "visited": 1,
-        "obstacle": 2,
-        "object": 2
+        "obstacle": 6,
+        "object": 1
       },
-      "map_idx": -1,
+      "map_idx": 0,
       "interactive_plot": false,
       "REWARD_FAILURE": -10,
       "REWARD_STEP": -0.5,
@@ -51,7 +52,7 @@
             "padding_config": [1, 1, 1],
             "max_pool_config": [true, true, false]
         },
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/basic23-invalid-trgts-continued/saved_models/model160.pth"
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/clean/local_nav/saved_models/model2020.pth"
       }
     },
     "AirSim": {
@@ -72,7 +73,7 @@
           "SettingsVersion": 1.2,
           "SimMode": "Multirotor",
           "ViewMode": "",
-          "ClockSpeed": 2,
+          "ClockSpeed": 4,
           "CameraDefaults": {
             "CaptureSettings": [
               {

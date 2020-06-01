@@ -38,7 +38,7 @@
         "obstacle": 2,
         "object": 2
       },
-      "map_idx": -1,
+      "map_idx": 0,
       "interactive_plot": false,
       "REWARD_FAILURE": -10,
       "REWARD_STEP": -0.5,
@@ -51,7 +51,7 @@
             "padding_config": [1, 1, 1],
             "max_pool_config": [true, true, false]
         },
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/basic23-invalid-trgts-continued/saved_models/model160.pth"
+        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/clean/local_nav3/saved_models/model2270.pth"
       }
     },
     "AirSim": {

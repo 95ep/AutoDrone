@@ -3,7 +3,7 @@ from Environments.Exploration.map_env import make, AirSimMapEnv
 import time
 import json
 
-with open('C:/Users/Filip/Projects/RISE/AutoDrone/Parameters/parameters_ad.json') as f:
+with open('D:/Exjobb2020ErikFilip/AutoDrone/Parameters/parameters_ad.json') as f:
     parameters = json.load(f)
 
 #m = make(vision_range=1, interactive_plot=False, local_map_dim=(16, 16, 1))

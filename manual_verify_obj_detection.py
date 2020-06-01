@@ -17,9 +17,6 @@ def manual_controller():
             action = 4
         elif key == 's':
             action = 0
-        elif key == 'r':
-            print("ENVIRONMENT RESET BY PLAYER")
-            action = 'reset'
-        elif key == 'b' or key == 't':
-            action = 'terminate'
+        else:
+            print("Invalid key")
     return action

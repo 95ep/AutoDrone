@@ -9,7 +9,7 @@ with open("D:/Exjobb2020ErikFilip/AutoDrone/Parameters/parameters_airsim.json") 
 env_utils, env = make_env_utils(**parameters)
 
 all_obstac = []
-obstacles = env.get_obstacles(1.57, 64)
+obstacles = env.get_obstacles(1.57, 32)
 for o in obstacles:
    all_obstac.append(o)
 
