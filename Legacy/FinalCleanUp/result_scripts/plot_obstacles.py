@@ -7,10 +7,10 @@ ceiling_level = -2.0
 # ceiling_level = None
 
 save_pth = '/Users/erikpersson/PycharmProjects/AutoDrone/plots/obstac_ver_cover.png'
-gt_pos = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/local3_epoch_2270_objs/ground_truth.npy')
-obstac = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/local3_epoch_2270_obstac/obstacles.npy')
-objs = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/local3_epoch_2270_objs/objects.npy')
-visited = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/local3_epoch_2270_objs/visited.npy')
+gt_pos = np.load('/verification/local3_epoch_2270_objs/ground_truth.npy')
+obstac = np.load('/verification/local3_epoch_2270_obstac/obstacles.npy')
+objs = np.load('/verification/local3_epoch_2270_objs/objects.npy')
+visited = np.load('/verification/local3_epoch_2270_objs/visited.npy')
 
 cell_scale = np.array([0.71, 0.71, 0.71])
 
