@@ -2,7 +2,7 @@
 __pycache__
 
 # Legacy
-Legacy/*
+Legacy/habitat_baselines/*
 
 # logs
 runs/*
