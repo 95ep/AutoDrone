@@ -6,6 +6,8 @@ from Environments.env_utils import make_env_utils
 from NeuralNetwork.neural_net import NeuralNet
 from verify_detection import gt_monitor_positions, precision_recall
 
+#TODO: Check that is runnable
+
 # Create parser and parse arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('--parameters', type=str)

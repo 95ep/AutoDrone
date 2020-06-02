@@ -7,7 +7,7 @@ from Environments.env_utils import make_env_utils
 from NeuralNetwork.neural_net import NeuralNet
 from PPO_trainer import PPO_trainer, evaluate
 
-
+# TODO: Check that is runnable
 # Create parser and parse arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('--parameters', type=str)
