@@ -19,6 +19,9 @@ Experience is collected by letting the agent interact with the environment and t
 After collecting enough interactions for an epoch, a training loss is calculated in the style of PPO using the data in 
 the buffer and the parameters of the neural network agent are updated using stochastic gradient descent. 
 
+*manual_experience_collection.py* can be used to collect data by controlling the UAV using the keyboard, potentially 
+speeding up the training process by providing data that better shows an efficient policy. 
+
 ## Main
 
 The main script sets up everything that is needed to train or evaluate an agent in some RL environment that is supported 
@@ -45,3 +48,5 @@ Other non-standard modules that are required:
 * vtkplotter
 * sklearn
 * OpenCV
+* msvcrt
+* pickle

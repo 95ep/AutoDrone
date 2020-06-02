@@ -1,13 +1,18 @@
 import argparse
 import json
-import pickle
 import msvcrt
+import pickle
 import torch
+
 from Environments.env_utils import make_env_utils
 
 
 class ManualCollector:
-
+    """
+    Collect manual experience in Airsim that can be used by the PPO_trainer to provide valuable trajectories.
+    Fly the drone using W-forward, A/D-left/right, Z/X-ascend/descend, S-terminate (predict waypoint reached), R-reset,
+    B/T-exit.
+    """
     def __init__(self, steps_per_epoch, env, env_utils, data_count):
         self.data_count = data_count
         self.steps_per_epoch = steps_per_epoch
@@ -18,10 +23,6 @@ class ManualCollector:
     def save_data(self, data):
         with open('data_' + str(self.data_count) + '.pkl', 'wb') as f:
             pickle.dump(data, f)
-
-# Load
-#with open('objs.pkl', 'rb') as f:
-#    obj0, obj1, obj2 = pickle.load(f)
 
     def collect_trajectory(self):
         print('STARTING A NEW {} STEP TRAJECTORY. TERMINATE EARLY BY PRESSING t'.format(self.steps_per_epoch))
