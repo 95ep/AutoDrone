@@ -25,7 +25,8 @@ Finally, this file also contains functions for reprojecting a pixel in an image 
 3D point. These functions are used by the obstacle and object detection algorithms.
 
 ## Example Use
-Below follows some examples on how central parts of airgym is used.
+Below follows some examples on how central parts of airgym is used. In order to create this env an instance of AirSim
+must be running in Unreal.
 
 
     import airgym
