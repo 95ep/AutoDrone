@@ -1,31 +1,11 @@
 .idea/*
 __pycache__
 
-# habitat_baselines
-Legacy/PointNavigation/habitat_baselines/*
-Legacy/PointNavigation/risenet/.idea/*
-
-# parameters
-Legacy/PointNavigation/parameters/*
-
-# gym_airsim
-AutoDrone/gym-airsim/gym_airsim.egg-info/*
-
-# Images for obj detection
-ObjectDetection/airsim_imgs/*
-ObjectDetection/images/*
+# Legacy
+Legacy/*
 
 # logs
 runs/*
-
-# Plots
-MetricsPlotters/plots/*
-
-# Verification output
-verification/*
-
-# Saved trajectories
-Trajectories/*
 
 # All imgs
 *.png
