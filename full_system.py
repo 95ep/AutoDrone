@@ -4,7 +4,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from Environments.env_utils import make_env_utils
 from NeuralNetwork.neural_net import NeuralNet
-from verify_obj_detection import gt_monitor_positions, precision_recall
+from verify_detection import gt_monitor_positions, precision_recall
 
 # Create parser and parse arguments
 parser = argparse.ArgumentParser()

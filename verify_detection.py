@@ -43,6 +43,14 @@ gt_monitor_positions = [
 ]
 
 def precision_recall(object_positions, gt_monitor_positions, scale):
+    """
+    Calculates the precision and recall based on detected object positions. Scale of map is used as threshold when
+    determining if a detected object is a true or false positive.
+    :param object_positions: Positions of detected objects
+    :param gt_monitor_positions: Ground truth positions of the objects.
+    :param scale: Scale in x,y,z of the voxel map used in the exploration env.
+    :return: precision, recall, position of true positives and position of false positives
+    """
     x_scale = scale[0]
     y_scale = scale[1]
     z_scale = scale[2]
