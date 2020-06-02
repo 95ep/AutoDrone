@@ -1,6 +1,5 @@
 import numpy as np
 from .utils import get_orientation
-from .utils import hover
 
 
 # Actions
@@ -28,14 +27,16 @@ def move_forward(client):
     # Move forward approx 0.25 meter
     client.moveByVelocityAsync(vel[0], vel[1], vel[2], duration=0.5).join()
     # Stop the UAV, small z-vel to keep altitude
-    client.moveByVelocityAsync(0, 0, -3e-3, duration=1e-6).join()
+    client.moveByVelocityAsync(0, 0, keep_altitude_z_vel, duration=1e-6).join()
 
 
 def move_up(client, velocity=0.5, duration=0.5):
+    # AirSim is buggy and looses alt if z-vel is 0
+    keep_altitude_z_vel = -3e-3
     # Move up approx 0.25 m. Note direction of z-axis.
     client.moveByVelocityAsync(0, 0, -velocity, duration=duration).join()
     # Stop the UAV
-    client.moveByVelocityAsync(0, 0, -3e-3, duration=1e-6).join()
+    client.moveByVelocityAsync(0, 0, keep_altitude_z_vel, duration=1e-6).join()
 
 
 def move_down(client, velocity=0.5, duration=0.5):
