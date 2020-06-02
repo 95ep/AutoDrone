@@ -1,19 +1,21 @@
+import itertools
 import numpy as np
+import random
 import scipy.signal
 import torch
-import random
-import itertools
 from torch.utils.data import Dataset, Sampler
 
 
 def discount_cumsum(x, discount):
-    # Helper function. Some magic from scipy.
+    """
+    Calculate a cummulative sum
+    """
     return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
 
 
 class PPOBuffer:
     """
-    Stores trajectories collected.
+    Stores collected trajectories of experience.
     """
     def __init__(self, steps, vector_shape, visual_shape, action_dim, gamma, lam):
         # Constructor - set xxx_shape to None if not used
@@ -21,7 +23,6 @@ class PPOBuffer:
             self.obs_vector = np.zeros((steps, *vector_shape), dtype=np.float32)
         if visual_shape is not None:
             self.obs_visual = np.zeros((steps, *visual_shape), dtype=np.float32)
-        # TODO: fix better. Temp solution to avoid int type for continuous actions
         if action_dim > 1:
             self.act_buf = np.zeros((steps, action_dim), dtype=np.float32)
         else:
@@ -39,7 +40,7 @@ class PPOBuffer:
 
     def store(self, obs_vector, obs_visual, act, rew, val, logp):
         """
-        Add one step of interactions to the buffer, set obs_xx to None (or whatever) if not used
+        Add one step of interactions to the buffer, set obs_xx to None if not used
         """
         assert self.ptr < self.max_size
         if hasattr(self, 'obs_vector'):
@@ -53,6 +54,9 @@ class PPOBuffer:
         self.ptr += 1
 
     def finish_path(self, last_val=0):
+        """
+        Call at the end of a trajectory to calculate the correct advantages and returns.
+        """
         path_slice = slice(self.path_start_idx, self.ptr)
         rews = np.append(self.rew_buf[path_slice], last_val)
         vals = np.append(self.val_buf[path_slice], last_val)
@@ -66,10 +70,13 @@ class PPOBuffer:
         self.path_start_idx = self.ptr
 
     def get(self):
-        # return all data in the form of torch tensors
+        """
+        Return all data from the buffer in the form of torch tensors
+        """
         assert self.ptr == self.max_size  # buffer must be full
         self.ptr, self.path_start_idx = 0, 0
-        # Advantage normalization
+
+        # If you wish to use advantage normalization, uncomment following 3 lines.
         # adv_mean = np.mean(self.adv_buf)
         # adv_std = np.std(self.adv_buf)
         # self.adv_buf = (self.adv_buf - adv_mean) / adv_std
