@@ -53,11 +53,11 @@ class MapEnv(gym.Env):
         :param vision_range: vision range in meters. Recommended that it is smaller than buffer_distance, but not necessary
         :param fov_angle: field of view angle of the vision of the drone, in radians.
         :param map_keys: string of labels for which things to be tracked in the map and visualized
-        :param thresholds: dict. Number of detections in a cell needed to mark. as occurance
+        :param thresholds: dict. Number of detections in a cell needed to mark as occurrence
         :param map_idx: int in range [-1,9] to choose from predefined training maps, -1 to randomize index. 0 default empty map, suitable for Airsim.
         :param interactive_plot: Set to True only if rendering 2D pyplots and want the plot to update in the same window.
         :param REWARD_FAILURE: Reinforcement learning penalty for collisions
-        :param REWARD_STEP: Reinfocement learning penalty for defining a waypoint
+        :param REWARD_STEP: Reinforcement learning penalty for defining a waypoint
         """
         assert len(starting_map_size) == 3, 'Class does currently only work for exactly 3 dimensions.'
         self.LARGE_NUMBER = 20
@@ -684,9 +684,9 @@ class MapEnv(gym.Env):
         :param local: If True, crop the map to only include the immediate surroundings.
         :param num_ticks_approx:
         :param show_detected: Show cells that are 'visited' if True.
-        :param voxels: see visualize_3d
-        :param ceiling_z: see visualize_3d
-        :param floor_z: see visualize_3d
+        :param voxels: Plot using cubic voxels, else 3D points
+        :param ceiling_z: crop the map at specified height, float.
+        :param floor_z: crop the map at specified height, float.
         :return:
         """
         token_map = self._crop_token_map(local, ceiling_z=ceiling_z, floor_z=floor_z)
@@ -808,7 +808,6 @@ class AirSimMapEnv(MapEnv):
                                                detected_objects=object_positions,
                                                detected_obstacles=obstacle_positions)
             steps += 1
-
 
         return success, num_detected_cells, steps, done
 
