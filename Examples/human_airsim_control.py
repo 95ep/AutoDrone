@@ -23,7 +23,7 @@ class HumanController:
             response.image_data_uint8), (response.height, response.width, 3))
         rgb = np.array(bgr[:, :, [2, 1, 0]])
         img = Image.fromarray(rgb)
-        img.save("ObjectDetection/airsim_imgs/image{}.jpg".format(self.img_idx))
+        img.save("airsim_imgs/rgb/image{}.jpg".format(self.img_idx))
         print("Image {} captured!".format(self.img_idx))
         self.img_idx += 1
 
@@ -35,7 +35,7 @@ class HumanController:
         depth = airsim.list_to_2d_float_array(
             response.image_data_float, response.width, response.height)
         plt.imshow(depth, cmap='gray', vmin=-5, vmax=30)
-        plt.savefig("ObjectDetection/airsim_imgs/depth/image{}.png".format(self.img_idx), dpi=300)
+        plt.savefig("airsim_imgs/depth/image{}.png".format(self.img_idx), dpi=300)
         print("Image {} captured!".format(self.img_idx))
         self.img_idx += 1
 
