@@ -1,13 +1,14 @@
+import numpy as np
+import os
+import pickle
+import random
+import time
 import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+
 from PPO_utils import ExperienceDataset, ExperienceSampler
-import time
-import numpy as np
-import pickle
-import random
-import os
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -16,16 +17,17 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 def print_progress_bar(iteration, total, prefix='', suffix='',
                        decimals=1, length=50, fill='=', print_end="\r"):
     """
-    Call in a loop to create terminal progress bar
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        length      - Optional  : character length of bar (Int)
-        fill        - Optional  : bar fill character (Str) █
-        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    Create progress bar in terminal window
+
+    :param iteration: current iteration (Int)
+    :param total: total iterations (Int)
+    :param prefix: prefix string (Str)
+    :param suffix: suffix string (Str)
+    :param decimals: positive number of decimals in percent complete (Int)
+    :param length: character length of bar (Int)
+    :param fill: bar fill character (Str) █
+    :param print_end: end character (e.g. "\r", "\r\n") (Str)
+    :return:
     """
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
     filled_length = int(length * iteration // total)
@@ -38,8 +40,15 @@ def print_progress_bar(iteration, total, prefix='', suffix='',
 
 
 def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
-    act, ret, adv, logp_old = data['act'], data['ret'], data['adv'], data['logp']
+    """
+    Calculate the total loss of a mini batch of experience.
 
+    :param data: dictionary over the experience (states/observations, actions, returns, advantages, log probabilities)
+    :param actor_critic: neural network agent
+    :param clip_ratio: PPO epsilon
+    """
+
+    act, ret, adv, logp_old = data['act'], data['ret'], data['adv'], data['logp']
     obs_vector = None
     obs_visual = None
     if 'obs_vector' in data:
@@ -64,7 +73,6 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
 
     total_loss = value_loss * value_loss_coef + action_loss - dist_entropy * entropy_coef
 
-    # Compute approx kl for logging purposes
     approx_kl = (logp_old-logp).mean().item()
 
     return total_loss, action_loss, value_loss, dist_entropy, approx_kl
@@ -72,6 +80,10 @@ def _total_loss(data, actor_critic, clip_ratio, value_loss_coef, entropy_coef):
 
 def _update(actor_critic, data, optimizer, minibatch_size, train_iters,
             target_kl, clip_ratio, value_loss_coef, entropy_coef):
+    """
+    Update the neural network agent after one episode of collecting experience using SGD.
+    """
+
     global approx_kl_iter
     total_loss_in_epoch = []
     action_loss_in_epoch = []
@@ -100,7 +112,6 @@ def _update(actor_critic, data, optimizer, minibatch_size, train_iters,
                 value_loss_coef,
                 entropy_coef
             )
-
             total_loss_in_epoch.append(total_loss.item())
             action_loss_in_epoch.append(action_loss.item())
             value_loss_in_epoch.append(value_loss.item())
@@ -124,6 +135,17 @@ def _update(actor_critic, data, optimizer, minibatch_size, train_iters,
 
 
 def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True, deterministic=True):
+    """
+    Evaluate a neural network agent in the environment. (Let the agent interact with the environment)
+
+    :param env: reference to environment object
+    :param env_utils: helper class for the specific environment
+    :param actor_critic: neural network agent
+    :param n_eval_steps: number of steps that are taken in the environment before evaluation ends
+    :param render: bool - whether or not to visualize the environment interactions
+    :param deterministic: bool - whether to choose the most likely action predicted by the agent or sample from the policy distribution
+    """
+
     log_dict = {'Eval/TotalReturn': 0, 'Eval/nDones': 0, 'Eval/TotalSteps': 0}
     # Set up interactions with env
     obs_vector, obs_visual = env_utils.process_obs(env.reset())
@@ -168,7 +190,7 @@ def evaluate(env, env_utils, actor_critic, n_eval_steps=1024, render=True, deter
                 comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
 
     if 'env' in info and info['env'] == "Exploration" and render:
-        env.render(local=False, ceiling_z=2, floor_z=0, show_detected=True)  # TODO: ONLY IF EXPLORATION
+        env.render(local=False, ceiling_z=2, floor_z=0, show_detected=True)
         import time
         time.sleep(10)
     log_dict['Eval/AvgReturn'] = log_dict['Eval/TotalReturn'] / (log_dict['Eval/nDones'] + 1)
@@ -196,6 +218,32 @@ def PPO_trainer(env, actor_critic, env_utils, log_dir,
                 manual_experience_path = '',
                 **eval_kwargs
                 ):
+    """
+    Function to train a neural network agent in some RL environment using PPO.
+
+    :param env: reference to environment object.
+    :param actor_critic: neural network agent.
+    :param env_utils: helper class with environment specific processing functions.
+    :param log_dir: path to directory where to store data logs
+    :param gamma: discount factor
+    :param n_epochs: number of loops of (gather experience in the environment --> update neural network parameters)
+    :param steps_per_epoch: number of environment interactions per epoch
+    :param minibatch_size: number of interactions distributed to each mini batch
+    :param clip_ratio: PPO epsilon
+    :param lr: neural network learning rate
+    :param train_iters: number of neural network parameter repetitions that are performed on one epoch of experience
+    :param lam: lambda, GAE-factor
+    :param max_episode_len:
+    :param value_loss_coef:
+    :param entropy_coef:
+    :param target_kl: max KL-divergence, used to trigger early stopping of the training repetitions (train_iters)
+    :param save_freq: how often a copy of the neural network (checkpoint) is saved, (epochs).
+    :param resume_training: bool - whether training is started from scratch or loaded from checkpoint
+    :param epoch_to_resume: from which epoch a checkpoint is loaded.
+    :param prob_train_on_manual_experience: float in [0,1]. If larger than zero, include manually collected experience in the collected experience.
+    :param manual_experience_path: path to directory with manually collected experience.
+    :param eval_kwargs: Additional keyword arguments. See an example parameter file for more details.
+    """
 
     # Set up logger
     log_writer = SummaryWriter(log_dir=log_dir + 'log/')

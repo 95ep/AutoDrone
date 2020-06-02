@@ -59,8 +59,8 @@ then a cell must be visible to the agent for a total of 3 different time steps b
 ## Reinforcement Learning Environment
 
 A reinforcement learning environment following the Gym API can be accessed on top of the map. This environment can be used
-to solve an exploration task. There are several predefined maze-like maps (chosen by the *map_idx* parameter). The task is 
-then to produce waypoints in the environment that a naive controller (which moves the agent straight towards a waypoint) 
+to solve an exploration task. There are several predefined maze-like maps (chosen by the *map_idx* parameter) that are created by *training_maps.py*. 
+The task is then to produce waypoints in the environment that a naive controller (which moves the agent straight towards a waypoint) 
 can reach. When the agent moves, its field of view is used to mark 'unknown' cells as 'visible' along its way. The agent
 is rewarded depending on how many cells are detected on the way to the waypoint.
 
