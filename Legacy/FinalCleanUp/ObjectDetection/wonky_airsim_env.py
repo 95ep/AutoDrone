@@ -6,8 +6,8 @@ import numpy as np
 import cv2 as cv
 from sklearn.cluster import MeanShift, estimate_bandwidth
 
-from . import agent_controller as ac
-from . import utils
+from ObjectDetection import agent_controller as ac
+from ObjectDetection import utils
 
 
 # function to align with gym framework

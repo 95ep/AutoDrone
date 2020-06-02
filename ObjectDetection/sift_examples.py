@@ -22,10 +22,8 @@ good_matches = []
 for m,n in matches:
     if m.distance < .7*n.distance:
         good_matches.append(m)
-# TODO: Some REJECTION_FACTOR
 
-# Sort them in order of their distance
-#good_matches = sorted(good_matches, key = lambda x:x.distance)
+
 print(len(good_matches))
 
 # Draw n first matches

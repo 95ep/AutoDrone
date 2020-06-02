@@ -15,7 +15,7 @@ color_alpha = 0.3
 if False:
     # Plot 1
     # change here
-    metrics_path = "/Users/erikpersson/PycharmProjects/AutoDrone/MetricsPlotters/plots/exploration/Exploration_Eval_TotalReturn.csv"
+    metrics_path = "/Legacy/FinalCleanUp/MetricsPlotters/plots/exploration/Exploration_Eval_TotalReturn.csv"
     human_baseline = None
     fig_name = "exploration_prob_tot_return"
     metrics_label = ''
