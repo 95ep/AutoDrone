@@ -1,5 +1,5 @@
 {
-	"mode": "evaluation",
+	"mode": "training",
 	"env_str": "AutonomousDrone",
 	"neural_network": {
 		"hidden_size": 32,
