@@ -4,11 +4,17 @@ __pycache__
 # Legacy
 Legacy/habitat_baselines/*
 
+# Misc output folders
+ObjectDetection/*
+Trajectories/*
+verification/*
+
 # logs
 runs/*
 
 # All imgs
 *.png
+*.jpg
 
 # All data files
 *.csv
