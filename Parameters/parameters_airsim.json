@@ -1,5 +1,5 @@
 {
-    "mode": "evaluation",
+    "mode": "training",
     "env_str": "AirSim",
     "neural_network": {
         "hidden_size": 32,
@@ -66,7 +66,7 @@
     },
     "training": {
         "gamma": 0.99,
-        "n_epochs": 3500,
+        "n_epochs": 2700,
         "steps_per_epoch": 2048,
         "minibatch_size": 128,
         "clip_ratio": 0.2,
@@ -75,12 +75,12 @@
         "lam": 0.95,
         "max_episode_len": 512,
         "value_loss_coef": 0.5,
-        "entropy_coef": 0.005 ,
+        "entropy_coef": 0.01 ,
         "target_kl": 0.03,
         "save_freq": 10,
         "prob_train_on_manual_experience": 0.0,
         "manual_experience_path": "Trajectories/",
-        "resume_training": true,
+        "resume_training": false,
         "epoch_to_resume": 2661,
         "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/clean/local_nav3/saved_models/model2660.pth"
     },
