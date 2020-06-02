@@ -3,10 +3,10 @@ import vtkplotter as vtkp
 from verify_obj_detection import precision_recall
 
 save_pth = '/Users/erikpersson/PycharmProjects/AutoDrone/plots/objs_ver5'
-gt_pos = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/manual_obj_ver/ground_truth.npy')
-obstac = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/manual_obj_ver/obstacles.npy')
-objs = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/manual_obj_ver/objects.npy')
-visited = np.load('/Users/erikpersson/PycharmProjects/AutoDrone/verification/manual_obj_ver/visited.npy')
+gt_pos = np.load('/verification/manual_obj_ver/ground_truth.npy')
+obstac = np.load('/verification/manual_obj_ver/obstacles.npy')
+objs = np.load('/verification/manual_obj_ver/objects.npy')
+visited = np.load('/verification/manual_obj_ver/visited.npy')
 ceiling_level = -1.2
 
 print("Shape of gt_pos {}".format(gt_pos.shape))
