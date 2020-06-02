@@ -9,12 +9,20 @@ from . import agent_controller as ac
 from . import utils
 
 
-# function to align with gym framework
 def make(**env_kwargs):
+    """
+    Maker function to comply with OpenAI Gym API
+    :param env_kwargs: All environment kwargs to create object
+    :return: the created AirsimEnv instance
+    """
     return AirsimEnv(**env_kwargs)
 
 
 class AirsimEnv(gym.Env):
+    """
+    The AirsimEnv class defining the environment in accordance with
+    OpenAI GYM API
+    """
 
     metadata = {'render.modes': ['human']}
 
@@ -37,6 +45,26 @@ class AirsimEnv(gym.Env):
                  ceiling_z=-100,
                  scene_string=""
                  ):
+        """
+        The constructor for AirsimEnv.
+        :param sensors: List of sensors active. Available are: 'depth, 'rgb', 'pointgoal_with_gps_compass'
+        :param max_dist: (float) distance at which depth map is capped and max distance to generated target
+        :param rgb_height: height of RGB img
+        :param rgb_width:  width of RGB img
+        :param depth_height: height of depth img
+        :param depth_width: width of depth img
+        :param field_of_view: field of view of camera, in degrees
+        :param reward_success: reward for reaching target and terminating
+        :param reward_failure: reward for terminating at wrong position
+        :param reward_collision: reward for colliding with obstacle
+        :param reward_move_towards_goal: reward for moving closer to target
+        :param reward_rotate: reward for taking rotate action
+        :param distance_threshold: threshold for considering position to be at target
+        :param invalid_prob: probability of generating a target that can not be reached. Only available for some scenes
+        :param floor_z: Manually defining the floor plane if collisions in airsim does not work
+        :param ceiling_z: Manually defining the ceiling plane if collisions in airsim does not work
+        :param scene_string: Defining which Airsim scene is used. Governs how targets are generated
+        """
 
         self.sensors = sensors
         self.max_dist = max_dist
@@ -89,6 +117,10 @@ class AirsimEnv(gym.Env):
         self.rejection_factor = 0
 
     def _get_state(self):
+        """
+        Private function for extracting constructing the observation dict
+        :return: dict containing a field for each type of observation from the environment
+        """
         sensor_types = [x for x in self.sensors if x != 'pointgoal_with_gps_compass']
         # get camera images
         observations = utils.get_camera_observation(self.client, sensor_types=sensor_types, max_dist=self.max_dist,
@@ -101,17 +133,28 @@ class AirsimEnv(gym.Env):
         return observations
 
     def reset(self, target_position=None):
+        """
+        Resets the environment
+        :param target_position: Manually set first target position
+        :return: Dict of the observations from the environment
+        """
         utils.reset(self.client, scene=self.scene)
         self.agent_dead = False
         self.collision_t_stamp = None
         if target_position is None:
             self.target_position, self.valid_trgt = utils.generate_target(self.client, self.max_dist / 2,
-                                                                          scene=self.scene, invalid_prob=self.invalid_prob)
+                                                                          scene=self.scene,
+                                                                          invalid_prob=self.invalid_prob)
         else:
             self.target_position = target_position
         return self._get_state()
 
     def step(self, action):
+        """
+        Take one step in the environment
+        :param action: the action to take
+        :return: observation, reward, episode_over (boolean), info - dict containing info if terminated at target
+        """
         if self.agent_dead:
             print("Episode over. Reset the environment to try again.")
             return None, None, None, {}
@@ -121,7 +164,8 @@ class AirsimEnv(gym.Env):
         info = {'env': "AirSim"}
         # actions: [terminate, move forward, rotate left, rotate right, ascend, descend]
         if action == 0:
-            success = utils.target_found(self.client, self.target_position, self.valid_trgt, threshold=self.distance_threshold)
+            success = utils.target_found(self.client, self.target_position, self.valid_trgt,
+                                         threshold=self.distance_threshold)
             if success:
                 reward += self.REWARD_SUCCESS
                 self.client.simPrintLogMessage(
@@ -134,7 +178,8 @@ class AirsimEnv(gym.Env):
                 info['terminated_at_target'] = False
 
             self.target_position, self.valid_trgt = utils.generate_target(self.client, self.max_dist / 2,
-                                                                          scene=self.scene, invalid_prob=self.invalid_prob)
+                                                                          scene=self.scene,
+                                                                          invalid_prob=self.invalid_prob)
         elif action == 1:
             ac.move_forward(self.client)
         elif action == 2:
@@ -172,6 +217,10 @@ class AirsimEnv(gym.Env):
         return observation, reward, episode_over, info
 
     def has_collided(self):
+        """
+        Checks if UAV has collided or not
+        :return: Boolean that is true in case of collision
+        """
         new_collision_t_stamp = self.client.simGetCollisionInfo().time_stamp
         if self.collision_t_stamp is None:
             self.collision_t_stamp = new_collision_t_stamp
@@ -191,14 +240,28 @@ class AirsimEnv(gym.Env):
                 return False
 
     def get_position(self):
+        """
+        Returns position of UAV
+        :return: numpy array with x, y, z coords of UAV
+        """
         position = utils.get_position(self.client)
         return np.array([position.x_val, position.y_val, position.z_val])
 
     def get_orientation(self):
+        """
+        Returns orientation of UAV in format suitable for input to neural net
+        :return: Numpy array containing cos and sin of the orientation angle
+        """
         orientation = utils.get_orientation(self.client)
         return np.array([np.cos(orientation), np.sin(orientation)])
 
     def get_obstacles(self, field_of_view, n_gridpoints=8):
+        """
+        Calculates the 3D positions of a few gridpoints in the depth map
+        :param field_of_view: Field of view, in radians, of the camera
+        :param n_gridpoints: number of points along each axis of the grid. I.e. n-by-n points will be checked
+        :return: The 3D positions, in global coord. sys., of the obstacles found
+        """
         assert 'depth' in self.sensors  # make sure depth camera is used
         observations = utils.get_camera_observation(self.client, sensor_types=['depth'], max_dist=self.max_dist,
                                                     height=self.depth_height, width=self.depth_width)
@@ -218,6 +281,13 @@ class AirsimEnv(gym.Env):
         return obstacles_3d_coords
 
     def setup_object_detection(self, query_paths, rejection_factor, min_match_thres):
+        """
+        Initializes the object detection module
+        :param query_paths: path the the reference images
+        :param rejection_factor: Threshold ratio for rejecting suggested keypoint matches
+        :param min_match_thres: Minimum number of matches required for attempting to estimate homography
+        :return: None
+        """
         assert len(self.kp_q_list) == 0
 
         self.rejection_factor = rejection_factor
@@ -233,6 +303,10 @@ class AirsimEnv(gym.Env):
             self.corners_list.append(pts)
 
     def get_trgt_objects(self):
+        """
+        Attempts to match reference imgs with RBG input from camera.
+        :return: The 3D positions, in global coord. sys., of the objects found
+        """
         assert len(self.kp_q_list) > 0
         observations = utils.get_camera_observation(self.client, sensor_types=['rgb'], max_dist=self.max_dist,
                                                     height=self.rgb_height, width=self.rgb_width)
@@ -327,7 +401,7 @@ class AirsimEnv(gym.Env):
             x = int(x * w_scale)
             y = int(y * h_scale)
 
-            if x > 0 and x < self.depth_width and y > 0 and y < self.depth_height:
+            if 0 < x < self.depth_width and 0 < y < self.depth_height:
                 obj_2d_coords.append((x, y))
 
         if len(obj_2d_coords) > 0:
@@ -344,8 +418,16 @@ class AirsimEnv(gym.Env):
         return global_points
 
     def render(self, mode='human'):
+        """
+        Method required to comply with OpenAI Gym API. Not implemented
+        :param mode:
+        :return: None
+        """
         pass
 
     def close(self):
-        # self.airsim_process.terminate()     # TODO: does not work
+        """
+        Method required to comply with OpenAI Gym API. Not implemented
+        :return: None
+        """
         pass
