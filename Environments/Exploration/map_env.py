@@ -129,6 +129,20 @@ class MapEnv(gym.Env):
         self.total_detected = None
         self.solved_threshold = None
 
+    def _debug(self, msg=""):
+        if msg:
+            print("===== " + msg + " debug start =====")
+        print("Position: ", self.position)
+        print("Map shape: ", self.map_shape)
+        print("Borders:   x:["+str(self.cell_positions[0][0])+", " + str(self.cell_positions[0][-1]) +"], " +
+                         "y:["+str(self.cell_positions[1][0])+", " + str(self.cell_positions[1][-1]) +"], " +
+                         "z:["+str(self.cell_positions[2][0])+", " + str(self.cell_positions[2][-1]) +"]")
+        print("Local map dimension: ", self.local_map_dim)
+        if msg:
+            print("===== " + msg + " debug end =====")
+            print("")
+
+
     def _create_map(self, map_borders):
         """
         Creates an empty map.
