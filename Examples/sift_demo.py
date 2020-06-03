@@ -3,8 +3,6 @@ import numpy as np
 from sklearn.cluster import MeanShift, estimate_bandwidth
 import matplotlib.pyplot as plt
 
-# TODO: Check that this works
-
 
 class SIFTDemo:
     def __init__(self, query_paths, rejection_factor, min_match_thres):
@@ -24,8 +22,8 @@ class SIFTDemo:
             self.desc_q_list.append(desc_q)
             self.corners_list.append(pts)
 
-    def get_trgt_objects(self, train_image):
-        train_image = cv.cvtColor(train_image, cv.COLOR_BGR2GRAY)
+    def get_trgt_objects(self, train_path):
+        train_image = cv.imread(train_path, cv.IMREAD_GRAYSCALE)
 
         sift = cv.xfeatures2d.SIFT_create()
         kp_t, desc_t = sift.detectAndCompute(train_image, None)
@@ -116,9 +114,10 @@ class SIFTDemo:
 
 
 if __name__ == '__main__':
-    query_paths = ['put_one_or_multiple_paths_to_reference_image_here']
-    sift_demo = SIFTDemo(query_paths, rejection_factor=.8, min_match_thres=10)
+    query_paths = ['D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_100.jpg',
+                    'D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_101.jpg']
+    sift_demo = SIFTDemo(query_paths, rejection_factor=.75, min_match_thres=10)
 
     # Attempt to find match object between training and reference images
-    train_image = 'path_to_train_image'
+    train_image = 'D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/image102.jpg'
     sift_demo.get_trgt_objects(train_image)
