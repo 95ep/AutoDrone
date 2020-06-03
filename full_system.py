@@ -6,7 +6,6 @@ from Environments.env_utils import make_env_utils
 from NeuralNetwork.neural_net import NeuralNet
 from verify_detection import gt_monitor_positions, precision_recall
 
-#TODO: Check that is runnable
 
 # Create parser and parse arguments
 parser = argparse.ArgumentParser()
@@ -63,7 +62,7 @@ for step in range(parameters['n_steps']):
     next_obs = next_obs[:,:,0:6]
     obs_vector, obs_visual = env_utils.process_obs(next_obs)
     comb_obs = tuple(o for o in [obs_vector, obs_visual] if o is not None)
-    
+
     # Extract objects found
     map = env._get_map(local=False, binary=False)
     # Extract objects

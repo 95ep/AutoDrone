@@ -104,7 +104,7 @@ if __name__ == '__main__':
     import argparse
     import os
 
-    # TODO: Check that is runnable
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--parameters', type=str)
     parser.add_argument('--save_dir', type=str)
