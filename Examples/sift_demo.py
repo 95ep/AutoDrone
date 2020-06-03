@@ -114,10 +114,10 @@ class SIFTDemo:
 
 
 if __name__ == '__main__':
-    query_paths = ['D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_100.jpg',
-                    'D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/screen_101.jpg']
+    query_paths = ['D:/Exjobb2020ErikFilip/AutoDrone/imgs/ObjectDetection/screen_100.jpg',
+                    'D:/Exjobb2020ErikFilip/AutoDrone/imgs/ObjectDetection/screen_101.jpg']
     sift_demo = SIFTDemo(query_paths, rejection_factor=.75, min_match_thres=10)
 
     # Attempt to find match object between training and reference images
-    train_image = 'D:/Exjobb2020ErikFilip/AutoDrone/ObjectDetection/airsim_imgs/basic23/image102.jpg'
+    train_image = 'D:/Exjobb2020ErikFilip/AutoDrone/imgs/ObjectDetection/image102.jpg'
     sift_demo.get_trgt_objects(train_image)
