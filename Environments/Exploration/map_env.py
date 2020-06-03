@@ -138,6 +138,8 @@ class MapEnv(gym.Env):
                          "y:["+str(self.cell_positions[1][0])+", " + str(self.cell_positions[1][-1]) +"], " +
                          "z:["+str(self.cell_positions[2][0])+", " + str(self.cell_positions[2][-1]) +"]")
         print("Local map dimension: ", self.local_map_dim)
+        print("cell map shape: ", self.cell_map['visited'].shape, self.cell_map['obstacle'].shape)
+        print("observation shape: ", self._get_map(local=True, binary=True).shape)
         if msg:
             print("===== " + msg + " debug end =====")
             print("")
