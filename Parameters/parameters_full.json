@@ -1,6 +1,6 @@
 {
 	"env_str": "AutonomousDrone",
-	"random_exploration": true,
+	"random_exploration": false,
 	"n_steps": 128,
 	"sigma": 20,
 	"neural_network": {
@@ -25,40 +25,14 @@
 		"min_match_thres": 10
 	},
 	"Exploration": {
-		"starting_map_size": [
-			32,
-			32,
-			2
-		],
-		"cell_scale": [
-			0.7,
-			0.7,
-			0.35
-		],
-		"starting_position": [
-			0,
-			0,
-			-0.7
-		],
-		"buffer_distance": [
-			15,
-			15,
-			0
-		],
-		"local_map_dim": [
-			32,
-			32,
-			3
-		],
+		"starting_map_size": [32, 32, 2],
+		"cell_scale": [0.7,	0.7, 0.35],
+		"starting_position": [0, 0, -0.7],
+		"buffer_distance": [15,	15,	0],
+		"local_map_dim": [32,	32,	3],
 		"vision_range": 3,
 		"fov_angle": 1.57,
-		"map_keys": [
-			"unknown",
-			"visible",
-			"visited",
-			"obstacle",
-			"object"
-		],
+		"map_keys": ["unknown",	"visible", "visited",	"obstacle",	"object"],
 		"thresholds": {
 			"visible": 2,
 			"visited": 1,
@@ -73,26 +47,10 @@
 			"neural_network": {
 				"hidden_size": 32,
 				"num_hidden_layers": 2,
-				"channel_config": [
-					16,
-					32,
-					64
-				],
-				"kernel_size_config": [
-					3,
-					3,
-					3
-				],
-				"padding_config": [
-					1,
-					1,
-					1
-				],
-				"max_pool_config": [
-					true,
-					true,
-					false
-				]
+				"channel_config": [16, 32, 64],
+				"kernel_size_config": [3,	3, 3],
+				"padding_config": [1,	1, 1],
+				"max_pool_config": [true,	true,	false]
 			},
 			"weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/clean/local_nav3/saved_models/model2430.pth"
 		}
@@ -107,11 +65,7 @@
 			"max_dist": 10,
 			"distance_threshold": 0.5,
 			"invalid_prob": 0.0,
-			"sensors": [
-				"depth",
-				"pointgoal_with_gps_compass"
-			],
-			"scene_string": "basic23"
+			"sensors": ["depth", "pointgoal_with_gps_compass"]
 		},
 		"airsim_settings_path": "C:/Users/exjobb/Documents/AirSim/settings.json",
 		"airsim_settings": {
