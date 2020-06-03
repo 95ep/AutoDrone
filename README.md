@@ -8,7 +8,6 @@ The repository contains the following modules:
     * Airgym: Airsim RL environment.
     * Exploration: A map utility that also works as an RL environment for an exploration task. Extends Airgym to combine the exploration task with Airsim.  
 * NeuralNetwork: creates an actor-critic type neural network agent, based on the specified RL environment.
-* ObjectDetection: feature extraction based object detection using SIFT.
 * Parameters: different parameter files suitable for different environments.
 * main script and proximal policy trainer.
 
@@ -35,6 +34,24 @@ To test or evaluate an existing neural network agent, the *mode* field in the pa
 to *evaluation*. In that case, the log directory path is not necessary.
 
     python main.py --parameters ./Parameters/parameters_pong.json
+
+## Full system and detection verification
+The verify_detection script can be used to verify how object and obstacle detection performs in an Airsim scene. 
+The script is set up to use a trained local navigator to visit hard coded waypoints in order to explore the Viktoria scene.
+If used in another scene the waypoints and ground truth positions of the objects must be adjusted.
+After visiting all waypoints four numpy arrays are saved to the --save_dir folder. These arrays are the positions detected
+objects and obstacles, the ground truth positions of the objects and the positions visited by the UAV during the flight.
+
+    python verify_detection.py --parameters ./Parameters/parameters_verify_objs.json --save_dir ./runs/verification/
+
+The full system can be evaluated using the _full_system.py_ file. This file puts together the trained local navigator 
+agent with a global planner agent or random walk depending on the parameter file. Four metrics are calculated and stored 
+in the --logdir: # detected objects, precision, recall and # cells explored as a function of steps. 
+
+This script imports information about the ground truth positions of the objects from the _verify_detection.py_ file,
+which right now are the values for the Viktoria office. If another AirSim map is used remember to update accordingly.
+
+    python full_system.py --parameters ./Parameters/parameters_full.json --logdir ./runs/full_system_eval/
 
 ## Install
 (Python 3)

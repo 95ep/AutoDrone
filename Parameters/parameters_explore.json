@@ -2,11 +2,11 @@
   "mode": "training",
   "env_str": "Exploration",
   "Exploration": {
-    "starting_map_size": [10,10,3],
+    "starting_map_size": [32,32,1],
     "cell_scale": [1, 1, 1],
     "starting_position": [0,0,1],
-    "buffer_distance": [30,30,0],
-    "local_map_dim": [48, 48, 1],
+    "buffer_distance": [1,1,0],
+    "local_map_dim": [24, 24, 1],
     "vision_range": 8,
     "fov_angle": 1.57,
     "map_keys": ["unknown", "visible", "visited", "obstacle"],
@@ -22,35 +22,36 @@
     "REWARD_STEP": -0.1
   },
   "neural_network": {
-    "hidden_size": 512,
+    "hidden_size": 32,
     "num_hidden_layers": 2,
-    "channel_config": [ 32, 64, 96 ],
+    "channel_config": [ 16, 32, 64 ],
     "kernel_size_config": [ 3, 3, 3 ],
     "padding_config": [ 1, 1, 1 ],
     "max_pool_config": [ false, false, false ]
   },
   "training": {
     "gamma": 0.99,
-    "n_epochs": 25000,
+      "n_epochs": 2200,
     "steps_per_epoch": 512,
     "minibatch_size": 64,
     "clip_ratio": 0.2,
-    "lr": 5e-5,
+    "lr": 2e-6,
     "train_iters": 16,
     "lam": 0.95,
-    "max_episode_len": 64,
+    "max_episode_len": 128,
     "value_loss_coef": 0.5,
-    "entropy_coef": 0.001,
-    "target_kl": 1,
+    "entropy_coef": 0.05,
+    "target_kl": 0,
     "save_freq": 5,
-    "resume_training": true,
-    "epoch_to_resume": 540,
     "prob_train_on_manual_experience": 0,
     "manual_experience_path": "",
-    "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/Runs/Exploration_Higher_Capacity/saved_models/model540.pth"
+    "resume_training": false,
+    "epoch_to_resume": 0,
+    "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/Runs/ExplorationLastStand/saved_models/model1445.pth"
   },
   "eval": {
     "n_eval_steps": 256,
+    "deterministic": false,
     "render": false,
     "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/Runs/Exploration/saved_models/model540.pth"
   }

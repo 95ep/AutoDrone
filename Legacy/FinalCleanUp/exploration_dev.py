@@ -8,7 +8,7 @@ sys.path.append('../../Map')
 sys.path.append('../Map')
 sys.path.append('./Map')
 
-from Map.map_dev import GlobalMap
+from Legacy.FinalCleanUp.Map import GlobalMap
 
 
 def make(**parameters):
