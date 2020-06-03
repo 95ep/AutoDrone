@@ -1,5 +1,5 @@
 {
-    "mode": "evaluation",
+    "mode": "training",
     "env_str": "Pong",
     "neural_network": {
         "hidden_size": 32,
@@ -20,7 +20,7 @@
         "steps_per_epoch": 2048,
         "minibatch_size": 128,
         "clip_ratio": 0.2,
-        "lr": 1e-4,
+        "lr": 5e-5,
         "train_iters": 8,
         "lam": 0.95,
         "max_episode_len": 2048,
@@ -28,14 +28,16 @@
         "entropy_coef": 0.01,
         "target_kl": 0.03,
         "save_freq": 5,
-        "resume_training": false,
-        "epoch_to_resume": 0,
         "prob_train_on_manual_experience": 0,
         "manual_experience_path": "",
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/neutral-airsim/saved_models/model500.pth"
+        "resume_training": false,
+        "epoch_to_resume": 0,
+        "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/runs/PongProbabilistic/saved_models/model1130.pth"
     },
     "eval": {
-        "n_eval_steps": 2500,
-        "weights": "D:/Exjobb2020ErikFilip/AutoDrone/runs/refac/test-pong/saved_models/model1400.pth"
+        "n_eval_steps": 10000,
+        "deterministic": false,
+        "render": true,
+        "weights": "C:/Users/Filip/Projects/RISE/AutoDrone/runs/PongProbabilistic/saved_models/model1050.pth"
     }
 }
